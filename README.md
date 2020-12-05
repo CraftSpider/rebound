@@ -5,7 +5,7 @@
 [![Documentation](https://docs.rs/rebound/badge.svg)](https://docs.rs/rebound)
 [![MIT/Apache-2 licensed](https://img.shields.io/crates/l/rebound.svg)](./LICENSE-APACHE)
 
-A powerful, lifetime-safe runtime reflection system for Rust.
+A powerful, lifetime-safe runtime reflection system for Rust. **Heavily WIP**
 
 ## License
 
