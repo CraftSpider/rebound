@@ -1,7 +1,13 @@
 [package]
 name = "rebound"
-version = "0.1.0"
+version = "0.0.1"
+description = "Full runtime reflection for Rust, with lifetime safety"
+keywords = ["reflection", "reflect", "no_std"]
+repository = "https://github.com/CraftSpider/rebound"
+documentation = "https://docs.rs/rebound"
 authors = ["Rune Tynan <runetynan@gmail.com>"]
+readme = "README.md"
+license = "MIT/Apache-2.0"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

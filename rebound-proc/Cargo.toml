@@ -1,7 +1,12 @@
 [package]
 name = "rebound-proc"
 version = "0.0.1"
+description = "Proc macros associated with the rebound crate"
+keywords = ["reflection", "reflect", "proc-macro"]
+repository = "https://github.com/CraftSpider/rebound"
+documentation = "https://docs.rs/rebound-proc"
 authors = ["Rune Tynan <runetynan@gmail.com>"]
+license = "MIT/Apache-2.0"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
