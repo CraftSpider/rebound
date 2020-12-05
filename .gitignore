@@ -1,0 +1,6 @@
+# Cargo build files
+/target
+Cargo.lock
+
+# Project files
+.idea/
