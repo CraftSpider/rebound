@@ -1,5 +1,7 @@
 use core::fmt;
 
+// TODO: Improve error display
+
 #[derive(Debug)]
 pub enum Error {
     WrongType,

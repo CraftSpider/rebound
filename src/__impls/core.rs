@@ -60,7 +60,7 @@ impl<T: Reflected, U: Reflected> Reflected for core::result::Result<T, U> {
     }
 
     unsafe fn init() {
-        TypeInfo::new_enum::<core::result::Result<T, U>>();
+        TypeInfo::new_enum::<core::result::Result<T, U>>()
     }
 }
 
@@ -69,3 +69,15 @@ impl<T: Reflected, U: Reflected> ReflectedEnum for core::result::Result<T, U> {
         vec![]  // TODO
     }
 }
+
+impl<T: Reflected> Reflected for core::marker::PhantomData<T> {
+    fn name() -> String {
+        format!("core::marker::PhantomData<{}>", T::name())
+    }
+
+    unsafe fn init() {
+        TypeInfo::new_unit_struct::<core::marker::PhantomData<T>>()
+    }
+}
+
+impl<T: Reflected> ReflectedUnitStruct for core::marker::PhantomData<T> {}

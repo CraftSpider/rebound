@@ -33,7 +33,8 @@ pub enum TypeInfo {
 
     Struct(StructInfo),
     Enum(EnumInfo),
-    NamedTuple(NamedTupleInfo),
+    TupleStruct(TupleStructInfo),
+    UnitStruct(UnitStructInfo),
 }
 
 impl TypeInfo {
@@ -158,12 +159,22 @@ impl TypeInfo {
         TypeInfo::add_ty(ty);
     }
 
-    pub unsafe fn new_named_tuple<T: ReflectedNamedTuple>() {
-        let ty = TypeInfo::NamedTuple(NamedTupleInfo {
+    pub unsafe fn new_tuple_struct<T: ReflectedTupleStruct>() {
+        let ty = TypeInfo::TupleStruct(TupleStructInfo {
             name: T::name(),
             assoc_fns: T::assoc_fns,
             assoc_consts: T::assoc_consts,
             fields: T::fields
+        });
+
+        TypeInfo::add_ty(ty);
+    }
+
+    pub unsafe fn new_unit_struct<T: ReflectedUnitStruct>() {
+        let ty = TypeInfo::UnitStruct(UnitStructInfo {
+            name: T::name(),
+            assoc_fns: T::assoc_fns,
+            assoc_consts: T::assoc_consts,
         });
 
         TypeInfo::add_ty(ty);
@@ -201,7 +212,8 @@ impl TypeInfo {
 
             TypeInfo::Struct(i) => i,
             TypeInfo::Enum(i) => i,
-            TypeInfo::NamedTuple(i) => i,
+            TypeInfo::TupleStruct(i) => i,
+            TypeInfo::UnitStruct(i) => i,
         }
     }
 }
@@ -425,7 +437,7 @@ impl CommonTypeInfo for EnumInfo {
 }
 
 #[derive(Debug)]
-pub struct NamedTupleInfo {
+pub struct TupleStructInfo {
     name: String,
     assoc_fns: fn() -> Vec<AssocFn>,
     assoc_consts: fn() -> Vec<AssocConst>,
@@ -433,7 +445,7 @@ pub struct NamedTupleInfo {
     fields: fn() -> Vec<TupleField>,
 }
 
-impl CommonTypeInfo for NamedTupleInfo {
+impl CommonTypeInfo for TupleStructInfo {
     fn name(&self) -> &str {
         &self.name
     }
@@ -446,3 +458,25 @@ impl CommonTypeInfo for NamedTupleInfo {
         (self.assoc_consts)()
     }
 }
+
+#[derive(Debug)]
+pub struct UnitStructInfo {
+    name: String,
+    assoc_fns: fn() -> Vec<AssocFn>,
+    assoc_consts: fn() -> Vec<AssocConst>,
+}
+
+impl CommonTypeInfo for UnitStructInfo {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn assoc_fns(&self) -> Vec<AssocFn> {
+        (self.assoc_fns)()
+    }
+
+    fn assoc_consts(&self) -> Vec<AssocConst> {
+        (self.assoc_consts)()
+    }
+}
+

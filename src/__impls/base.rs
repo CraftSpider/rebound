@@ -244,6 +244,7 @@ impl<T0: Reflected + 'static> ReflectedTuple for (T0,) {
             vec![
                 TupleField::new(
                     __make_ref_accessor!((T0,), 0),
+                    __make_setter!((T0,), 0),
                     0,
                     TypeInfo::from::<(T0,)>(),
                     TypeInfo::from::<T0>(),
@@ -269,12 +270,14 @@ impl<T0: Reflected + 'static, T1: Reflected + 'static> ReflectedTuple for (T0, T
             vec![
                 TupleField::new(
                     __make_ref_accessor!((T0, T1), 0),
+                    __make_setter!((T0, T1), 0),
                     0,
                     TypeInfo::from::<(T0, T1)>(),
                     TypeInfo::from::<T0>(),
                 ),
                 TupleField::new(
                     __make_ref_accessor!((T0, T1), 1),
+                    __make_setter!((T0, T1), 1),
                     1,
                     TypeInfo::from::<(T0, T1)>(),
                     TypeInfo::from::<T1>(),

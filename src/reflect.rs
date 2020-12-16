@@ -59,9 +59,11 @@ pub trait ReflectedEnum: Reflected {
     fn variants() -> Vec<VariantInfo>;
 }
 
-pub trait ReflectedNamedTuple: Reflected {
+pub trait ReflectedTupleStruct: Reflected {
     fn fields() -> Vec<TupleField>;
 }
+
+pub trait ReflectedUnitStruct: Reflected {}
 
 pub trait ReflectedImpl<const N: u8>: Reflected {
     fn assoc_fns() -> Option<Vec<AssocFn>>;

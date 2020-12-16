@@ -187,6 +187,36 @@ mod tests {
         }
     }
 
+    struct Test2<'a> {
+        r: std::marker::PhantomData<&'a ()>
+    }
+
+    impl Reflected for Test2<'_> {
+        fn name() -> String {
+            concat!(module_path!(), "::", "Test2").into()
+        }
+
+        unsafe fn init() {
+            TypeInfo::new_struct::<Test2>()
+        }
+    }
+
+    impl ReflectedStruct for Test2<'_> {
+        fn fields() -> Vec<NamedField> {
+            unsafe {
+                vec![
+                    NamedField::new(
+                        __helpers::__make_ref_accessor!(Test, r),
+                        __helpers::__make_setter!(Test, r),
+                        "r",
+                        TypeInfo::from::<Test>(),
+                        TypeInfo::from::<std::marker::PhantomData<&'_ ()>>(),
+                    )
+                ]
+            }
+        }
+    }
+
     #[allow(unused_assignments)]
     #[test]
     fn test_lifetime_struct() {

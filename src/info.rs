@@ -153,7 +153,8 @@ impl fmt::Debug for AssocConst {
 }
 
 pub struct TupleField {
-    ptr: AccessHelper,
+    get_ptr: AccessHelper,
+    set_ptr: SetHelper,
     pos: usize,
     assoc_ty: Type,
     ty: Type,
@@ -161,13 +162,15 @@ pub struct TupleField {
 
 impl TupleField {
     pub unsafe fn new(
-        ptr: AccessHelper,
+        get_ptr: AccessHelper,
+        set_ptr: SetHelper,
         pos: usize,
         assoc_ty: Type,
         ty: Type,
     ) -> TupleField {
         TupleField {
-            ptr,
+            get_ptr,
+            set_ptr,
             pos,
             assoc_ty,
             ty,
@@ -190,7 +193,16 @@ impl TupleField {
         if this.ty() != self.assoc_ty() {
             Err(Error::WrongType)
         } else {
-            Ok((self.ptr)(this))
+            Ok((self.get_ptr)(this))
+        }
+    }
+
+    pub fn set(&self, this: &mut Value, other: Value<'static>) -> Result<(), Error> {
+        if this.ty() != self.assoc_ty() || other.ty() != self.ty() {
+            Err(Error::WrongType)
+        } else {
+            (self.set_ptr)(this, other);
+            Ok(())
         }
     }
 }
@@ -199,8 +211,8 @@ impl fmt::Debug for TupleField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "TupleField {{ ptr: {:p}, pos: {:?}, assoc_ty: {:?}, ty: {:?} }}",
-            self.ptr, self.pos, self.assoc_ty, self.ty
+            "TupleField {{ get_ptr: {:p}, set_ptr: {:p}, pos: {:?}, assoc_ty: {:?}, ty: {:?} }}",
+            self.get_ptr, self.set_ptr, self.pos, self.assoc_ty, self.ty
         )
     }
 }
