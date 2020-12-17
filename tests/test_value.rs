@@ -35,7 +35,7 @@ fn test_value_borrow() {
     assert_eq!(*borrow1, 1);
     assert_eq!(*borrow1, *borrow2);
 
-    let mut_borrow = val.mut_borrow::<i32>();
+    let mut_borrow = val.borrow_mut::<i32>();
 
     assert_eq!(*mut_borrow, 1);
     *mut_borrow = 2;

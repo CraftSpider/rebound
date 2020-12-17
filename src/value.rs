@@ -21,19 +21,6 @@ pub enum Value<'a> {
 
 // TODO: Count borrows safely, RefCell style?
 impl<'a> Value<'a> {
-    pub fn from<'b, T: Reflected + 'b>(val: T) -> Value<'b> {
-        let ptr = Box::into_raw(Box::from(val)) as *mut ();
-
-        Value::Owned {
-            ptr,
-            ty: Type::from::<T>(),
-            drop_impl: |ptr| {
-                unsafe { Box::from_raw(ptr as *mut T) };
-            },
-            _phantom: PhantomData,
-        }
-    }
-
     pub fn from_ref<T: Reflected>(val: &T) -> Value {
         Value::Borrowed {
             ptr: val as *const T as *mut (),
@@ -92,7 +79,7 @@ impl<'a> Value<'a> {
             .expect(&format!("Couldn't borrow Value as type {}", T::name()))
     }
 
-    pub fn try_mut_borrow<T: Reflected>(&mut self) -> Result<&'a mut T, Error> {
+    pub fn try_borrow_mut<T: Reflected>(&mut self) -> Result<&'a mut T, Error> {
         if Type::from::<T>() != self.ty() {
             Err(Error::WrongType)
         } else {
@@ -100,9 +87,24 @@ impl<'a> Value<'a> {
         }
     }
 
-    pub fn mut_borrow<T: Reflected>(&mut self) -> &'a mut T {
-        self.try_mut_borrow()
+    pub fn borrow_mut<T: Reflected>(&mut self) -> &'a mut T {
+        self.try_borrow_mut()
             .expect(&format!("Couldn't mutably borrow Value as type {}", T::name()))
+    }
+}
+
+impl<'a, T: Reflected + 'a> From<T> for Value<'a> {
+    fn from(val: T) -> Value<'a> {
+        let ptr = Box::into_raw(Box::from(val)) as *mut ();
+
+        Value::Owned {
+            ptr,
+            ty: Type::from::<T>(),
+            drop_impl: |ptr| {
+                unsafe { Box::from_raw(ptr as *mut T) };
+            },
+            _phantom: PhantomData,
+        }
     }
 }
 

@@ -170,7 +170,7 @@ fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStrea
                                     }
                                 }),
                                 Box::new(|this, value| {
-                                    let inner = this.mut_borrow::<#name>();
+                                    let inner = this.borrow_mut::<#name>();
                                     if let #pat_name::#var_name(#(#skip,)* wanted, ..) = inner {
                                         *wanted = value.cast();
                                     } else {

@@ -3,6 +3,7 @@
 mod base;
 
 // Implementations for core types
+#[cfg(feature = "core")]
 mod core;
 
 // Implementations for std types

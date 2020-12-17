@@ -29,7 +29,7 @@ pub macro __make_ref_accessor($ty:ty, $($item:tt)+) {
 
 pub macro __make_setter($ty:ty, $($item:tt)+) {
     Box::new(|this, value| {
-        let inner = this.mut_borrow::<$ty>();
+        let inner = this.borrow_mut::<$ty>();
         inner.$($item)+ = value.cast();
     })
 }
@@ -47,7 +47,7 @@ pub macro __make_enum_named_ref_accessor($ty:ty, $var:path, $item:ident) {
 
 pub macro __make_enum_named_setter($ty:ty, $var:path, $item:ident) {
     Box::new(|this, value| {
-        let inner = this.mut_borrow::<$ty>();
+        let inner = this.borrow_mut::<$ty>();
         if let $var { $item } = inner {
             *$item = value.cast();
         }
