@@ -1,13 +1,76 @@
 
-use proc_macro2::TokenStream;
+use proc_macro2::{TokenStream, Span};
 use quote::quote;
-use syn::Item;
+use syn::{Item, Token};
+use syn::parse::{Parse, ParseBuffer};
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
 mod utils;
 use utils::*;
 
 type Result<T> = std::result::Result<T, String>;
+
+struct AttrInput {
+    values: Punctuated<syn::NestedMeta, Token![,]>
+}
+
+impl Parse for AttrInput {
+    fn parse(input: &ParseBuffer) -> syn::Result<Self> {
+        let values = Punctuated::parse_terminated(input)?;
+
+        Ok(AttrInput {
+            values
+        })
+    }
+}
+
+struct Config {
+    crate_name: syn::Ident,
+    debug_out: bool,
+}
+
+fn parse_attrs(attrs: TokenStream) -> Result<Config> {
+    let args: AttrInput = syn::parse2(attrs)
+        .map_err(|err| err.to_string())?;
+
+    let mut crate_name = None;
+    let mut debug_out = false;
+
+    for i in args.values {
+        match i {
+            syn::NestedMeta::Meta(meta) => {
+                match meta {
+                    syn::Meta::List(..) => return Err(format!("Found unexpected list element")),
+                    syn::Meta::NameValue(nv) => {
+                        if path_to_string(&nv.path) == "crate_name" {
+                            crate_name = Some(lit_as_str(&nv.lit)?);
+                        } else {
+                            return Err(format!("Found unexpected name/value pair {}", path_to_string(&nv.path)))
+                        }
+                    },
+                    syn::Meta::Path(path) => {
+                        if path_to_string(&path) == "debug_out" {
+                            debug_out = true;
+                        } else {
+                            return Err(format!("Found unexpected path element {}", path_to_string(&path)))
+                        }
+                    }
+                }
+            },
+            syn::NestedMeta::Lit(..) => {
+                return Err(format!("Found unexpected literal argument"))
+            },
+        }
+    }
+
+    let crate_name = syn::Ident::new(&crate_name.unwrap_or_else(|| "rebound".to_string()), Span::call_site());
+
+    Ok(Config {
+        crate_name,
+        debug_out
+    })
+}
 
 fn verify_item(input: TokenStream) -> Result<Item> {
     let item = syn::parse2(input)
@@ -41,126 +104,6 @@ fn verify_item(input: TokenStream) -> Result<Item> {
     }
 }
 
-fn impl_bounds(generics: &syn::Generics) -> TokenStream {
-    let impl_bounds = generics.params
-        .iter()
-        .map(|param| {
-            match param {
-                syn::GenericParam::Lifetime(..) => TokenStream::new(),
-                syn::GenericParam::Type(param) => quote!( #param: rebound::Reflected ),
-                syn::GenericParam::Const(param) => quote!( #param ),
-            }
-        })
-        .filter(|ts| !ts.is_empty())
-        .collect::<Vec<_>>();
-
-    quote!(<#(#impl_bounds,)*>)
-}
-
-fn item_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
-    let ty_generics = generics.params
-        .iter()
-        .map(|param| {
-            match param {
-                syn::GenericParam::Lifetime(..) => quote!('_),
-                syn::GenericParam::Type(param) => quote!(#param),
-                syn::GenericParam::Const(param) => quote!(#param)
-            }
-        })
-        .collect::<Vec<_>>();
-
-    quote!(#name<#(#ty_generics,)*>)
-}
-
-fn item_qual_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
-    let ty_generics = generics.params
-        .iter()
-        .map(|param| {
-            match param {
-                syn::GenericParam::Lifetime(_) => TokenStream::new(),
-                syn::GenericParam::Type(param) => {
-                    let ident = &param.ident;
-                    quote!(#ident::name())
-                },
-                syn::GenericParam::Const(param) => {
-                    let ident = &param.ident;
-                    quote!(concat!("const ", stringify!(#ident)))
-                }
-            }
-        })
-        .filter(|param| !param.is_empty())
-        .collect::<Vec<_>>();
-
-    let fmt_str;
-    if ty_generics.is_empty() {
-        fmt_str = "{}::{}".to_string()
-    } else {
-        fmt_str = format!(
-            "{{}}::{{}}<{}>",
-            ty_generics.iter().map(|_| "{}").collect::<Vec<_>>().join(", ")
-        )
-    }
-
-    quote!( format!(#fmt_str, module_path!(), stringify!(#name), #(#ty_generics,)* ) )
-}
-
-fn sanitized_field_ty(ty: &syn::Type) -> TokenStream {
-    match ty {
-        syn::Type::Array(ty) => {
-            let elem = sanitized_field_ty(&ty.elem);
-            let len = &ty.len;
-
-            quote!([#elem; #len])
-        }
-        syn::Type::Reference(ty) => {
-            let lifetime = ty.lifetime.as_ref().map(|life| {
-                static_or_anon(life)
-            });
-            let mutability = &ty.mutability;
-            let inner = &ty.elem;
-
-            quote!(& #lifetime #mutability #inner)
-        },
-        syn::Type::Path(ty) => {
-            let segments = ty.path.segments
-                .iter()
-                .map(|seg| {
-                    match &seg.arguments {
-                        syn::PathArguments::AngleBracketed(args) => {
-                            let ident = &seg.ident;
-                            let ty_args = args.args.iter()
-                                .map(|arg| {
-                                    match arg {
-                                        syn::GenericArgument::Lifetime(life) => {
-                                            let life = static_or_anon(life);
-                                            quote!(#life)
-                                        }
-                                        syn::GenericArgument::Type(ty) => {
-                                            sanitized_field_ty(ty)
-                                        }
-                                        _ => quote!(#arg)
-                                    }
-                                })
-                                .collect::<Vec<_>>();
-
-                            quote!( #ident<#(#ty_args,)*> )
-                        }
-                        syn::PathArguments::Parenthesized(_args) => {
-                            todo!()
-                        }
-                        syn::PathArguments::None => {
-                            quote!(#seg)
-                        }
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            quote!( #(#segments)::* )
-        }
-        _ => quote!(#ty)
-    }
-}
-
 fn generate_reflect_enum(_item: syn::ItemEnum) -> Result<TokenStream> {
     todo!()
 }
@@ -169,8 +112,8 @@ fn generate_reflect_impl(_item: syn::ItemImpl) -> Result<TokenStream> {
     todo!()
 }
 
-fn generate_reflect_struct(item: syn::ItemStruct) -> Result<TokenStream> {
-
+fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenStream> {
+    let crate_name = &cfg.crate_name;
     let impl_bounds = impl_bounds(&item.generics);
     let name = item_name(&item.ident, &item.generics);
     let qual_name = item_qual_name(&item.ident, &item.generics);
@@ -188,21 +131,21 @@ fn generate_reflect_struct(item: syn::ItemStruct) -> Result<TokenStream> {
                     let field_ty = sanitized_field_ty(&field.ty);
 
                     quote!(
-                        rebound::NamedField::new(
-                            rebound::__helpers::__make_ref_accessor!(#name, #field_name),
-                            rebound::__helpers::__make_setter!(#name, #field_name),
+                        #crate_name::NamedField::new(
+                            #crate_name::__helpers::__make_ref_accessor!(#name, #field_name),
+                            #crate_name::__helpers::__make_setter!(#name, #field_name),
                             stringify!(#field_name),
-                            rebound::TypeInfo::from::<#name>(),
-                            rebound::TypeInfo::from::<#field_ty>(),
+                            #crate_name::TypeInfo::from::<#name>(),
+                            #crate_name::TypeInfo::from::<#field_ty>(),
                         )
                     )
                 })
                 .collect::<Vec<_>>();
 
             struct_impl = quote!(
-                impl #impl_bounds rebound::reflect::ReflectedStruct for #name {
+                impl #impl_bounds #crate_name::reflect::ReflectedStruct for #name {
                     #[allow(unused_unsafe)]
-                    fn fields() -> Vec<rebound::NamedField> {
+                    fn fields() -> Vec<#crate_name::NamedField> {
                         unsafe {
                             vec![
                                 #(#fields,)*
@@ -222,21 +165,21 @@ fn generate_reflect_struct(item: syn::ItemStruct) -> Result<TokenStream> {
                     let field_ty = sanitized_field_ty(&field.ty);
 
                     quote!(
-                        rebound::TupleField::new(
-                            rebound::__helpers::__make_ref_accessor!(#name, #access),
-                            rebound::__helpers::__make_setter!(#name, #access),
+                        #crate_name::TupleField::new(
+                            #crate_name::__helpers::__make_ref_accessor!(#name, #access),
+                            #crate_name::__helpers::__make_setter!(#name, #access),
                             #idx,
-                            rebound::TypeInfo::from::<#name>(),
-                            rebound::TypeInfo::from::<#field_ty>(),
+                            #crate_name::TypeInfo::from::<#name>(),
+                            #crate_name::TypeInfo::from::<#field_ty>(),
                         )
                     )
                 })
                 .collect::<Vec<_>>();
 
             struct_impl = quote!(
-                impl #impl_bounds rebound::reflect::ReflectedTupleStruct for #name {
+                impl #impl_bounds #crate_name::reflect::ReflectedTupleStruct for #name {
                     #[allow(unused_unsafe)]
-                    fn fields() -> Vec<rebound::TupleField> {
+                    fn fields() -> Vec<#crate_name::TupleField> {
                         unsafe {
                             vec![
                                 #(#fields,)*
@@ -250,19 +193,19 @@ fn generate_reflect_struct(item: syn::ItemStruct) -> Result<TokenStream> {
             new_fn = syn::Ident::new("new_unit_struct", item.span());
 
             struct_impl = quote!(
-                impl #impl_bounds rebound::reflect::ReflectedUnitStruct for #name {}
+                impl #impl_bounds #crate_name::reflect::ReflectedUnitStruct for #name {}
             )
         },
     }
 
     Ok(quote!(
-        impl #impl_bounds rebound::reflect::Reflected for #name {
+        impl #impl_bounds #crate_name::reflect::Reflected for #name {
             fn name() -> String {
                 #qual_name.to_string()
             }
 
             unsafe fn init() {
-                rebound::TypeInfo::#new_fn::<#name>()
+                #crate_name::TypeInfo::#new_fn::<#name>()
             }
         }
 
@@ -274,25 +217,40 @@ fn generate_reflect_trait(_item: syn::ItemTrait) -> Result<TokenStream> {
     todo!()
 }
 
-fn generate_reflect(item: Item) -> Result<TokenStream> {
+fn generate_reflect(cfg: &Config, item: Item) -> Result<TokenStream> {
     match item {
         Item::Enum(item) => generate_reflect_enum(item),
         Item::Impl(item) => generate_reflect_impl(item),
-        Item::Struct(item) => generate_reflect_struct(item),
+        Item::Struct(item) => generate_reflect_struct(cfg, item),
         Item::Trait(item) => generate_reflect_trait(item),
         _ => unreachable!()
     }
 }
 
-pub fn rebound(_attrs: TokenStream, item: TokenStream) -> TokenStream {
-    let gen_res = verify_item(item.clone())
-        .and_then(generate_reflect);
+fn rebound_impl(attrs: TokenStream, item: TokenStream) -> Result<TokenStream> {
+    let orig_item = item.clone();
+    let cfg = parse_attrs(attrs)?;
 
-    match gen_res {
-        Ok(gen_items) => quote!(
-            #item
-            #gen_items
-        ).into(),
+    let item = verify_item(item)?;
+    let gen_items = generate_reflect(&cfg, item)?;
+
+    let final_output = quote!(
+        #orig_item
+        #gen_items
+    );
+
+    if cfg.debug_out {
+        eprintln!("#[rebound] generated code: {}", final_output.to_string())
+    }
+
+    Ok(final_output)
+}
+
+pub fn rebound(attrs: TokenStream, item: TokenStream) -> TokenStream {
+    let res = rebound_impl(attrs, item);
+
+    match res {
+        Ok(ts) => ts,
         Err(msg) => quote!( compile_error!(#msg); )
     }
 }

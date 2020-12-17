@@ -25,7 +25,30 @@ fn test_value_ty() {
 
     assert_ne!(val1.ty(), val2.ty());
 
-    // TODO: Remove this once drop trait is functioning
+    // TODO: Remove this once drop is functioning
     unsafe { val1.cast::<i32>() };
     unsafe { val2.cast::<TestStruct>() };
+}
+
+#[test]
+fn test_value_borrow() {
+    let mut val = Value::from(1);
+
+    let borrow1 = val.borrow::<i32>();
+    let borrow2 = val.borrow::<i32>();
+
+    assert_eq!(*borrow1, 1);
+    assert_eq!(*borrow1, *borrow2);
+
+    let mut_borrow = val.mut_borrow::<i32>();
+
+    assert_eq!(*mut_borrow, 1);
+    *mut_borrow = 2;
+
+    let norm_borrow = val.borrow::<i32>();
+
+    assert_eq!(*norm_borrow, 2);
+
+    // TODO: Remove this once drop is functioning
+    unsafe { val.cast::<i32>() };
 }

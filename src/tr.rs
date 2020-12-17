@@ -1,6 +1,6 @@
 use crate::info::*;
 
-use hashbrown::HashMap;
+use std::collections::HashMap;
 
 static mut REFLECTED_TRAITS: Option<HashMap<String, Box<TraitInfo>>> = None;
 

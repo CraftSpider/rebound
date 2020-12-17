@@ -1,17 +1,20 @@
 //! A crate aiming to implement 'full' reflection in Rust.
 
+// TODO: Find a way to not need specialization
+#![allow(incomplete_features)]
+
 #![feature(min_const_generics, specialization, decl_macro)]
 
-#![cfg_attr(not(feature = "std"), no_std)]
+//#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "never-type", feature(never_type))]
 
-#[cfg(not(feature = "std"))]
+/*#[cfg(not(feature = "std"))]
 #[macro_use]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
 mod prelude;
 #[cfg(feature = "std")]
-mod prelude {}
+mod prelude {}*/
 
 mod __impls;
 
@@ -148,8 +151,6 @@ mod tests {
 
         let fns = ty.assoc_fns();
 
-        println!("{:?}", fns);
-
         let foo = fns[0].call(None, Vec::new())
             .unwrap();
 
@@ -217,8 +218,8 @@ mod tests {
         }
     }
 
-    #[allow(unused_assignments)]
     #[test]
+    #[allow(unused)]
     fn test_lifetime_struct() {
         let mut t;
         let v;
@@ -228,17 +229,13 @@ mod tests {
             v = Value::from(t);
 
             let tv = v.borrow::<Test>();
-            println!("{}", tv.r);
 
             if let TypeInfo::Struct(info) = TypeInfo::from::<Test>() {
                 let fields = info.fields();
-                println!("{:?}", fields);
 
                 let val = fields[0].get_ref(&v)
                     .unwrap()
                     .borrow::<&i32>();
-
-                println!("{}", val);
             }
 
             // Comment this out and uncomment below to see failure
@@ -252,6 +249,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(unused)]
     fn test_lifetime_ref() {
         let v;
         {
@@ -259,7 +257,6 @@ mod tests {
             v = Value::from_ref(&i);
 
             let t = v.borrow::<i32>();
-            println!("{}", t);
 
             // Comment this out and uncomment below to see failure
             drop(v);

@@ -21,7 +21,6 @@ never-type = []
 rebound-proc = { path = "./rebound-proc", version = "0.0.1" }
 ctor = "^0.1"
 paste = "^1.0"
-hashbrown = "^0.9"
 
 [dev-dependencies]
 trybuild = "^1.0"

@@ -1,14 +1,15 @@
-#[allow(unused_imports)]
-use crate::prelude::*;
+// #[allow(unused_imports)]
+// use crate::prelude::*;
 
-use crate::{Trait, TraitInfo};
 use crate::info::*;
 use crate::reflect::*;
 
-use hashbrown::HashMap;
+use std::collections::HashMap;
+use std::sync::RwLock;
 
 // SAFETY: *do not touch this*
-static mut REFLECTED_TYS: Option<HashMap<String, Box<TypeInfo>>> = None;
+static REFLECTED_TYS: RwLock<HashMap<String, Box<TypeInfo>>> = RwLock::new(HashMap::new());
+// static mut REFLECTED_TYS: Option<HashMap<String, Box<TypeInfo>>> = None;
 
 pub type Type = &'static TypeInfo;
 
@@ -197,7 +198,7 @@ impl TypeInfo {
             .unwrap_or_else(|| {
                 unsafe { T::init() }
 
-                TypeInfo::from_name(&T::name()).unwrap()
+                TypeInfo::from_name(&T::name()).expect(&format!("TypeInfo for {} not initialized, despite calling T::init()", T::name()))
             })
     }
 

@@ -26,7 +26,5 @@ pub fn impl_find(input: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn rebound(attrs: TokenStream, item: TokenStream) -> TokenStream {
-    let res = rebound::rebound(attrs.into(), item.into());
-    println!("{}", res.to_string());
-    res.into()
+    rebound::rebound(attrs.into(), item.into()).into()
 }
