@@ -153,7 +153,11 @@ pub fn impl_bounds(generics: &syn::Generics) -> TokenStream {
         .map(|param| {
             match param {
                 syn::GenericParam::Lifetime(..) => TokenStream::new(),
-                syn::GenericParam::Type(param) => quote!( #param: rebound::Reflected ),
+                syn::GenericParam::Type(param) => {
+                    let name = &param.ident;
+
+                    quote!( #name: rebound::Reflected + 'static )
+                },
                 syn::GenericParam::Const(param) => quote!( #param ),
             }
         })

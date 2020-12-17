@@ -272,7 +272,7 @@ impl fmt::Debug for Field {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum VariantInfo {
     Unit(UnitVariant),
     Tuple(TupleVariant),
@@ -312,6 +312,12 @@ impl UnitVariant {
     }
 }
 
+impl PartialEq for UnitVariant {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.assoc_ty == other.assoc_ty
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct TupleVariant {
     name: &'static str,
@@ -341,6 +347,12 @@ impl TupleVariant {
     }
 }
 
+impl PartialEq for TupleVariant {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.assoc_ty == other.assoc_ty
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub struct StructVariant {
     name: &'static str,
@@ -367,5 +379,11 @@ impl StructVariant {
 
     pub fn fields(&self) -> Vec<Field> {
         (self.fields)()
+    }
+}
+
+impl PartialEq for StructVariant {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.assoc_ty == other.assoc_ty
     }
 }

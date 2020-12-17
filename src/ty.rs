@@ -207,6 +207,7 @@ impl Type {
     }
 
     pub fn from<T: ?Sized + Reflected>() -> Type {
+        // TODO: Multithreading support, so init isn't called multiple times
         Type::from_name(&T::name())
             .unwrap_or_else(|| {
                 unsafe { T::init() }

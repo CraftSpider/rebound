@@ -142,7 +142,7 @@ fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStrea
 
                 variant_impls.push(quote!(
                     #crate_name::VariantInfo::Struct(#crate_name::info::StructVariant::new(
-                        stringify!(#i),
+                        stringify!(#var_name),
                         #crate_name::Type::from::<#name>(),
                         || { vec![ #(#fields),* ] }
                     ))
@@ -163,7 +163,7 @@ fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStrea
                             #crate_name::Field::new_enum_tuple(
                                 Box::new(|this| {
                                     let inner = this.borrow::<#name>();
-                                    if let #pat_name::#var_name(#(#skip),* wanted, ..) = inner {
+                                    if let #pat_name::#var_name(#(#skip,)* wanted, ..) = inner {
                                         #crate_name::Value::from_ref(wanted)
                                     } else {
                                         unreachable!()
@@ -171,7 +171,7 @@ fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStrea
                                 }),
                                 Box::new(|this, value| {
                                     let inner = this.mut_borrow::<#name>();
-                                    if let #pat_name::#var_name(#(#skip),* wanted, ..) = inner {
+                                    if let #pat_name::#var_name(#(#skip,)* wanted, ..) = inner {
                                         *wanted = value.cast();
                                     } else {
                                         unreachable!()
@@ -192,7 +192,7 @@ fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStrea
 
                 variant_impls.push(quote!(
                     #crate_name::VariantInfo::Tuple(#crate_name::info::TupleVariant::new(
-                        stringify!(#i),
+                        stringify!(#var_name),
                         #crate_name::Type::from::<#name>(),
                         || { vec![ #(#fields),* ] }
                     ))
