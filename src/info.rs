@@ -149,33 +149,87 @@ impl fmt::Debug for AssocConst {
     }
 }
 
-pub struct TupleField {
-    get_ptr: AccessHelper,
-    set_ptr: SetHelper,
-    pos: usize,
-    assoc_ty: Type,
-    ty: Type,
+#[derive(Debug)]
+pub enum FieldKind {
+    Tuple { idx: usize },
+    Named { name: &'static str },
+    EnumTuple { idx: usize, assoc_var: VariantInfo },
+    EnumNamed { name: &'static str, assoc_var: VariantInfo },
 }
 
-impl TupleField {
-    pub unsafe fn new(
+pub struct Field {
+    get_ptr: AccessHelper,
+    set_ptr: SetHelper,
+    assoc_ty: Type,
+    field_ty: Type,
+    kind: FieldKind,
+}
+
+impl Field {
+    pub unsafe fn new_named(
         get_ptr: AccessHelper,
         set_ptr: SetHelper,
-        pos: usize,
+        name: &'static str,
         assoc_ty: Type,
-        ty: Type,
-    ) -> TupleField {
-        TupleField {
+        field_ty: Type,
+    ) -> Field {
+        Field {
             get_ptr,
             set_ptr,
-            pos,
             assoc_ty,
-            ty,
+            field_ty,
+            kind: FieldKind::Named { name }
         }
     }
 
-    pub fn pos(&self) -> usize {
-        self.pos
+    pub unsafe fn new_tuple(
+        get_ptr: AccessHelper,
+        set_ptr: SetHelper,
+        idx: usize,
+        assoc_ty: Type,
+        field_ty: Type,
+    ) -> Field {
+        Field {
+            get_ptr,
+            set_ptr,
+            assoc_ty,
+            field_ty,
+            kind: FieldKind::Tuple { idx }
+        }
+    }
+
+    pub unsafe fn new_enum_named(
+        get_ptr: AccessHelper,
+        set_ptr: SetHelper,
+        name: &'static str,
+        assoc_ty: Type,
+        assoc_var: VariantInfo,
+        field_ty: Type,
+    ) -> Field {
+        Field {
+            get_ptr,
+            set_ptr,
+            assoc_ty,
+            field_ty,
+            kind: FieldKind::EnumNamed { name, assoc_var }
+        }
+    }
+
+    pub unsafe fn new_enum_tuple(
+        get_ptr: AccessHelper,
+        set_ptr: SetHelper,
+        idx: usize,
+        assoc_ty: Type,
+        assoc_var: VariantInfo,
+        field_ty: Type,
+    ) -> Field {
+        Field {
+            get_ptr,
+            set_ptr,
+            assoc_ty,
+            field_ty,
+            kind: FieldKind::EnumTuple { idx, assoc_var }
+        }
     }
 
     pub fn assoc_ty(&self) -> Type {
@@ -183,7 +237,11 @@ impl TupleField {
     }
 
     pub fn ty(&self) -> Type {
-        self.ty
+        self.field_ty
+    }
+
+    pub fn kind(&self) -> &FieldKind {
+        &self.kind
     }
 
     pub fn get_ref<'a>(&self, this: &'a Value<'a>) -> Result<Value<'a>, Error> {
@@ -204,42 +262,73 @@ impl TupleField {
     }
 }
 
-impl fmt::Debug for TupleField {
+impl fmt::Debug for Field {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "TupleField {{ get_ptr: {:p}, set_ptr: {:p}, pos: {:?}, assoc_ty: {:?}, ty: {:?} }}",
-            self.get_ptr, self.set_ptr, self.pos, self.assoc_ty, self.ty
+            "Field {{ get_ptr: {:p}, set_ptr: {:p}, assoc_ty: {:?}, field_ty: {:?}, kind: {:?} }}",
+            self.get_ptr, self.set_ptr, self.assoc_ty, self.field_ty, self.kind
         )
     }
 }
 
-pub struct NamedField {
-    get_ptr: AccessHelper,
-    set_ptr: SetHelper,
-    name: &'static str,
-    assoc_ty: Type,
-    ty: Type,
+#[derive(Debug, Copy, Clone)]
+pub enum VariantInfo {
+    Unit(UnitVariant),
+    Tuple(TupleVariant),
+    Struct(StructVariant)
 }
 
-impl NamedField {
-    pub unsafe fn new(
-        get_ptr: AccessHelper,
-        set_ptr: SetHelper,
-        name: &'static str,
-        assoc_ty: Type,
-        ty: Type,
-    ) -> NamedField {
-        NamedField {
-            get_ptr,
-            set_ptr,
+impl VariantInfo {
+    pub fn name(&self) -> &str {
+        match self {
+            VariantInfo::Unit(var) => var.name(),
+            VariantInfo::Tuple(var) => var.name(),
+            VariantInfo::Struct(var) => var.name(),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct UnitVariant {
+    name: &'static str,
+    assoc_ty: Type,
+}
+
+impl UnitVariant {
+    pub unsafe fn new(name: &'static str, assoc_ty: Type) -> UnitVariant {
+        UnitVariant {
             name,
             assoc_ty,
-            ty,
         }
     }
 
-    pub fn name(&self) -> &'static str {
+    pub fn name(&self) -> &str {
+        self.name
+    }
+
+    pub fn assoc_ty(&self) -> Type {
+        self.assoc_ty
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct TupleVariant {
+    name: &'static str,
+    assoc_ty: Type,
+    fields: fn() -> Vec<Field>
+}
+
+impl TupleVariant {
+    pub unsafe fn new(name: &'static str, assoc_ty: Type, fields: fn() -> Vec<Field>) -> TupleVariant {
+        TupleVariant {
+            name,
+            assoc_ty,
+            fields
+        }
+    }
+
+    pub fn name(&self) -> &str {
         self.name
     }
 
@@ -247,58 +336,36 @@ impl NamedField {
         self.assoc_ty
     }
 
-    pub fn ty(&self) -> Type {
-        self.ty
-    }
-
-    pub fn get_ref<'a>(&self, this: &'a Value<'a>) -> Result<Value<'a>, Error> {
-        if this.ty() != self.assoc_ty() {
-            Err(Error::WrongType)
-        } else {
-            Ok((self.get_ptr)(this))
-        }
-    }
-
-    pub fn set(&self, this: &mut Value, other: Value<'static>) -> Result<(), Error> {
-        if this.ty() != self.assoc_ty() || other.ty() != self.ty() {
-            Err(Error::WrongType)
-        } else {
-            (self.set_ptr)(this, other);
-            Ok(())
-        }
+    pub fn fields(&self) -> Vec<Field> {
+        (self.fields)()
     }
 }
 
-impl fmt::Debug for NamedField {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "NamedField {{ set_ptr: {:p}, get_ptr: {:p}, name: {:?}, assoc_ty: {:?}, ty: {:?} }}",
-            self.set_ptr, self.get_ptr, self.name, self.assoc_ty, self.ty
-        )
-    }
-}
-
-#[derive(Debug)]
-pub enum VariantInfo {
-    Empty(EmptyVariant),
-    Tuple(TupleVariant),
-    StructVariant(StructVariant)
-}
-
-#[derive(Debug)]
-pub struct EmptyVariant {
-    name: &'static str
-}
-
-#[derive(Debug)]
-pub struct TupleVariant {
-    name: &'static str,
-    fields: fn() -> Vec<TupleField>
-}
-
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct StructVariant {
     name: &'static str,
-    fields: fn() -> Vec<NamedField>
+    assoc_ty: Type,
+    fields: fn() -> Vec<Field>
+}
+
+impl StructVariant {
+    pub unsafe fn new(name: &'static str, assoc_ty: Type, fields: fn() -> Vec<Field>) -> StructVariant {
+        StructVariant {
+            name,
+            assoc_ty,
+            fields
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        self.name
+    }
+
+    pub fn assoc_ty(&self) -> Type {
+        self.assoc_ty
+    }
+
+    pub fn fields(&self) -> Vec<Field> {
+        (self.fields)()
+    }
 }

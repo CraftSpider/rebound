@@ -22,7 +22,7 @@ pub use error::Error;
 pub use value::Value;
 pub use ty::Type;
 pub use tr::Trait;
-pub use info::{AssocFn, AssocConst, TupleField, VariantInfo, NamedField};
+pub use info::{AssocFn, AssocConst, Field, FieldKind, VariantInfo};
 pub use crate::reflect::Reflected;
 
 pub fn init_base() {
@@ -53,6 +53,10 @@ pub macro init_tys($($ty:ty),+ $(,)?) {
     $( Type::from::<$ty>(); )+
 }
 
+extern crate rebound_proc;
+#[doc(hidden)]
+pub use rebound_proc::rebound;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -60,39 +64,13 @@ mod tests {
     use crate::__helpers::*;
     use crate::ty::CommonTypeInfo;
 
+    #[rebound(crate_name = "crate")]
     #[derive(Debug)]
-    //#[rebound]
     struct Foo {
         a: i32
     }
 
-    impl Reflected for Foo {
-        fn name() -> String {
-            concat!(module_path!(), "::", "Foo").into()
-        }
-
-        unsafe fn init() {
-            Type::new_struct::<Foo>()
-        }
-    }
-
-    impl ReflectedStruct for Foo {
-        fn fields() -> Vec<NamedField> {
-            unsafe {
-                vec![
-                    NamedField::new(
-                        __make_ref_accessor!(Foo, a),
-                        __make_setter!(Foo, a),
-                        "a",
-                        Type::from::<Foo>(),
-                        Type::from::<i32>(),
-                    )
-                ]
-            }
-        }
-    }
-
-    //#[rebound]
+    //#[rebound(crate_name = "crate")]
     impl Foo {
         fn new() -> Foo {
             println!("New Foo");
@@ -164,10 +142,10 @@ mod tests {
     }
 
     impl ReflectedStruct for Test<'_> {
-        fn fields() -> Vec<NamedField> {
+        fn fields() -> Vec<Field> {
             unsafe {
                 vec![
-                    NamedField::new(
+                    Field::new_named(
                         __helpers::__make_ref_accessor!(Test, r),
                         __helpers::__make_setter!(Test, r),
                         "r",
@@ -194,10 +172,10 @@ mod tests {
     }
 
     impl ReflectedStruct for Test2<'_> {
-        fn fields() -> Vec<NamedField> {
+        fn fields() -> Vec<Field> {
             unsafe {
                 vec![
-                    NamedField::new(
+                    Field::new_named(
                         __helpers::__make_ref_accessor!(Test, r),
                         __helpers::__make_setter!(Test, r),
                         "r",

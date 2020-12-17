@@ -1,6 +1,5 @@
 
-use rebound::Type;
-use rebound_proc::rebound;
+use rebound::{Type, rebound};
 
 #[rebound]
 struct ReferenceLifetime<'a>(&'a i32);
@@ -15,8 +14,8 @@ fn main() {
     let a = 1;
 
     let rl = ReferenceLifetime(&a);
-    let pl = PathLifetime(rl);
-    let al = ArrayLifetime([&a]);
+    let _pl = PathLifetime(rl);
+    let _al = ArrayLifetime([&a]);
 
     Type::from::<ReferenceLifetime>();
     Type::from::<PathLifetime>();

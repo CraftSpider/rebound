@@ -275,11 +275,11 @@ impl CommonTypeInfo for PrimitiveInfo {
 #[derive(Debug, Copy, Clone)]
 pub struct TupleInfo {
     vtable: TypeVTable,
-    fields: fn() -> Vec<TupleField>,
+    fields: fn() -> Vec<Field>,
 }
 
 impl TupleInfo {
-    pub fn fields(&self) -> Vec<TupleField> {
+    pub fn fields(&self) -> Vec<Field> {
         (self.fields)()
     }
 }
@@ -384,11 +384,11 @@ impl CommonTypeInfo for ReferenceInfo {
 #[derive(Debug, Copy, Clone)]
 pub struct StructInfo {
     vtable: TypeVTable,
-    fields: fn() -> Vec<NamedField>,
+    fields: fn() -> Vec<Field>,
 }
 
 impl StructInfo {
-    pub fn fields(&self) -> Vec<NamedField> {
+    pub fn fields(&self) -> Vec<Field> {
         (self.fields)()
     }
 }
@@ -413,6 +413,12 @@ pub struct EnumInfo {
     variants: fn() -> Vec<VariantInfo>,
 }
 
+impl EnumInfo {
+    pub fn variants(&self) -> Vec<VariantInfo> {
+        (self.variants)()
+    }
+}
+
 impl CommonTypeInfo for EnumInfo {
     fn name(&self) -> String {
         (self.vtable.name)()
@@ -430,7 +436,7 @@ impl CommonTypeInfo for EnumInfo {
 #[derive(Debug, Copy, Clone)]
 pub struct TupleStructInfo {
     vtable: TypeVTable,
-    fields: fn() -> Vec<TupleField>,
+    fields: fn() -> Vec<Field>,
 }
 
 impl CommonTypeInfo for TupleStructInfo {

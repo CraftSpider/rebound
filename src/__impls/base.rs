@@ -1,4 +1,4 @@
-use crate::{AssocFn, AssocConst, Type, TupleField};
+use crate::{AssocFn, AssocConst, Type, Field};
 use crate::reflect::*;
 use crate::__helpers::*;
 
@@ -219,7 +219,7 @@ impl Reflected for () {
 }
 
 impl ReflectedTuple for () {
-    fn fields() -> Vec<TupleField> {
+    fn fields() -> Vec<Field> {
         vec![]
     }
 }
@@ -236,10 +236,10 @@ impl<T0: Reflected + 'static> Reflected for (T0,) {
 }
 
 impl<T0: Reflected + 'static> ReflectedTuple for (T0,) {
-    fn fields() -> Vec<TupleField> {
+    fn fields() -> Vec<Field> {
         unsafe {
             vec![
-                TupleField::new(
+                Field::new_tuple(
                     __make_ref_accessor!((T0,), 0),
                     __make_setter!((T0,), 0),
                     0,
@@ -262,17 +262,17 @@ impl<T0: Reflected + 'static, T1: Reflected + 'static> Reflected for (T0, T1) {
 }
 
 impl<T0: Reflected + 'static, T1: Reflected + 'static> ReflectedTuple for (T0, T1) {
-    fn fields() -> Vec<TupleField> {
+    fn fields() -> Vec<Field> {
         unsafe {
             vec![
-                TupleField::new(
+                Field::new_tuple(
                     __make_ref_accessor!((T0, T1), 0),
                     __make_setter!((T0, T1), 0),
                     0,
                     Type::from::<(T0, T1)>(),
                     Type::from::<T0>(),
                 ),
-                TupleField::new(
+                Field::new_tuple(
                     __make_ref_accessor!((T0, T1), 1),
                     __make_setter!((T0, T1), 1),
                     1,

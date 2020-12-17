@@ -43,6 +43,21 @@ pub fn item_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
     quote!(#name<#(#ty_generics,)*>)
 }
 
+pub fn item_pattern_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
+    let ty_generics = generics.params
+        .iter()
+        .map(|param| {
+            match param {
+                syn::GenericParam::Lifetime(..) => quote!('_),
+                syn::GenericParam::Type(param) => quote!(#param),
+                syn::GenericParam::Const(param) => quote!(#param)
+            }
+        })
+        .collect::<Vec<_>>();
+
+    quote!(#name::<#(#ty_generics,)*>)
+}
+
 pub fn item_qual_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
     let ty_generics = generics.params
         .iter()

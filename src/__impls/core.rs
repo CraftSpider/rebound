@@ -1,4 +1,4 @@
-use crate::{Type, VariantInfo, NamedField};
+use crate::{Type, VariantInfo, Field};
 use crate::reflect::*;
 
 // TODO: Add impls for all these
@@ -14,7 +14,7 @@ impl Reflected for core::alloc::Layout {
 }
 
 impl ReflectedStruct for core::alloc::Layout {
-    fn fields() -> Vec<NamedField> {
+    fn fields() -> Vec<Field> {
         vec![]  // TODO
     }
 }
@@ -30,7 +30,7 @@ impl Reflected for core::alloc::LayoutError {
 }
 
 impl ReflectedStruct for core::alloc::LayoutError {
-    fn fields() -> Vec<NamedField> {
+    fn fields() -> Vec<Field> {
         vec![]  // TODO
     }
 }
@@ -46,7 +46,7 @@ impl Reflected for core::num::ParseIntError {
 }
 
 impl ReflectedStruct for core::num::ParseIntError {
-    fn fields() -> Vec<NamedField>{
+    fn fields() -> Vec<Field>{
         vec![]  // TODO
     }
 }

@@ -1,6 +1,5 @@
 
-use rebound::Type;
-use rebound_proc::rebound;
+use rebound::{Type, rebound};
 
 #[rebound]
 struct Unit;

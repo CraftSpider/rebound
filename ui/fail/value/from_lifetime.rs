@@ -1,6 +1,5 @@
 
-use rebound_proc::rebound;
-use rebound::Value;
+use rebound::{Value, rebound};
 
 #[rebound]
 struct Lifetime<'a>(&'a i32);

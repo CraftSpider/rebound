@@ -1,4 +1,4 @@
-use crate::{Type, AssocFn, AssocConst, TupleField, VariantInfo, NamedField};
+use crate::{Type, AssocFn, AssocConst, VariantInfo, Field};
 
 use rebound_proc::impl_find;
 
@@ -26,7 +26,7 @@ pub trait Reflected {
 }
 
 pub trait ReflectedTuple: Reflected {
-    fn fields() -> Vec<TupleField>;
+    fn fields() -> Vec<Field>;
 }
 
 pub trait ReflectedSlice: Reflected {
@@ -49,7 +49,7 @@ pub trait ReflectedReference: Reflected {
 }
 
 pub trait ReflectedStruct: Reflected {
-    fn fields() -> Vec<NamedField>;
+    fn fields() -> Vec<Field>;
 }
 
 pub trait ReflectedEnum: Reflected {
@@ -57,7 +57,7 @@ pub trait ReflectedEnum: Reflected {
 }
 
 pub trait ReflectedTupleStruct: Reflected {
-    fn fields() -> Vec<TupleField>;
+    fn fields() -> Vec<Field>;
 }
 
 pub trait ReflectedUnitStruct: Reflected {}

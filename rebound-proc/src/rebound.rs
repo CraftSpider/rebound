@@ -104,8 +104,132 @@ fn verify_item(input: TokenStream) -> Result<Item> {
     }
 }
 
-fn generate_reflect_enum(_item: syn::ItemEnum) -> Result<TokenStream> {
-    todo!()
+fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStream> {
+    let crate_name = &cfg.crate_name;
+    let impl_bounds = impl_bounds(&item.generics);
+    let name = item_name(&item.ident, &item.generics);
+    let pat_name = item_pattern_name(&item.ident, &item.generics);
+    let qual_name = item_qual_name(&item.ident, &item.generics);
+
+    let mut variant_impls = Vec::new();
+
+    for i in &item.variants {
+        let var_name = &i.ident;
+
+        match &i.fields {
+            syn::Fields::Named(fields) => {
+                let fields = fields.named.iter()
+                    .map(|field| {
+                        let field_name = &field.ident;
+                        let field_ty = sanitized_field_ty(&field.ty);
+
+                        quote!(
+                            #crate_name::Field::new_enum_named(
+                                #crate_name::__helpers::__make_enum_named_ref_accessor!(#name, #name::#var_name, #field_name),
+                                #crate_name::__helpers::__make_enum_named_setter!(#name, #name::#var_name, #field_name),
+                                stringify!(#field_name),
+                                #crate_name::Type::from::<#name>(),
+                                if let #crate_name::Type::Enum(info) = #crate_name::Type::from::<#name>() {
+                                    *info.variants().iter().filter(|var| var.name() == stringify!(#var_name)).collect::<Vec<_>>()[0]
+                                } else {
+                                    unreachable!()
+                                },
+                                #crate_name::Type::from::<#field_ty>(),
+                            )
+                        )
+                    })
+                    .collect::<Vec<_>>();
+
+                variant_impls.push(quote!(
+                    #crate_name::VariantInfo::Struct(#crate_name::info::StructVariant::new(
+                        stringify!(#i),
+                        #crate_name::Type::from::<#name>(),
+                        || { vec![ #(#fields),* ] }
+                    ))
+                ))
+            },
+            syn::Fields::Unnamed(fields) => {
+                let fields = fields.unnamed.iter()
+                    .enumerate()
+                    .map(|(idx, field)| {
+                        let field_ty = sanitized_field_ty(&field.ty);
+
+                        let mut skip: Vec<_> = Vec::new();
+                        for _ in 0..idx {
+                            skip.push(syn::Ident::new("_", Span::call_site()));
+                        }
+
+                        quote!(
+                            #crate_name::Field::new_enum_tuple(
+                                Box::new(|this| {
+                                    let inner = this.borrow::<#name>();
+                                    if let #pat_name::#var_name(#(#skip),* wanted, ..) = inner {
+                                        #crate_name::Value::from_ref(wanted)
+                                    } else {
+                                        unreachable!()
+                                    }
+                                }),
+                                Box::new(|this, value| {
+                                    let inner = this.mut_borrow::<#name>();
+                                    if let #pat_name::#var_name(#(#skip),* wanted, ..) = inner {
+                                        *wanted = value.cast();
+                                    } else {
+                                        unreachable!()
+                                    }
+                                }),
+                                #idx,
+                                #crate_name::Type::from::<#name>(),
+                                if let #crate_name::Type::Enum(info) = #crate_name::Type::from::<#name>() {
+                                    *info.variants().iter().filter(|var| var.name() == stringify!(#var_name)).collect::<Vec<_>>()[0]
+                                } else {
+                                    unreachable!()
+                                },
+                                #crate_name::Type::from::<#field_ty>(),
+                            )
+                        )
+                    })
+                    .collect::<Vec<_>>();
+
+                variant_impls.push(quote!(
+                    #crate_name::VariantInfo::Tuple(#crate_name::info::TupleVariant::new(
+                        stringify!(#i),
+                        #crate_name::Type::from::<#name>(),
+                        || { vec![ #(#fields),* ] }
+                    ))
+                ))
+            },
+            syn::Fields::Unit => {
+                variant_impls.push(quote!(
+                    #crate_name::VariantInfo::Unit(#crate_name::info::UnitVariant::new(
+                        stringify!(#i),
+                        #crate_name::Type::from::<#name>(),
+                    ))
+                ))
+            }
+        }
+    }
+
+    Ok(quote!(
+        impl #impl_bounds #crate_name::reflect::Reflected for #name {
+            fn name() -> String {
+                #qual_name.to_string()
+            }
+
+            unsafe fn init() {
+                #crate_name::Type::new_enum::<#name>()
+            }
+        }
+
+        impl #impl_bounds #crate_name::reflect::ReflectedEnum for #name {
+            fn variants() -> Vec<#crate_name::VariantInfo> {
+                unsafe {
+                    vec![
+                        #(#variant_impls),*
+                    ]
+                }
+            }
+        }
+    ))
 }
 
 fn generate_reflect_impl(_item: syn::ItemImpl) -> Result<TokenStream> {
@@ -131,7 +255,7 @@ fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenS
                     let field_ty = sanitized_field_ty(&field.ty);
 
                     quote!(
-                        #crate_name::NamedField::new(
+                        #crate_name::Field::new_named(
                             #crate_name::__helpers::__make_ref_accessor!(#name, #field_name),
                             #crate_name::__helpers::__make_setter!(#name, #field_name),
                             stringify!(#field_name),
@@ -145,7 +269,7 @@ fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenS
             struct_impl = quote!(
                 impl #impl_bounds #crate_name::reflect::ReflectedStruct for #name {
                     #[allow(unused_unsafe)]
-                    fn fields() -> Vec<#crate_name::NamedField> {
+                    fn fields() -> Vec<#crate_name::Field> {
                         unsafe {
                             vec![
                                 #(#fields,)*
@@ -165,7 +289,7 @@ fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenS
                     let field_ty = sanitized_field_ty(&field.ty);
 
                     quote!(
-                        #crate_name::TupleField::new(
+                        #crate_name::Field::new_tuple(
                             #crate_name::__helpers::__make_ref_accessor!(#name, #access),
                             #crate_name::__helpers::__make_setter!(#name, #access),
                             #idx,
@@ -179,7 +303,7 @@ fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenS
             struct_impl = quote!(
                 impl #impl_bounds #crate_name::reflect::ReflectedTupleStruct for #name {
                     #[allow(unused_unsafe)]
-                    fn fields() -> Vec<#crate_name::TupleField> {
+                    fn fields() -> Vec<#crate_name::Field> {
                         unsafe {
                             vec![
                                 #(#fields,)*
@@ -219,7 +343,7 @@ fn generate_reflect_trait(_item: syn::ItemTrait) -> Result<TokenStream> {
 
 fn generate_reflect(cfg: &Config, item: Item) -> Result<TokenStream> {
     match item {
-        Item::Enum(item) => generate_reflect_enum(item),
+        Item::Enum(item) => generate_reflect_enum(cfg, item),
         Item::Impl(item) => generate_reflect_impl(item),
         Item::Struct(item) => generate_reflect_struct(cfg, item),
         Item::Trait(item) => generate_reflect_trait(item),

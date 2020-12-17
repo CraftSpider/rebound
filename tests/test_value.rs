@@ -1,6 +1,5 @@
 
-use rebound::{Value, Type};
-use rebound_proc::rebound;
+use rebound::{Value, Type, rebound};
 use std::marker::PhantomData;
 
 #[rebound]
@@ -44,7 +43,4 @@ fn test_value_borrow() {
     let norm_borrow = val.borrow::<i32>();
 
     assert_eq!(*norm_borrow, 2);
-
-    // TODO: Remove this once drop is functioning
-    unsafe { val.cast::<i32>() };
 }

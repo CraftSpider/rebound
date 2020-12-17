@@ -21,8 +21,6 @@ pub enum Value<'a> {
 
 // TODO: Count borrows safely, RefCell style?
 impl<'a> Value<'a> {
-    // TODO: This probably needs a 'static bound to be WF. Same expressiveness problem as
-    //       ReflectedTuple
     pub fn from<'b, T: Reflected + 'b>(val: T) -> Value<'b> {
         let ptr = Box::into_raw(Box::from(val)) as *mut ();
 
