@@ -135,8 +135,8 @@ fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenS
                             #crate_name::__helpers::__make_ref_accessor!(#name, #field_name),
                             #crate_name::__helpers::__make_setter!(#name, #field_name),
                             stringify!(#field_name),
-                            #crate_name::TypeInfo::from::<#name>(),
-                            #crate_name::TypeInfo::from::<#field_ty>(),
+                            #crate_name::Type::from::<#name>(),
+                            #crate_name::Type::from::<#field_ty>(),
                         )
                     )
                 })
@@ -169,8 +169,8 @@ fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenS
                             #crate_name::__helpers::__make_ref_accessor!(#name, #access),
                             #crate_name::__helpers::__make_setter!(#name, #access),
                             #idx,
-                            #crate_name::TypeInfo::from::<#name>(),
-                            #crate_name::TypeInfo::from::<#field_ty>(),
+                            #crate_name::Type::from::<#name>(),
+                            #crate_name::Type::from::<#field_ty>(),
                         )
                     )
                 })
@@ -205,7 +205,7 @@ fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenS
             }
 
             unsafe fn init() {
-                #crate_name::TypeInfo::#new_fn::<#name>()
+                #crate_name::Type::#new_fn::<#name>()
             }
         }
 

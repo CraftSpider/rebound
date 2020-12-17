@@ -1,6 +1,3 @@
-// #[allow(unused_imports)]
-// use crate::prelude::*;
-
 use crate::{Type, AssocFn, AssocConst, TupleField, VariantInfo, NamedField};
 
 use rebound_proc::impl_find;

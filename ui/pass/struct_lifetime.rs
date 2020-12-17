@@ -1,5 +1,5 @@
 
-use rebound::TypeInfo;
+use rebound::Type;
 use rebound_proc::rebound;
 
 #[rebound]
@@ -18,7 +18,7 @@ fn main() {
     let pl = PathLifetime(rl);
     let al = ArrayLifetime([&a]);
 
-    TypeInfo::from::<ReferenceLifetime>();
-    TypeInfo::from::<PathLifetime>();
-    TypeInfo::from::<ArrayLifetime>();
+    Type::from::<ReferenceLifetime>();
+    Type::from::<PathLifetime>();
+    Type::from::<ArrayLifetime>();
 }

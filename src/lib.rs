@@ -5,16 +5,7 @@
 
 #![feature(min_const_generics, specialization, decl_macro)]
 
-//#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "never-type", feature(never_type))]
-
-/*#[cfg(not(feature = "std"))]
-#[macro_use]
-extern crate alloc;
-#[cfg(not(feature = "std"))]
-mod prelude;
-#[cfg(feature = "std")]
-mod prelude {}*/
 
 mod __impls;
 
@@ -29,8 +20,8 @@ pub mod reflect;
 
 pub use error::Error;
 pub use value::Value;
-pub use ty::{Type, TypeInfo};
-pub use tr::{Trait, TraitInfo};
+pub use ty::Type;
+pub use tr::Trait;
 pub use info::{AssocFn, AssocConst, TupleField, VariantInfo, NamedField};
 pub use crate::reflect::Reflected;
 
@@ -59,7 +50,7 @@ pub fn init_base() {
 }
 
 pub macro init_tys($($ty:ty),+ $(,)?) {
-    $( TypeInfo::from::<$ty>(); )+
+    $( Type::from::<$ty>(); )+
 }
 
 #[cfg(test)]
@@ -81,7 +72,7 @@ mod tests {
         }
 
         unsafe fn init() {
-            TypeInfo::new_struct::<Foo>()
+            Type::new_struct::<Foo>()
         }
     }
 
@@ -93,8 +84,8 @@ mod tests {
                         __make_ref_accessor!(Foo, a),
                         __make_setter!(Foo, a),
                         "a",
-                        TypeInfo::from::<Foo>(),
-                        TypeInfo::from::<i32>(),
+                        Type::from::<Foo>(),
+                        Type::from::<i32>(),
                     )
                 ]
             }
@@ -123,18 +114,18 @@ mod tests {
                     AssocFn::new(
                         __make_static_helper!(Foo::new),
                         "new",
-                        TypeInfo::from::<Foo>(),
+                        Type::from::<Foo>(),
                         None,
                         &[],
-                        TypeInfo::from::<Foo>()
+                        Type::from::<Foo>()
                     ),
                     AssocFn::new(
                         __make_dyn_helper!(Foo::do_thing, &Foo),
                         "do_thing",
-                        TypeInfo::from::<Foo>(),
-                        Some(TypeInfo::from::<&Foo>()),
+                        Type::from::<Foo>(),
+                        Some(Type::from::<&Foo>()),
                         &[],
-                        TypeInfo::from::<()>()
+                        Type::from::<()>()
                     )
                 ])
             }
@@ -147,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_foo() {
-        let ty = TypeInfo::from::<Foo>();
+        let ty = Type::from::<Foo>();
 
         let fns = ty.assoc_fns();
 
@@ -168,7 +159,7 @@ mod tests {
         }
 
         unsafe fn init() {
-            TypeInfo::new_struct::<Test>();
+            Type::new_struct::<Test>();
         }
     }
 
@@ -180,8 +171,8 @@ mod tests {
                         __helpers::__make_ref_accessor!(Test, r),
                         __helpers::__make_setter!(Test, r),
                         "r",
-                        TypeInfo::from::<Test>(),
-                        TypeInfo::from::<&i32>(),
+                        Type::from::<Test>(),
+                        Type::from::<&i32>(),
                     )
                 ]
             }
@@ -198,7 +189,7 @@ mod tests {
         }
 
         unsafe fn init() {
-            TypeInfo::new_struct::<Test2>()
+            Type::new_struct::<Test2>()
         }
     }
 
@@ -210,8 +201,8 @@ mod tests {
                         __helpers::__make_ref_accessor!(Test, r),
                         __helpers::__make_setter!(Test, r),
                         "r",
-                        TypeInfo::from::<Test>(),
-                        TypeInfo::from::<std::marker::PhantomData<&'_ ()>>(),
+                        Type::from::<Test>(),
+                        Type::from::<std::marker::PhantomData<&'_ ()>>(),
                     )
                 ]
             }
@@ -230,7 +221,7 @@ mod tests {
 
             let tv = v.borrow::<Test>();
 
-            if let TypeInfo::Struct(info) = TypeInfo::from::<Test>() {
+            if let Type::Struct(info) = Type::from::<Test>() {
                 let fields = info.fields();
 
                 let val = fields[0].get_ref(&v)

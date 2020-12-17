@@ -1,0 +1,10 @@
+error[E0597]: `lives_shorter` does not live long enough
+  --> $DIR/from_ref_lifetime.rs:8:31
+   |
+8  |         val = Value::from_ref(&lives_shorter);
+   |                               ^^^^^^^^^^^^^^ borrowed value does not live long enough
+9  |     }
+   |     - `lives_shorter` dropped here while still borrowed
+10 |
+11 |     let _borrow = val.borrow::<i32>();
+   |                   --- borrow later used here

@@ -1,5 +1,5 @@
 
-use rebound::TypeInfo;
+use rebound::Type;
 use rebound_proc::rebound;
 
 #[rebound]
@@ -10,5 +10,5 @@ struct NamedStruct {
 }
 
 fn main() {
-    TypeInfo::from::<NamedStruct>();
+    Type::from::<NamedStruct>();
 }

@@ -1,5 +1,5 @@
 
-use rebound::{Value, TypeInfo};
+use rebound::{Value, Type};
 use rebound_proc::rebound;
 use std::marker::PhantomData;
 
@@ -20,14 +20,10 @@ fn test_value_ty() {
     let val1 = Value::from(a);
     let val2 = Value::from(b);
 
-    assert_eq!(val1.ty(), TypeInfo::from::<i32>());
-    assert_eq!(val2.ty(), TypeInfo::from::<TestStruct>());
+    assert_eq!(val1.ty(), Type::from::<i32>());
+    assert_eq!(val2.ty(), Type::from::<TestStruct>());
 
     assert_ne!(val1.ty(), val2.ty());
-
-    // TODO: Remove this once drop is functioning
-    unsafe { val1.cast::<i32>() };
-    unsafe { val2.cast::<TestStruct>() };
 }
 
 #[test]

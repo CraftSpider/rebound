@@ -1,62 +1,58 @@
 use crate::info::*;
 
 use std::collections::HashMap;
+use std::sync::{Once, RwLock};
 
-static mut REFLECTED_TRAITS: Option<HashMap<String, Box<TraitInfo>>> = None;
-
-pub type Trait = &'static TraitInfo;
+static INIT: Once = Once::new();
+static mut REFLECTED_TRAITS: Option<RwLock<HashMap<String, Box<Trait>>>> = None;
 
 #[derive(Debug)]
-pub struct TraitInfo {
-    name: String,
-    bounds: Vec<Trait>,
+pub struct Trait {
+    name: fn() -> String,
+    bounds: fn() -> Vec<Trait>,
     methods: fn() -> Vec<AssocFn>,
 }
 
-impl TraitInfo {
+impl Trait {
     fn ensure_statics() {
-        unsafe {
-            if let None = REFLECTED_TRAITS {
-                REFLECTED_TRAITS = Some(HashMap::new())
-            }
-        }
+        INIT.call_once(|| {
+            unsafe { REFLECTED_TRAITS = Some(RwLock::new(HashMap::new())) }
+        })
     }
 
-    fn add_trait(tr: TraitInfo) {
-        TraitInfo::ensure_statics();
+    fn add_trait(tr: Trait) {
+        Trait::ensure_statics();
 
-        let map;
-        unsafe {
-            map = REFLECTED_TRAITS
-                .as_mut()
-                .expect("REFLECTED_TYS not initialized correctly");
-        }
+        let mut map = unsafe { REFLECTED_TRAITS.as_mut() }
+            .expect("REFLECTED_TRAITS not initialized correctly")
+            .write()
+            .expect("REFLECTED_TRAITS not initialized correctly");
 
-        let name = tr.name().to_string();
+        let name = tr.name();
 
         if map.contains_key(&name) {
-            panic!("Type {} already registered", name);
+            panic!("Trait {} already registered", name);
         }
 
         map.insert(name, Box::new(tr));
     }
 
-    pub unsafe fn new_trait(name: String, bounds: Vec<Trait>, methods: fn() -> Vec<AssocFn>) {
-        let tr = TraitInfo {
+    pub unsafe fn new_trait(name: fn() -> String, bounds: fn() -> Vec<Trait>, methods: fn() -> Vec<AssocFn>) {
+        let tr = Trait {
             name,
             bounds,
             methods
         };
 
-        TraitInfo::add_trait(tr);
+        Trait::add_trait(tr);
     }
 
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn name(&self) -> String {
+        (self.name)()
     }
 
-    pub fn bounds(&self) -> &Vec<Trait> {
-        &self.bounds
+    pub fn bounds(&self) -> Vec<Trait> {
+        (self.bounds)()
     }
 }
 

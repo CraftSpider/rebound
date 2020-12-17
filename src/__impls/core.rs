@@ -1,7 +1,4 @@
-// #[allow(unused_imports)]
-// use crate::prelude::*;
-
-use crate::{TypeInfo, VariantInfo, NamedField};
+use crate::{Type, VariantInfo, NamedField};
 use crate::reflect::*;
 
 // TODO: Add impls for all these
@@ -12,7 +9,7 @@ impl Reflected for core::alloc::Layout {
     }
 
     unsafe fn init() {
-        TypeInfo::new_struct::<core::alloc::Layout>();
+        Type::new_struct::<core::alloc::Layout>();
     }
 }
 
@@ -28,7 +25,7 @@ impl Reflected for core::alloc::LayoutError {
     }
 
     unsafe fn init() {
-        TypeInfo::new_struct::<core::alloc::LayoutError>();
+        Type::new_struct::<core::alloc::LayoutError>();
     }
 }
 
@@ -44,7 +41,7 @@ impl Reflected for core::num::ParseIntError {
     }
 
     unsafe fn init() {
-        TypeInfo::new_struct::<core::num::ParseIntError>()
+        Type::new_struct::<core::num::ParseIntError>()
     }
 }
 
@@ -60,7 +57,7 @@ impl<T: Reflected, U: Reflected> Reflected for core::result::Result<T, U> {
     }
 
     unsafe fn init() {
-        TypeInfo::new_enum::<core::result::Result<T, U>>()
+        Type::new_enum::<core::result::Result<T, U>>()
     }
 }
 
@@ -76,7 +73,7 @@ impl<T: Reflected> Reflected for core::marker::PhantomData<T> {
     }
 
     unsafe fn init() {
-        TypeInfo::new_unit_struct::<core::marker::PhantomData<T>>()
+        Type::new_unit_struct::<core::marker::PhantomData<T>>()
     }
 }
 

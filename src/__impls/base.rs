@@ -1,7 +1,4 @@
-// #[allow(unused_imports)]
-// use crate::prelude::*;
-
-use crate::{AssocFn, AssocConst, Type, TypeInfo, TupleField};
+use crate::{AssocFn, AssocConst, Type, TupleField};
 use crate::reflect::*;
 use crate::__helpers::*;
 
@@ -14,7 +11,7 @@ impl Reflected for u8 {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<u8>()
+        Type::new_prim::<u8>()
     }
 }
 
@@ -25,10 +22,10 @@ impl ReflectedImpl<0> for u8 {
                 AssocFn::new(
                     __make_static_helper!(u8::from_str_radix, &str, u32),
                     "from_str_radix",
-                    TypeInfo::from::<u8>(),
+                    Type::from::<u8>(),
                     None,
-                    &[TypeInfo::from::<&str>(), TypeInfo::from::<u32>()],
-                    TypeInfo::from::<Result<u8, core::num::ParseIntError>>()
+                    &[Type::from::<&str>(), Type::from::<u32>()],
+                    Type::from::<Result<u8, core::num::ParseIntError>>()
                 ),
             ])
         }
@@ -40,8 +37,8 @@ impl ReflectedImpl<0> for u8 {
                 AssocConst::new(
                     __make_const_accessor!(u8::MIN),
                     "MIN",
-                    TypeInfo::from::<u8>(),
-                    TypeInfo::from::<&u8>(),
+                    Type::from::<u8>(),
+                    Type::from::<&u8>(),
                 )
             ])
         }
@@ -54,7 +51,7 @@ impl Reflected for u16 {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<u16>()
+        Type::new_prim::<u16>()
     }
 }
 
@@ -64,7 +61,7 @@ impl Reflected for u32 {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<u32>()
+        Type::new_prim::<u32>()
     }
 }
 
@@ -74,7 +71,7 @@ impl Reflected for u64 {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<u64>()
+        Type::new_prim::<u64>()
     }
 }
 
@@ -84,7 +81,7 @@ impl Reflected for u128 {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<u128>()
+        Type::new_prim::<u128>()
     }
 }
 
@@ -94,7 +91,7 @@ impl Reflected for usize {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<usize>()
+        Type::new_prim::<usize>()
     }
 }
 
@@ -104,7 +101,7 @@ impl Reflected for i8 {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<i8>()
+        Type::new_prim::<i8>()
     }
 }
 
@@ -114,7 +111,7 @@ impl Reflected for i16 {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<i16>()
+        Type::new_prim::<i16>()
     }
 }
 
@@ -124,7 +121,7 @@ impl Reflected for i32 {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<i32>()
+        Type::new_prim::<i32>()
     }
 }
 
@@ -134,7 +131,7 @@ impl Reflected for i64 {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<i64>()
+        Type::new_prim::<i64>()
     }
 }
 
@@ -144,7 +141,7 @@ impl Reflected for i128 {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<i128>()
+        Type::new_prim::<i128>()
     }
 }
 
@@ -154,7 +151,7 @@ impl Reflected for isize {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<isize>()
+        Type::new_prim::<isize>()
     }
 }
 
@@ -165,7 +162,7 @@ impl Reflected for f32 {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<f32>()
+        Type::new_prim::<f32>()
     }
 }
 
@@ -175,7 +172,7 @@ impl Reflected for f64 {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<f64>()
+        Type::new_prim::<f64>()
     }
 }
 
@@ -186,7 +183,7 @@ impl Reflected for bool {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<bool>()
+        Type::new_prim::<bool>()
     }
 }
 
@@ -196,7 +193,7 @@ impl Reflected for char {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<char>()
+        Type::new_prim::<char>()
     }
 }
 
@@ -206,7 +203,7 @@ impl Reflected for str {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<str>()
+        Type::new_prim::<str>()
     }
 }
 
@@ -217,7 +214,7 @@ impl Reflected for () {
     }
 
     unsafe fn init() {
-        TypeInfo::new_tuple::<()>()
+        Type::new_tuple::<()>()
     }
 }
 
@@ -234,7 +231,7 @@ impl<T0: Reflected + 'static> Reflected for (T0,) {
     }
 
     unsafe fn init() {
-        TypeInfo::new_tuple::<(T0,)>()
+        Type::new_tuple::<(T0,)>()
     }
 }
 
@@ -246,8 +243,8 @@ impl<T0: Reflected + 'static> ReflectedTuple for (T0,) {
                     __make_ref_accessor!((T0,), 0),
                     __make_setter!((T0,), 0),
                     0,
-                    TypeInfo::from::<(T0,)>(),
-                    TypeInfo::from::<T0>(),
+                    Type::from::<(T0,)>(),
+                    Type::from::<T0>(),
                 ),
             ]
         }
@@ -260,7 +257,7 @@ impl<T0: Reflected + 'static, T1: Reflected + 'static> Reflected for (T0, T1) {
     }
 
     unsafe fn init() {
-        TypeInfo::new_tuple::<(T0, T1)>()
+        Type::new_tuple::<(T0, T1)>()
     }
 }
 
@@ -272,15 +269,15 @@ impl<T0: Reflected + 'static, T1: Reflected + 'static> ReflectedTuple for (T0, T
                     __make_ref_accessor!((T0, T1), 0),
                     __make_setter!((T0, T1), 0),
                     0,
-                    TypeInfo::from::<(T0, T1)>(),
-                    TypeInfo::from::<T0>(),
+                    Type::from::<(T0, T1)>(),
+                    Type::from::<T0>(),
                 ),
                 TupleField::new(
                     __make_ref_accessor!((T0, T1), 1),
                     __make_setter!((T0, T1), 1),
                     1,
-                    TypeInfo::from::<(T0, T1)>(),
-                    TypeInfo::from::<T1>(),
+                    Type::from::<(T0, T1)>(),
+                    Type::from::<T1>(),
                 ),
             ]
         }
@@ -294,13 +291,13 @@ impl<T: Reflected, const N: usize> Reflected for [T; N] {
     }
 
     unsafe fn init() {
-        TypeInfo::new_array::<[T; N]>()
+        Type::new_array::<[T; N]>()
     }
 }
 
 impl<T: Reflected, const N: usize> ReflectedArray for [T; N] {
     fn element() -> Type {
-        TypeInfo::from::<T>()
+        Type::from::<T>()
     }
 
     fn length() -> usize {
@@ -314,13 +311,13 @@ impl<T: Reflected> Reflected for [T] {
     }
 
     unsafe fn init() {
-        TypeInfo::new_slice::<[T]>()
+        Type::new_slice::<[T]>()
     }
 }
 
 impl<T: Reflected> ReflectedSlice for [T] {
     fn element() -> Type {
-        TypeInfo::from::<T>()
+        Type::from::<T>()
     }
 }
 
@@ -331,13 +328,13 @@ impl<T: Reflected> Reflected for *const T {
     }
 
     unsafe fn init() {
-        TypeInfo::new_ptr::<*const T>();
+        Type::new_ptr::<*const T>();
     }
 }
 
 impl<T: Reflected> ReflectedPointer for *const T {
     fn element() -> Type {
-        TypeInfo::from::<T>()
+        Type::from::<T>()
     }
 
     fn mutability() -> bool {
@@ -351,13 +348,13 @@ impl<T: Reflected> Reflected for *mut T {
     }
 
     unsafe fn init() {
-        TypeInfo::new_ptr::<*mut T>();
+        Type::new_ptr::<*mut T>();
     }
 }
 
 impl<T: Reflected> ReflectedPointer for *mut T {
     fn element() -> Type {
-        TypeInfo::from::<T>()
+        Type::from::<T>()
     }
 
     fn mutability() -> bool {
@@ -372,13 +369,13 @@ impl<T: ?Sized + Reflected> Reflected for &T {
     }
 
     unsafe fn init() {
-        TypeInfo::new_ref::<&T>();
+        Type::new_ref::<&T>();
     }
 }
 
 impl<T: ?Sized + Reflected> ReflectedReference for &T {
     fn element() -> Type {
-        TypeInfo::from::<T>()
+        Type::from::<T>()
     }
 
     fn mutability() -> bool {
@@ -392,13 +389,13 @@ impl<T: ?Sized + Reflected> Reflected for &mut T {
     }
 
     unsafe fn init() {
-        TypeInfo::new_ref::<&mut T>();
+        Type::new_ref::<&mut T>();
     }
 }
 
 impl<T: ?Sized + Reflected> ReflectedReference for &mut T {
     fn element() -> Type {
-        TypeInfo::from::<T>()
+        Type::from::<T>()
     }
 
     fn mutability() -> bool {
@@ -414,6 +411,6 @@ impl Reflected for ! {
     }
 
     unsafe fn init() {
-        TypeInfo::new_prim::<!>()
+        Type::new_prim::<!>()
     }
 }

@@ -1,30 +1,32 @@
-// #[allow(unused_imports)]
-// use crate::prelude::*;
-
 use crate::info::*;
 use crate::reflect::*;
 
 use std::collections::HashMap;
-use std::sync::RwLock;
+use std::sync::{RwLock, Once};
 
-// SAFETY: *do not touch this*
-static REFLECTED_TYS: RwLock<HashMap<String, Box<TypeInfo>>> = RwLock::new(HashMap::new());
-// static mut REFLECTED_TYS: Option<HashMap<String, Box<TypeInfo>>> = None;
-
-pub type Type = &'static TypeInfo;
+// SAFETY: *do not touch these if you don't know what you're doing*
+static INIT: Once = Once::new();
+static mut REFLECTED_TYS: Option<RwLock<HashMap<String, Type>>> = None;
 
 /// Common things between all types
 pub trait CommonTypeInfo {
-    fn name(&self) -> &str;
+    fn name(&self) -> String;
     fn assoc_fns(&self) -> Vec<AssocFn>;
     fn assoc_consts(&self) -> Vec<AssocConst>;
     // fn impled_traits(&self) -> Vec<TraitInfo>;
 }
 
+/// Common VTable used by all types
+#[derive(Debug, Copy, Clone)]
+pub struct TypeVTable {
+    name: fn() -> String,
+    assoc_fns: fn() -> Vec<AssocFn>,
+    assoc_consts: fn() -> Vec<AssocConst>,
+}
 
 /// An enum that represents information about a reflected type
-#[derive(Debug)]
-pub enum TypeInfo {
+#[derive(Debug, Copy, Clone)]
+pub enum Type {
     Primitive(PrimitiveInfo),
     Tuple(TupleInfo),
     Array(ArrayInfo),
@@ -38,196 +40,207 @@ pub enum TypeInfo {
     UnitStruct(UnitStructInfo),
 }
 
-impl TypeInfo {
+impl Type {
     fn ensure_statics() {
-        unsafe {
-            if let None = REFLECTED_TYS {
-                REFLECTED_TYS = Some(HashMap::new())
-            }
-        }
+        INIT.call_once(|| {
+            unsafe { REFLECTED_TYS = Some(RwLock::new(HashMap::new())) }
+        })
     }
 
-    fn add_ty(ty: TypeInfo) {
-        TypeInfo::ensure_statics();
+    fn add_ty(ty: Type) {
+        Type::ensure_statics();
 
-        let map;
-        unsafe {
-            map = REFLECTED_TYS
-                .as_mut()
-                .expect("REFLECTED_TYS not initialized correctly");
-        }
+        let mut map = unsafe { REFLECTED_TYS.as_ref() }
+            .expect("REFLECTED_TYS not initialized correctly")
+            .write()
+            .expect("REFLECTED_TYS not initialized correctly");
 
-        let name = ty.name().to_string();
+        let name = ty.name();
 
         if map.contains_key(&name) {
-            panic!("Type {} already registered", name);
+            eprintln!("Type {} already registered", name);
         }
 
-        map.insert(name, Box::new(ty));
+        map.insert(name, ty);
     }
 
     pub unsafe fn new_prim<T: ?Sized + Reflected>() {
-        let ty = TypeInfo::Primitive(PrimitiveInfo {
-            name: T::name(),
-            assoc_fns: T::assoc_fns,
-            assoc_consts: T::assoc_consts,
+        let ty = Type::Primitive(PrimitiveInfo {
+            vtable: TypeVTable {
+                name: T::name,
+                assoc_fns: T::assoc_fns,
+                assoc_consts: T::assoc_consts,
+            }
         });
 
-        TypeInfo::add_ty(ty);
+        Type::add_ty(ty);
     }
 
     pub unsafe fn new_tuple<T: ReflectedTuple>() {
-        let ty = TypeInfo::Tuple(TupleInfo {
-            name: T::name(),
-            assoc_fns: T::assoc_fns,
-            assoc_consts: T::assoc_consts,
+        let ty = Type::Tuple(TupleInfo {
+            vtable: TypeVTable {
+                name: T::name,
+                assoc_fns: T::assoc_fns,
+                assoc_consts: T::assoc_consts,
+            },
             fields: T::fields,
         });
 
-        TypeInfo::add_ty(ty);
+        Type::add_ty(ty);
     }
 
     pub unsafe fn new_array<T: ?Sized + ReflectedArray>() {
-        let ty = TypeInfo::Array(ArrayInfo {
-            name: T::name(),
-            assoc_fns: T::assoc_fns,
-            assoc_consts: T::assoc_consts,
-
-            element: T::element(),
+        let ty = Type::Array(ArrayInfo {
+            vtable: TypeVTable {
+                name: T::name,
+                assoc_fns: T::assoc_fns,
+                assoc_consts: T::assoc_consts,
+            },
+            element: T::element,
             length: T::length(),
         });
 
-        TypeInfo::add_ty(ty);
+        Type::add_ty(ty);
     }
 
     pub unsafe fn new_slice<T: ?Sized + ReflectedSlice>() {
-        let ty = TypeInfo::Slice(SliceInfo {
-            name: T::name(),
-            assoc_fns: T::assoc_fns,
-            assoc_consts: T::assoc_consts,
-
-            element: T::element(),
+        let ty = Type::Slice(SliceInfo {
+            vtable: TypeVTable {
+                name: T::name,
+                assoc_fns: T::assoc_fns,
+                assoc_consts: T::assoc_consts,
+            },
+            element: T::element,
         });
 
-        TypeInfo::add_ty(ty);
+        Type::add_ty(ty);
     }
 
     pub unsafe fn new_ptr<T: ReflectedPointer>() {
-        let ty = TypeInfo::Pointer(PointerInfo {
-            name: T::name(),
-            assoc_fns: T::assoc_fns,
-            assoc_consts: T::assoc_consts,
-
-            element: T::element(),
+        let ty = Type::Pointer(PointerInfo {
+            vtable: TypeVTable {
+                name: T::name,
+                assoc_fns: T::assoc_fns,
+                assoc_consts: T::assoc_consts,
+            },
+            element: T::element,
             mutability: T::mutability(),
         });
 
-        TypeInfo::add_ty(ty);
+        Type::add_ty(ty);
     }
 
     pub unsafe fn new_ref<T: ReflectedReference>() {
-        let ty = TypeInfo::Reference(ReferenceInfo {
-            name: T::name(),
-            assoc_fns: T::assoc_fns,
-            assoc_consts: T::assoc_consts,
-
-            element: T::element(),
+        let ty = Type::Reference(ReferenceInfo {
+            vtable: TypeVTable {
+                name: T::name,
+                assoc_fns: T::assoc_fns,
+                assoc_consts: T::assoc_consts,
+            },
+            element: T::element,
             mutability: T::mutability(),
         });
 
-        TypeInfo::add_ty(ty);
+        Type::add_ty(ty);
     }
 
     pub unsafe fn new_struct<T: ReflectedStruct>() {
-        let ty = TypeInfo::Struct(StructInfo {
-            name: T::name(),
-            assoc_fns: T::assoc_fns,
-            assoc_consts: T::assoc_consts,
+        let ty = Type::Struct(StructInfo {
+            vtable: TypeVTable {
+                name: T::name,
+                assoc_fns: T::assoc_fns,
+                assoc_consts: T::assoc_consts,
+            },
             fields: T::fields,
         });
 
-        TypeInfo::add_ty(ty);
+        Type::add_ty(ty);
     }
 
     pub unsafe fn new_enum<T: ReflectedEnum>() {
-        let ty = TypeInfo::Enum(EnumInfo {
-            name: T::name(),
-            assoc_fns: T::assoc_fns,
-            assoc_consts: T::assoc_consts,
+        let ty = Type::Enum(EnumInfo {
+            vtable: TypeVTable {
+                name: T::name,
+                assoc_fns: T::assoc_fns,
+                assoc_consts: T::assoc_consts,
+            },
             variants: T::variants,
         });
 
-        TypeInfo::add_ty(ty);
+        Type::add_ty(ty);
     }
 
     pub unsafe fn new_tuple_struct<T: ReflectedTupleStruct>() {
-        let ty = TypeInfo::TupleStruct(TupleStructInfo {
-            name: T::name(),
-            assoc_fns: T::assoc_fns,
-            assoc_consts: T::assoc_consts,
+        let ty = Type::TupleStruct(TupleStructInfo {
+            vtable: TypeVTable {
+                name: T::name,
+                assoc_fns: T::assoc_fns,
+                assoc_consts: T::assoc_consts,
+            },
             fields: T::fields
         });
 
-        TypeInfo::add_ty(ty);
+        Type::add_ty(ty);
     }
 
     pub unsafe fn new_unit_struct<T: ReflectedUnitStruct>() {
-        let ty = TypeInfo::UnitStruct(UnitStructInfo {
-            name: T::name(),
-            assoc_fns: T::assoc_fns,
-            assoc_consts: T::assoc_consts,
+        let ty = Type::UnitStruct(UnitStructInfo {
+            vtable: TypeVTable {
+                name: T::name,
+                assoc_fns: T::assoc_fns,
+                assoc_consts: T::assoc_consts,
+            },
         });
 
-        TypeInfo::add_ty(ty);
+        Type::add_ty(ty);
     }
 
     pub fn from_name(name: &str) -> Option<Type> {
-        TypeInfo::ensure_statics();
+        Type::ensure_statics();
 
-        unsafe {
-            REFLECTED_TYS
-                .as_ref()
-                .expect("static Reflection mapping not generated")
-                .get(name)
-                .map(|b| b.as_ref())
-        }
+        unsafe { REFLECTED_TYS.as_ref() }
+            .expect("static Reflection mapping not generated")
+            .read()
+            .expect("Couldn't get read lock on Reflection mapping")
+            .get(name)
+            .map(|t| *t)
     }
 
     pub fn from<T: ?Sized + Reflected>() -> Type {
-        TypeInfo::from_name(&T::name())
+        Type::from_name(&T::name())
             .unwrap_or_else(|| {
                 unsafe { T::init() }
 
-                TypeInfo::from_name(&T::name()).expect(&format!("TypeInfo for {} not initialized, despite calling T::init()", T::name()))
+                Type::from_name(&T::name()).expect(&format!("Type for {} not initialized, despite calling T::init()", T::name()))
             })
     }
 
     fn as_inner(&self) -> &dyn CommonTypeInfo {
         match self {
-            TypeInfo::Primitive(i) => i,
-            TypeInfo::Tuple(i) => i,
-            TypeInfo::Slice(i) => i,
-            TypeInfo::Array(i) => i,
-            TypeInfo::Pointer(i) => i,
-            TypeInfo::Reference(i) => i,
+            Type::Primitive(i) => i,
+            Type::Tuple(i) => i,
+            Type::Slice(i) => i,
+            Type::Array(i) => i,
+            Type::Pointer(i) => i,
+            Type::Reference(i) => i,
 
-            TypeInfo::Struct(i) => i,
-            TypeInfo::Enum(i) => i,
-            TypeInfo::TupleStruct(i) => i,
-            TypeInfo::UnitStruct(i) => i,
+            Type::Struct(i) => i,
+            Type::Enum(i) => i,
+            Type::TupleStruct(i) => i,
+            Type::UnitStruct(i) => i,
         }
     }
 }
 
-impl PartialEq for TypeInfo {
-    fn eq(&self, other: &TypeInfo) -> bool {
+impl PartialEq for Type {
+    fn eq(&self, other: &Type) -> bool {
         // TODO: May be possible to break this assumption
         return self.name() == other.name()
     }
 }
 
-impl CommonTypeInfo for TypeInfo {
-    fn name(&self) -> &str {
+impl CommonTypeInfo for Type {
+    fn name(&self) -> String {
         self.as_inner().name()
     }
 
@@ -240,33 +253,28 @@ impl CommonTypeInfo for TypeInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct PrimitiveInfo {
-    name: String,
-    assoc_fns: fn() -> Vec<AssocFn>,
-    assoc_consts: fn() -> Vec<AssocConst>,
+    vtable: TypeVTable,
 }
 
 impl CommonTypeInfo for PrimitiveInfo {
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> String {
+        (self.vtable.name)()
     }
 
     fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.assoc_fns)()
+        (self.vtable.assoc_fns)()
     }
 
     fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.assoc_consts)()
+        (self.vtable.assoc_consts)()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct TupleInfo {
-    name: String,
-    assoc_fns: fn() -> Vec<AssocFn>,
-    assoc_consts: fn() -> Vec<AssocConst>,
-
+    vtable: TypeVTable,
     fields: fn() -> Vec<TupleField>,
 }
 
@@ -277,120 +285,105 @@ impl TupleInfo {
 }
 
 impl CommonTypeInfo for TupleInfo {
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> String {
+        (self.vtable.name)()
     }
 
     fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.assoc_fns)()
+        (self.vtable.assoc_fns)()
     }
 
     fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.assoc_consts)()
+        (self.vtable.assoc_consts)()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct ArrayInfo {
-    name: String,
-    assoc_fns: fn() -> Vec<AssocFn>,
-    assoc_consts: fn() -> Vec<AssocConst>,
-
-    element: Type,
+    vtable: TypeVTable,
+    element: fn() -> Type,
     length: usize,
 }
 
 impl CommonTypeInfo for ArrayInfo {
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> String {
+        (self.vtable.name)()
     }
 
     fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.assoc_fns)()
+        (self.vtable.assoc_fns)()
     }
 
     fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.assoc_consts)()
+        (self.vtable.assoc_consts)()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct SliceInfo {
-    name: String,
-    assoc_fns: fn() -> Vec<AssocFn>,
-    assoc_consts: fn() -> Vec<AssocConst>,
-
-    element: Type,
+    vtable: TypeVTable,
+    element: fn() -> Type,
 }
 
 impl CommonTypeInfo for SliceInfo {
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> String {
+        (self.vtable.name)()
     }
 
     fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.assoc_fns)()
+        (self.vtable.assoc_fns)()
     }
 
     fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.assoc_consts)()
+        (self.vtable.assoc_consts)()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct PointerInfo {
-    name: String,
-    assoc_fns: fn() -> Vec<AssocFn>,
-    assoc_consts: fn() -> Vec<AssocConst>,
-
-    element: Type,
+    vtable: TypeVTable,
+    element: fn() -> Type,
     mutability: bool,
 }
 
 impl CommonTypeInfo for PointerInfo {
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> String {
+        (self.vtable.name)()
     }
 
     fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.assoc_fns)()
+        (self.vtable.assoc_fns)()
     }
 
     fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.assoc_consts)()
+        (self.vtable.assoc_consts)()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct ReferenceInfo {
-    name: String,
-    assoc_fns: fn() -> Vec<AssocFn>,
-    assoc_consts: fn() -> Vec<AssocConst>,
-
-    element: Type,
+    vtable: TypeVTable,
+    element: fn() -> Type,
     mutability: bool,
 }
 
 impl CommonTypeInfo for ReferenceInfo {
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> String {
+        (self.vtable.name)()
     }
 
     fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.assoc_fns)()
+        (self.vtable.assoc_fns)()
     }
 
     fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.assoc_consts)()
+        (self.vtable.assoc_consts)()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct StructInfo {
-    name: String,
-    assoc_fns: fn() -> Vec<AssocFn>,
-    assoc_consts: fn() -> Vec<AssocConst>,
-
+    vtable: TypeVTable,
     fields: fn() -> Vec<NamedField>,
 }
 
@@ -401,83 +394,75 @@ impl StructInfo {
 }
 
 impl CommonTypeInfo for StructInfo {
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> String {
+        (self.vtable.name)()
     }
 
     fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.assoc_fns)()
+        (self.vtable.assoc_fns)()
     }
 
     fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.assoc_consts)()
+        (self.vtable.assoc_consts)()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct EnumInfo {
-    name: String,
-    assoc_fns: fn() -> Vec<AssocFn>,
-    assoc_consts: fn() -> Vec<AssocConst>,
-    
+    vtable: TypeVTable,
     variants: fn() -> Vec<VariantInfo>,
 }
 
 impl CommonTypeInfo for EnumInfo {
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> String {
+        (self.vtable.name)()
     }
 
     fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.assoc_fns)()
+        (self.vtable.assoc_fns)()
     }
 
     fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.assoc_consts)()
+        (self.vtable.assoc_consts)()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct TupleStructInfo {
-    name: String,
-    assoc_fns: fn() -> Vec<AssocFn>,
-    assoc_consts: fn() -> Vec<AssocConst>,
-
+    vtable: TypeVTable,
     fields: fn() -> Vec<TupleField>,
 }
 
 impl CommonTypeInfo for TupleStructInfo {
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> String {
+        (self.vtable.name)()
     }
 
     fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.assoc_fns)()
+        (self.vtable.assoc_fns)()
     }
 
     fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.assoc_consts)()
+        (self.vtable.assoc_consts)()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct UnitStructInfo {
-    name: String,
-    assoc_fns: fn() -> Vec<AssocFn>,
-    assoc_consts: fn() -> Vec<AssocConst>,
+    vtable: TypeVTable,
 }
 
 impl CommonTypeInfo for UnitStructInfo {
-    fn name(&self) -> &str {
-        &self.name
+    fn name(&self) -> String {
+        (self.vtable.name)()
     }
 
     fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.assoc_fns)()
+        (self.vtable.assoc_fns)()
     }
 
     fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.assoc_consts)()
+        (self.vtable.assoc_consts)()
     }
 }
 
