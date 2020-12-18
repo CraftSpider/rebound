@@ -1,4 +1,5 @@
 
+#![allow(incomplete_features)]
 #![feature(specialization)]
 
 use rebound::{Type, rebound};
@@ -6,7 +7,7 @@ use rebound::{Type, rebound};
 #[rebound]
 struct Foo {}
 
-#[rebound(debug_out)]
+#[rebound]
 impl Foo {
     fn new() -> Foo {
         Foo {}
