@@ -104,7 +104,8 @@ impl<'a> Value<'a> {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```no_run
+    /// # use rebound::Value;
     /// let int = Value::from(1);
     ///
     /// // Succeeds
@@ -125,7 +126,8 @@ impl<'a> Value<'a> {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```no_run
+    /// # use rebound::Value;
     /// let bool = Value::from(true);
     ///
     /// // Succeeds
@@ -144,14 +146,17 @@ impl<'a> Value<'a> {
     ///
     /// # Example
     ///
-    /// ```
-    /// let char = Value::from('a');
+    /// ```no_run
+    /// # use rebound::Value;
+    /// let mut char = Value::from('a');
     ///
     /// // Succeeds
-    /// let c = char.try_borrow_mut::<char>();
+    /// let c = char.try_borrow_mut::<char>()
+    ///     .unwrap();
     /// *c = 'b';
     /// // Fails
-    /// let c = char.try_borrow_mut::<i32>();
+    /// let c = char.try_borrow_mut::<i32>()
+    ///     .unwrap();
     /// *c = 2;
     ///
     /// ```
@@ -165,6 +170,16 @@ impl<'a> Value<'a> {
 
     /// Attempt to mutably borrow the T contained in this value, panicking on failure. This will
     /// panic in all the cases that [`Value::try_borrow_mut`] would return an Err value.
+    ///
+    /// ```no_run
+    /// # use rebound::Value;
+    /// let mut str = Value::from("a string");
+    ///
+    /// // Succeeds
+    /// let s = str.borrow_mut::<&str>();
+    /// // Fails
+    /// let s = str.borrow_mut::<&i32>();
+    /// ```
     pub fn borrow_mut<T: Reflected>(&mut self) -> &mut T {
         self.try_borrow_mut()
             .expect(&format!("Couldn't mutably borrow Value as type {}", T::name()))
