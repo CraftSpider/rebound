@@ -22,7 +22,8 @@ pub fn impl_find(input: TokenStream) -> TokenStream {
             None => return sum,
         }
         )*
-    ).into()
+    )
+    .into()
 }
 
 #[proc_macro_attribute]

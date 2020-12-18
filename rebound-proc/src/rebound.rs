@@ -1,14 +1,13 @@
-
 use std::collections::HashMap;
 use std::lazy::SyncOnceCell;
 use std::sync::RwLock;
 
-use proc_macro2::{TokenStream, Span};
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::{Item, Token};
 use syn::parse::{Parse, ParseBuffer};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
+use syn::{Item, Token};
 
 mod utils;
 use utils::*;
@@ -16,16 +15,14 @@ use utils::*;
 type Result<T> = std::result::Result<T, String>;
 
 struct AttrInput {
-    values: Punctuated<syn::NestedMeta, Token![,]>
+    values: Punctuated<syn::NestedMeta, Token![,]>,
 }
 
 impl Parse for AttrInput {
     fn parse(input: &ParseBuffer) -> syn::Result<Self> {
         let values = Punctuated::parse_terminated(input)?;
 
-        Ok(AttrInput {
-            values
-        })
+        Ok(AttrInput { values })
     }
 }
 
@@ -35,56 +32,59 @@ struct Config {
 }
 
 fn parse_attrs(attrs: TokenStream) -> Result<Config> {
-    let args: AttrInput = syn::parse2(attrs)
-        .map_err(|err| err.to_string())?;
+    let args: AttrInput = syn::parse2(attrs).map_err(|err| err.to_string())?;
 
     let mut crate_name = None;
     let mut debug_out = false;
 
     for i in args.values {
         match i {
-            syn::NestedMeta::Meta(meta) => {
-                match meta {
-                    syn::Meta::List(..) => return Err(format!("Found unexpected list element")),
-                    syn::Meta::NameValue(nv) => {
-                        if path_to_string(&nv.path) == "crate_name" {
-                            crate_name = Some(lit_as_str(&nv.lit)?);
-                        } else {
-                            return Err(format!("Found unexpected name/value pair {}", path_to_string(&nv.path)))
-                        }
-                    },
-                    syn::Meta::Path(path) => {
-                        if path_to_string(&path) == "debug_out" {
-                            debug_out = true;
-                        } else {
-                            return Err(format!("Found unexpected path element {}", path_to_string(&path)))
-                        }
+            syn::NestedMeta::Meta(meta) => match meta {
+                syn::Meta::List(..) => return Err(format!("Found unexpected list element")),
+                syn::Meta::NameValue(nv) => {
+                    if path_to_string(&nv.path) == "crate_name" {
+                        crate_name = Some(lit_as_str(&nv.lit)?);
+                    } else {
+                        return Err(format!(
+                            "Found unexpected name/value pair {}",
+                            path_to_string(&nv.path)
+                        ));
+                    }
+                }
+                syn::Meta::Path(path) => {
+                    if path_to_string(&path) == "debug_out" {
+                        debug_out = true;
+                    } else {
+                        return Err(format!(
+                            "Found unexpected path element {}",
+                            path_to_string(&path)
+                        ));
                     }
                 }
             },
-            syn::NestedMeta::Lit(..) => {
-                return Err(format!("Found unexpected literal argument"))
-            },
+            syn::NestedMeta::Lit(..) => return Err(format!("Found unexpected literal argument")),
         }
     }
 
-    let crate_name = syn::Ident::new(&crate_name.unwrap_or_else(|| "rebound".to_string()), Span::call_site());
+    let crate_name = syn::Ident::new(
+        &crate_name.unwrap_or_else(|| "rebound".to_string()),
+        Span::call_site(),
+    );
 
     Ok(Config {
         crate_name,
-        debug_out
+        debug_out,
     })
 }
 
 fn verify_item(input: TokenStream) -> Result<Item> {
-    let item = syn::parse2(input)
-        .map_err(|err| { eprintln!("SYN PARSE ERROR"); err.to_string() })?;
+    let item = syn::parse2(input).map_err(|err| {
+        eprintln!("SYN PARSE ERROR");
+        err.to_string()
+    })?;
 
     let err = match &item {
-        Item::Enum(..)
-        | Item::Impl(..)
-        | Item::Struct(..)
-        | Item::Trait(..) => None,
+        Item::Enum(..) | Item::Impl(..) | Item::Struct(..) | Item::Trait(..) => None,
 
         Item::Const(..) => Some("a const"),
         Item::ExternCrate(..) => Some("an extern crate"),
@@ -99,7 +99,7 @@ fn verify_item(input: TokenStream) -> Result<Item> {
         Item::Union(..) => Some("a union"),
         Item::Use(..) => Some("a use declaration"),
         Item::Verbatim(..) => Some("an unknown top-level item"),
-        _ => Some("an unhandled item")
+        _ => Some("an unhandled item"),
     };
 
     match err {
@@ -151,7 +151,7 @@ fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStrea
                         || { vec![ #(#fields),* ] }
                     ))
                 ))
-            },
+            }
             syn::Fields::Unnamed(fields) => {
                 let fields = fields.unnamed.iter()
                     .enumerate()
@@ -201,15 +201,13 @@ fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStrea
                         || { vec![ #(#fields),* ] }
                     ))
                 ))
-            },
-            syn::Fields::Unit => {
-                variant_impls.push(quote!(
-                    #crate_name::VariantInfo::Unit(#crate_name::info::UnitVariant::new(
-                        stringify!(#i),
-                        #crate_name::Type::from::<#name>(),
-                    ))
-                ))
             }
+            syn::Fields::Unit => variant_impls.push(quote!(
+                #crate_name::VariantInfo::Unit(#crate_name::info::UnitVariant::new(
+                    stringify!(#i),
+                    #crate_name::Type::from::<#name>(),
+                ))
+            )),
         }
     }
 
@@ -240,14 +238,20 @@ static IMPLS_PER_TY: SyncOnceCell<RwLock<HashMap<String, u8>>> = SyncOnceCell::n
 
 fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenStream> {
     if item.trait_.is_some() {
-        return Err("Rebound does not yet support trait reflection, this may work in a future version".to_string())
+        return Err(
+            "Rebound does not yet support trait reflection, this may work in a future version"
+                .to_string(),
+        );
     }
     if item.generics.params.len() > 0 {
-        return Err("Rebound does not yet support generic impls, this may work in a future version".to_string())
+        return Err(
+            "Rebound does not yet support generic impls, this may work in a future version"
+                .to_string(),
+        );
     }
 
     let mut impls = IMPLS_PER_TY
-        .get_or_init(|| { RwLock::new(HashMap::new()) })
+        .get_or_init(|| RwLock::new(HashMap::new()))
         .write()
         .unwrap();
 
@@ -264,7 +268,9 @@ fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenStrea
             syn::ImplItem::Method(impl_item) => {
                 let fn_name = &impl_item.sig.ident;
 
-                let (helper, receiver_ty) = if impl_item.sig.inputs.len() > 0 && matches!(impl_item.sig.inputs[0], syn::FnArg::Receiver(..)) {
+                let (helper, receiver_ty) = if impl_item.sig.inputs.len() > 0
+                    && matches!(impl_item.sig.inputs[0], syn::FnArg::Receiver(..))
+                {
                     let receiver = if let syn::FnArg::Receiver(arg) = &impl_item.sig.inputs[0] {
                         if arg.reference.is_some() {
                             let mutability = &arg.mutability;
@@ -287,18 +293,19 @@ fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenStrea
                     )
                 };
 
-                let args = impl_item.sig.inputs.iter()
-                    .filter_map(|arg| {
-                        match arg {
-                            syn::FnArg::Receiver(..) => None,
-                            syn::FnArg::Typed(ty) => Some(quote!( #crate_name::Type::from::<#ty>() ))
-                        }
+                let args = impl_item
+                    .sig
+                    .inputs
+                    .iter()
+                    .filter_map(|arg| match arg {
+                        syn::FnArg::Receiver(..) => None,
+                        syn::FnArg::Typed(ty) => Some(quote!( #crate_name::Type::from::<#ty>() )),
                     })
                     .collect::<Vec<_>>();
 
                 let ret_ty = match &impl_item.sig.output {
                     syn::ReturnType::Default => quote!(()),
-                    syn::ReturnType::Type(_, ty) => quote!(#ty)
+                    syn::ReturnType::Type(_, ty) => quote!(#ty),
                 };
 
                 impl_fns.push(quote!(
@@ -317,7 +324,12 @@ fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenStrea
                 todo!()
             }
             // TODO: Warning instead of error?
-            _ => return Err("Rebound currently only supports reflecting fns and consts in impls".to_string())
+            _ => {
+                return Err(
+                    "Rebound currently only supports reflecting fns and consts in impls"
+                        .to_string(),
+                )
+            }
         }
     }
 
@@ -359,7 +371,9 @@ fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenS
         syn::Fields::Named(fields) => {
             new_fn = syn::Ident::new("new_struct", item.span());
 
-            let fields = fields.named.iter()
+            let fields = fields
+                .named
+                .iter()
                 .map(|field| {
                     let field_name = field.ident.as_ref().unwrap();
                     let field_ty = sanitized_field_ty(&field.ty);
@@ -388,11 +402,13 @@ fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenS
                     }
                 }
             )
-        },
+        }
         syn::Fields::Unnamed(fields) => {
             new_fn = syn::Ident::new("new_tuple_struct", item.span());
 
-            let fields = fields.unnamed.iter()
+            let fields = fields
+                .unnamed
+                .iter()
                 .enumerate()
                 .map(|(idx, field)| {
                     let access = syn::Index::from(idx);
@@ -422,14 +438,14 @@ fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenS
                     }
                 }
             )
-        },
+        }
         syn::Fields::Unit => {
             new_fn = syn::Ident::new("new_unit_struct", item.span());
 
             struct_impl = quote!(
                 impl #impl_bounds #crate_name::reflect::ReflectedUnitStruct for #name {}
             )
-        },
+        }
     }
 
     Ok(quote!(
@@ -457,7 +473,7 @@ fn generate_reflect(cfg: &Config, item: Item) -> Result<TokenStream> {
         Item::Impl(item) => generate_reflect_impl(cfg, item),
         Item::Struct(item) => generate_reflect_struct(cfg, item),
         Item::Trait(item) => generate_reflect_trait(item),
-        _ => unreachable!()
+        _ => unreachable!(),
     }
 }
 
@@ -485,6 +501,6 @@ pub fn rebound(attrs: TokenStream, item: TokenStream) -> TokenStream {
 
     match res {
         Ok(ts) => ts,
-        Err(msg) => quote!( compile_error!(#msg); )
+        Err(msg) => quote!( compile_error!(#msg); ),
     }
 }
