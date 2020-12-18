@@ -11,7 +11,7 @@ A powerful, lifetime-safe runtime reflection system for Rust. **Heavily WIP, req
 
 Rebound aims to provide high-power runtime reflection. This includes two main features:
 
-- Reflect as much as possible. This means rebound is willing to trade some performance, code size, of simplicity
+- Reflect as much as possible. This means rebound is willing to trade some performance, code size, or simplicity
   in the name of increased power.
 - Follow Rust's lifetime and memory safety guarantees. As long as you are using the safe API,
   rebound should never cause segfaults or any other data race.
