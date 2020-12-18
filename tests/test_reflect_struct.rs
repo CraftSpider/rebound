@@ -1,6 +1,5 @@
-
-use rebound::{Type, FieldKind, rebound};
 use rebound::ty::CommonTypeInfo;
+use rebound::{rebound, FieldKind, Type};
 
 #[rebound]
 struct Foo {

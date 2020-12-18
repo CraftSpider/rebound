@@ -1,6 +1,6 @@
-use crate::{AssocFn, AssocConst, Type, Field};
-use crate::reflect::*;
 use crate::__helpers::*;
+use crate::reflect::*;
+use crate::{AssocConst, AssocFn, Field, Type};
 
 // TODO: Add impls for all these
 
@@ -18,29 +18,25 @@ impl Reflected for u8 {
 impl ReflectedImpl<0> for u8 {
     fn assoc_fns() -> Option<Vec<AssocFn>> {
         unsafe {
-            Some(vec![
-                AssocFn::new(
-                    __make_static_helper!(u8::from_str_radix, &str, u32),
-                    "from_str_radix",
-                    Type::from::<u8>(),
-                    None,
-                    &[Type::from::<&str>(), Type::from::<u32>()],
-                    Type::from::<Result<u8, core::num::ParseIntError>>()
-                ),
-            ])
+            Some(vec![AssocFn::new(
+                __make_static_helper!(u8::from_str_radix, &str, u32),
+                "from_str_radix",
+                Type::from::<u8>(),
+                None,
+                &[Type::from::<&str>(), Type::from::<u32>()],
+                Type::from::<Result<u8, core::num::ParseIntError>>(),
+            )])
         }
     }
 
     fn assoc_consts() -> Option<Vec<AssocConst>> {
         unsafe {
-            Some(vec![
-                AssocConst::new(
-                    __make_const_accessor!(u8::MIN),
-                    "MIN",
-                    Type::from::<u8>(),
-                    Type::from::<&u8>(),
-                )
-            ])
+            Some(vec![AssocConst::new(
+                __make_const_accessor!(u8::MIN),
+                "MIN",
+                Type::from::<u8>(),
+                Type::from::<&u8>(),
+            )])
         }
     }
 }
@@ -238,15 +234,13 @@ impl<T0: Reflected + 'static> Reflected for (T0,) {
 impl<T0: Reflected + 'static> ReflectedTuple for (T0,) {
     fn fields() -> Vec<Field> {
         unsafe {
-            vec![
-                Field::new_tuple(
-                    __make_ref_accessor!((T0,), 0),
-                    __make_setter!((T0,), 0),
-                    0,
-                    Type::from::<(T0,)>(),
-                    Type::from::<T0>(),
-                ),
-            ]
+            vec![Field::new_tuple(
+                __make_ref_accessor!((T0,), 0),
+                __make_setter!((T0,), 0),
+                0,
+                Type::from::<(T0,)>(),
+                Type::from::<T0>(),
+            )]
         }
     }
 }

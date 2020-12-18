@@ -1,4 +1,3 @@
-
 pub macro __make_static_helper($f:path $(, $args:ty)*) {
     #[allow(unused_mut, unused_variables)]
     Box::new(move |_, mut args| {
@@ -15,9 +14,7 @@ pub macro __make_dyn_helper($f:path, $ty:ty $(, $args:ty)*) {
 }
 
 pub macro __make_const_accessor($val:path) {
-    Box::new(move || {
-        $crate::Value::from($val)
-    })
+    Box::new(move || $crate::Value::from($val))
 }
 
 pub macro __make_ref_accessor($ty:ty, $($item:tt)+) {

@@ -1,13 +1,13 @@
 //! Dynamically typed, lifetime safe values
 
-use crate::{Type, Reflected, Error};
+use crate::{Error, Reflected, Type};
 
-use core::ptr;
 use core::marker::PhantomData;
+use core::ptr;
 
 #[derive(Debug)]
 enum ValueKind {
-    Owned { drop: fn(*mut()) },
+    Owned { drop: fn(*mut ()) },
     Borrowed,
 }
 
@@ -29,7 +29,6 @@ pub struct Value<'a> {
 
 // TODO: Count borrows safely, RefCell style?
 impl<'a> Value<'a> {
-
     /// Create a new borrowed Value from a reference, with a lifetime no greater than that of the
     /// provided reference.
     pub fn from_ref<T: Reflected>(val: &T) -> Value {
@@ -37,7 +36,7 @@ impl<'a> Value<'a> {
             ptr: val as *const T as *mut (),
             ty: Type::from::<T>(),
             _phantom: PhantomData,
-            kind: ValueKind::Borrowed
+            kind: ValueKind::Borrowed,
         }
     }
 
@@ -71,7 +70,8 @@ impl<'a> Value<'a> {
     pub unsafe fn try_cast<T: Reflected>(mut self) -> Result<T, (Self, Error)> {
         if let ValueKind::Owned { .. } = &self.kind {
             if Type::from::<T>() != self.ty {
-                Err((self, Error::WrongType))
+                let ty = self.ty;
+                Err((self, Error::wrong_type(Type::from::<T>(), ty)))
             } else {
                 let old_ptr = self.ptr;
                 self.ptr = ptr::null_mut();
@@ -115,7 +115,7 @@ impl<'a> Value<'a> {
     /// ```
     pub fn try_borrow<T: Reflected>(&self) -> Result<&T, Error> {
         if Type::from::<T>() != self.ty() {
-            Err(Error::WrongType)
+            Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         } else {
             unsafe { Ok(&*(self.ptr as *const T)) }
         }
@@ -162,7 +162,7 @@ impl<'a> Value<'a> {
     /// ```
     pub fn try_borrow_mut<T: Reflected>(&mut self) -> Result<&mut T, Error> {
         if Type::from::<T>() != self.ty() {
-            Err(Error::WrongType)
+            Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         } else {
             unsafe { Ok(&mut *(self.ptr as *mut T)) }
         }
@@ -181,8 +181,10 @@ impl<'a> Value<'a> {
     /// let s = str.borrow_mut::<&i32>();
     /// ```
     pub fn borrow_mut<T: Reflected>(&mut self) -> &mut T {
-        self.try_borrow_mut()
-            .expect(&format!("Couldn't mutably borrow Value as type {}", T::name()))
+        self.try_borrow_mut().expect(&format!(
+            "Couldn't mutably borrow Value as type {}",
+            T::name()
+        ))
     }
 }
 
@@ -194,9 +196,11 @@ impl<'a, T: Reflected + 'a> From<T> for Value<'a> {
             ptr,
             ty: Type::from::<T>(),
             _phantom: PhantomData,
-            kind: ValueKind::Owned { drop: |ptr| {
-                unsafe { Box::from_raw(ptr as *mut T) };
-            }}
+            kind: ValueKind::Owned {
+                drop: |ptr| {
+                    unsafe { Box::from_raw(ptr as *mut T) };
+                },
+            },
         }
     }
 }

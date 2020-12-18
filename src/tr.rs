@@ -1,8 +1,8 @@
 use crate::info::*;
 
 use std::collections::HashMap;
-use std::sync::RwLock;
 use std::lazy::SyncOnceCell;
+use std::sync::RwLock;
 
 static REFLECTED_TRAITS: SyncOnceCell<RwLock<HashMap<String, Box<Trait>>>> = SyncOnceCell::new();
 
@@ -29,11 +29,15 @@ impl Trait {
         map.insert(name, Box::new(tr));
     }
 
-    pub unsafe fn new_trait(name: fn() -> String, bounds: fn() -> Vec<Trait>, methods: fn() -> Vec<AssocFn>) {
+    pub unsafe fn new_trait(
+        name: fn() -> String,
+        bounds: fn() -> Vec<Trait>,
+        methods: fn() -> Vec<AssocFn>,
+    ) {
         let tr = Trait {
             name,
             bounds,
-            methods
+            methods,
         };
 
         Trait::add_trait(tr);

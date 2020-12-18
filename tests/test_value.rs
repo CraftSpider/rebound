@@ -1,5 +1,4 @@
-
-use rebound::{Value, Type, rebound};
+use rebound::{rebound, Type, Value};
 use std::marker::PhantomData;
 
 #[rebound]

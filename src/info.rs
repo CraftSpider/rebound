@@ -55,19 +55,17 @@ impl AssocFn {
     pub fn call(&self, this: Option<Value>, args: Vec<Value>) -> Result<Value<'static>, Error> {
         // Check the validity of `this`
         match self.self_ty {
-            Some(ty) => {
-                match &this {
-                    Some(val) => if val.ty() != ty {
-                        return Err(Error::WrongType)
-                    }
-                    None => {
-                        return Err(Error::ExpectedSelf)
+            Some(ty) => match &this {
+                Some(val) => {
+                    if val.ty() != ty {
+                        return Err(Error::wrong_type(val.ty(), ty));
                     }
                 }
-            }
+                None => return Err(Error::ExpectedSelf),
+            },
             None => {
                 if this.is_some() {
-                    return Err(Error::UnexpectedSelf)
+                    return Err(Error::UnexpectedSelf);
                 }
             }
         }
@@ -81,7 +79,7 @@ impl AssocFn {
 
         for (idx, val) in args.iter().enumerate() {
             if val.ty() != self.args[idx] {
-                return Err(Error::WrongType)
+                return Err(Error::wrong_type(val.ty(), self.args[idx]));
             }
         }
 
@@ -151,10 +149,20 @@ impl fmt::Debug for AssocConst {
 
 #[derive(Debug)]
 pub enum FieldKind {
-    Tuple { idx: usize },
-    Named { name: &'static str },
-    EnumTuple { idx: usize, assoc_var: VariantInfo },
-    EnumNamed { name: &'static str, assoc_var: VariantInfo },
+    Tuple {
+        idx: usize,
+    },
+    Named {
+        name: &'static str,
+    },
+    EnumTuple {
+        idx: usize,
+        assoc_var: VariantInfo,
+    },
+    EnumNamed {
+        name: &'static str,
+        assoc_var: VariantInfo,
+    },
 }
 
 pub struct Field {
@@ -178,7 +186,7 @@ impl Field {
             set_ptr,
             assoc_ty,
             field_ty,
-            kind: FieldKind::Named { name }
+            kind: FieldKind::Named { name },
         }
     }
 
@@ -194,7 +202,7 @@ impl Field {
             set_ptr,
             assoc_ty,
             field_ty,
-            kind: FieldKind::Tuple { idx }
+            kind: FieldKind::Tuple { idx },
         }
     }
 
@@ -211,7 +219,7 @@ impl Field {
             set_ptr,
             assoc_ty,
             field_ty,
-            kind: FieldKind::EnumNamed { name, assoc_var }
+            kind: FieldKind::EnumNamed { name, assoc_var },
         }
     }
 
@@ -228,7 +236,7 @@ impl Field {
             set_ptr,
             assoc_ty,
             field_ty,
-            kind: FieldKind::EnumTuple { idx, assoc_var }
+            kind: FieldKind::EnumTuple { idx, assoc_var },
         }
     }
 
@@ -246,7 +254,7 @@ impl Field {
 
     pub fn get_ref<'a>(&self, this: &'a Value<'a>) -> Result<Value<'a>, Error> {
         if this.ty() != self.assoc_ty() {
-            Err(Error::WrongType)
+            Err(Error::wrong_type(this.ty(), self.assoc_ty))
         } else {
             Ok((self.get_ptr)(this))
         }
@@ -254,7 +262,7 @@ impl Field {
 
     pub fn set(&self, this: &mut Value, other: Value<'static>) -> Result<(), Error> {
         if this.ty() != self.assoc_ty() || other.ty() != self.ty() {
-            Err(Error::WrongType)
+            Err(Error::wrong_type(this.ty(), self.assoc_ty))
         } else {
             (self.set_ptr)(this, other);
             Ok(())
@@ -276,7 +284,7 @@ impl fmt::Debug for Field {
 pub enum VariantInfo {
     Unit(UnitVariant),
     Tuple(TupleVariant),
-    Struct(StructVariant)
+    Struct(StructVariant),
 }
 
 impl VariantInfo {
@@ -297,10 +305,7 @@ pub struct UnitVariant {
 
 impl UnitVariant {
     pub unsafe fn new(name: &'static str, assoc_ty: Type) -> UnitVariant {
-        UnitVariant {
-            name,
-            assoc_ty,
-        }
+        UnitVariant { name, assoc_ty }
     }
 
     pub fn name(&self) -> &str {
@@ -322,15 +327,19 @@ impl PartialEq for UnitVariant {
 pub struct TupleVariant {
     name: &'static str,
     assoc_ty: Type,
-    fields: fn() -> Vec<Field>
+    fields: fn() -> Vec<Field>,
 }
 
 impl TupleVariant {
-    pub unsafe fn new(name: &'static str, assoc_ty: Type, fields: fn() -> Vec<Field>) -> TupleVariant {
+    pub unsafe fn new(
+        name: &'static str,
+        assoc_ty: Type,
+        fields: fn() -> Vec<Field>,
+    ) -> TupleVariant {
         TupleVariant {
             name,
             assoc_ty,
-            fields
+            fields,
         }
     }
 
@@ -357,15 +366,19 @@ impl PartialEq for TupleVariant {
 pub struct StructVariant {
     name: &'static str,
     assoc_ty: Type,
-    fields: fn() -> Vec<Field>
+    fields: fn() -> Vec<Field>,
 }
 
 impl StructVariant {
-    pub unsafe fn new(name: &'static str, assoc_ty: Type, fields: fn() -> Vec<Field>) -> StructVariant {
+    pub unsafe fn new(
+        name: &'static str,
+        assoc_ty: Type,
+        fields: fn() -> Vec<Field>,
+    ) -> StructVariant {
         StructVariant {
             name,
             assoc_ty,
-            fields
+            fields,
         }
     }
 

@@ -1,30 +1,38 @@
+//! Runtime information about a type
+
 use crate::info::*;
 use crate::reflect::*;
 
 use std::collections::HashMap;
-use std::sync::RwLock;
 use std::lazy::SyncOnceCell;
+use std::sync::RwLock;
 
 // SAFETY: *do not touch these if you don't know what you're doing*
 static REFLECTED_TYS: SyncOnceCell<RwLock<HashMap<String, Type>>> = SyncOnceCell::new();
 
-/// Common things between all types
+/// Common information / operations between all types
 pub trait CommonTypeInfo {
+    /// Get this type's name
     fn name(&self) -> String;
+    /// Get the known associated functions of this type
     fn assoc_fns(&self) -> Vec<AssocFn>;
+    /// Get the known associated constants of this type
     fn assoc_consts(&self) -> Vec<AssocConst>;
     // fn impled_traits(&self) -> Vec<TraitInfo>;
 }
 
 /// Common VTable used by all types
 #[derive(Debug, Copy, Clone)]
-pub struct TypeVTable {
+struct TypeVTable {
     name: fn() -> String,
     assoc_fns: fn() -> Vec<AssocFn>,
     assoc_consts: fn() -> Vec<AssocConst>,
 }
 
-/// An enum that represents information about a reflected type
+/// An enum that represents information about a reflected type. This supports basically any possible
+/// type in Rust, including primitives, arrays, and references. Strictly, the only requirement is
+/// that the type implement the [`Reflected`] trait, though most types are also expected to
+/// implement another trait related to information they possess not shared by other type kinds.
 #[derive(Debug, Copy, Clone)]
 pub enum Type {
     Primitive(PrimitiveInfo),
@@ -62,7 +70,7 @@ impl Type {
                 name: T::name,
                 assoc_fns: T::assoc_fns,
                 assoc_consts: T::assoc_consts,
-            }
+            },
         });
 
         Type::add_ty(ty);
@@ -169,7 +177,7 @@ impl Type {
                 assoc_fns: T::assoc_fns,
                 assoc_consts: T::assoc_consts,
             },
-            fields: T::fields
+            fields: T::fields,
         });
 
         Type::add_ty(ty);
@@ -187,7 +195,23 @@ impl Type {
         Type::add_ty(ty);
     }
 
-    pub fn from_name(name: &str) -> Option<Type> {
+    /// Get a Type instance by name, assuming it has been instantiated beforehand.
+    /// The name provided is expected to be of a certain normalized form, which may not
+    /// be fully stable between versions. Prefer [`Type::from`] if possible.
+    ///
+    /// Current Requirements:
+    /// - All struct names should be fully qualified, so for example the Type for Type would be
+    ///   `rebound::ty::Type`
+    /// - Any commas will be followed by spaces, and there will be no trailing commas except in the
+    ///   case of 1-element tuples
+    /// - References will have no lifetime
+    /// - Possibly other things
+    ///
+    /// # Safety
+    ///
+    /// This function is in no way memory unsafe, however, the format used for type names is an
+    /// implementation detail, and thus may change even across patch versions.
+    pub unsafe fn from_name(name: &str) -> Option<Type> {
         REFLECTED_TYS
             .get_or_init(|| RwLock::new(HashMap::new()))
             .read()
@@ -196,14 +220,19 @@ impl Type {
             .map(|t| *t)
     }
 
+    /// Get a Type instance from any reflected type, instantiating it if necessary.
     pub fn from<T: ?Sized + Reflected>() -> Type {
         // TODO: Multithreading support, so init isn't called multiple times
-        Type::from_name(&T::name())
-            .unwrap_or_else(|| {
-                unsafe { T::init() }
+        unsafe {
+            Type::from_name(&T::name()).unwrap_or_else(|| {
+                T::init();
 
-                Type::from_name(&T::name()).expect(&format!("Type for {} not initialized, despite calling T::init()", T::name()))
+                Type::from_name(&T::name()).expect(&format!(
+                    "Type for {} not initialized, despite calling T::init()",
+                    T::name()
+                ))
             })
+        }
     }
 
     fn as_inner(&self) -> &dyn CommonTypeInfo {
@@ -225,8 +254,8 @@ impl Type {
 
 impl PartialEq for Type {
     fn eq(&self, other: &Type) -> bool {
-        // TODO: May be possible to break this assumption
-        return self.name() == other.name()
+        // TODO: May be possible to break this assumption. Is TypeId good?
+        return self.name() == other.name();
     }
 }
 
@@ -462,4 +491,3 @@ impl CommonTypeInfo for UnitStructInfo {
         (self.vtable.assoc_consts)()
     }
 }
-

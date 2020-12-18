@@ -1,21 +1,18 @@
-
 #![allow(incomplete_features)]
 #![feature(specialization)]
 
-use rebound::{Type, Value, rebound};
 use rebound::ty::CommonTypeInfo;
+use rebound::{rebound, Type, Value};
 
 #[rebound]
 struct Foo {
-    a: i32
+    a: i32,
 }
 
 #[rebound]
 impl Foo {
     fn new() -> Foo {
-        Foo {
-            a: 1
-        }
+        Foo { a: 1 }
     }
 
     fn get_a(&self) -> i32 {
@@ -42,8 +39,7 @@ fn test_new() {
     assert_eq!(new.arg_tys().len(), 0);
     assert_eq!(new.ret_ty(), Type::from::<Foo>());
 
-    let val = new.call(None, vec![])
-        .expect("Failed to call Foo::new");
+    let val = new.call(None, vec![]).expect("Failed to call Foo::new");
 
     let foo = val.borrow::<Foo>();
     assert_eq!(foo.a, 1)
@@ -57,7 +53,8 @@ fn test_get_a() {
 
     let get_a = &Type::from::<Foo>().assoc_fns()[1];
 
-    let a = get_a.call(Some(foo_ref), vec![])
+    let a = get_a
+        .call(Some(foo_ref), vec![])
         .expect("Failed to call Foo::get_a");
 
     assert_eq!(*a.borrow::<i32>(), 1);
@@ -71,7 +68,8 @@ fn test_do_thing() {
 
     let do_thing = &Type::from::<Foo>().assoc_fns()[2];
 
-    do_thing.call(Some(foo_mut_ref), vec![])
+    do_thing
+        .call(Some(foo_mut_ref), vec![])
         .expect("Failed to call Foo::do_thing");
 
     assert_eq!(foo.borrow::<Foo>().a, 2);

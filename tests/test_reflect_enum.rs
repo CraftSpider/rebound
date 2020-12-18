@@ -1,8 +1,7 @@
-
 #![allow(dead_code)]
 
-use rebound::{Type, FieldKind, rebound, VariantInfo};
 use rebound::ty::CommonTypeInfo;
+use rebound::{rebound, FieldKind, Type, VariantInfo};
 
 #[rebound]
 enum Foo {
