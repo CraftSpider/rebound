@@ -1,7 +1,7 @@
 
 on: [push, pull_request]
 
-name: Cargo test
+name: Rebound CI
 
 jobs:
   lints:
