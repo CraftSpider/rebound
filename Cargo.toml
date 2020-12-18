@@ -1,6 +1,6 @@
 [package]
 name = "rebound"
-version = "0.0.1"
+version = "0.1.0"
 description = "Full runtime reflection for Rust, with lifetime safety"
 keywords = ["reflection", "reflect", "no_std"]
 repository = "https://github.com/CraftSpider/rebound"
@@ -10,7 +10,6 @@ readme = "README.md"
 license = "MIT/Apache-2.0"
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
 default = ["core", "std"]
 
@@ -19,7 +18,7 @@ std = []
 never-type = []
 
 [dependencies]
-rebound-proc = { path = "./rebound-proc", version = "0.0.1" }
+rebound-proc = { version = "0.1.0", path = "./rebound-proc" }
 ctor = "^0.1"
 paste = "^1.0"
 
