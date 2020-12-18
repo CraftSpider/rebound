@@ -1,10 +1,10 @@
 use crate::info::*;
 
 use std::collections::HashMap;
-use std::sync::{Once, RwLock};
+use std::sync::RwLock;
+use std::lazy::SyncOnceCell;
 
-static INIT: Once = Once::new();
-static mut REFLECTED_TRAITS: Option<RwLock<HashMap<String, Box<Trait>>>> = None;
+static REFLECTED_TRAITS: SyncOnceCell<RwLock<HashMap<String, Box<Trait>>>> = SyncOnceCell::new();
 
 #[derive(Debug)]
 pub struct Trait {
@@ -14,17 +14,9 @@ pub struct Trait {
 }
 
 impl Trait {
-    fn ensure_statics() {
-        INIT.call_once(|| {
-            unsafe { REFLECTED_TRAITS = Some(RwLock::new(HashMap::new())) }
-        })
-    }
-
     fn add_trait(tr: Trait) {
-        Trait::ensure_statics();
-
-        let mut map = unsafe { REFLECTED_TRAITS.as_mut() }
-            .expect("REFLECTED_TRAITS not initialized correctly")
+        let mut map = REFLECTED_TRAITS
+            .get_or_init(|| RwLock::new(HashMap::new()))
             .write()
             .expect("REFLECTED_TRAITS not initialized correctly");
 

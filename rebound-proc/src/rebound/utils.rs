@@ -166,3 +166,11 @@ pub fn impl_bounds(generics: &syn::Generics) -> TokenStream {
 
     quote!(<#(#impl_bounds,)*>)
 }
+
+pub fn ty_id(ty: &syn::Type) -> Result<String, String> {
+    match ty {
+        syn::Type::Tuple(ty) => Ok(format!("({})", ty.elems.iter().map(|ty| ty_id(ty)).collect::<Result<Vec<_>, String>>()?.join(", "))),
+        syn::Type::Path(ty) => Ok(format!("{}", ty.to_token_stream().to_string())),
+        _ => Err("Unrecognized / unsupported type for impl block".to_string()),
+    }
+}

@@ -1,4 +1,5 @@
 use core::fmt;
+use std::error;
 
 // TODO: Improve error display
 
@@ -21,10 +22,4 @@ impl fmt::Display for Error {
     }
 }
 
-#[cfg(feature = "std")]
-use std::error;
-
-#[cfg(feature = "std")]
-impl error::Error for Error {
-
-}
+impl error::Error for Error {}

@@ -1,3 +1,4 @@
+#![feature(once_cell)]
 
 use std::ops::Range;
 

@@ -2,11 +2,11 @@ use crate::info::*;
 use crate::reflect::*;
 
 use std::collections::HashMap;
-use std::sync::{RwLock, Once};
+use std::sync::RwLock;
+use std::lazy::SyncOnceCell;
 
 // SAFETY: *do not touch these if you don't know what you're doing*
-static INIT: Once = Once::new();
-static mut REFLECTED_TYS: Option<RwLock<HashMap<String, Type>>> = None;
+static REFLECTED_TYS: SyncOnceCell<RwLock<HashMap<String, Type>>> = SyncOnceCell::new();
 
 /// Common things between all types
 pub trait CommonTypeInfo {
@@ -41,17 +41,9 @@ pub enum Type {
 }
 
 impl Type {
-    fn ensure_statics() {
-        INIT.call_once(|| {
-            unsafe { REFLECTED_TYS = Some(RwLock::new(HashMap::new())) }
-        })
-    }
-
     fn add_ty(ty: Type) {
-        Type::ensure_statics();
-
-        let mut map = unsafe { REFLECTED_TYS.as_ref() }
-            .expect("REFLECTED_TYS not initialized correctly")
+        let mut map = REFLECTED_TYS
+            .get_or_init(|| RwLock::new(HashMap::new()))
             .write()
             .expect("REFLECTED_TYS not initialized correctly");
 
@@ -196,10 +188,8 @@ impl Type {
     }
 
     pub fn from_name(name: &str) -> Option<Type> {
-        Type::ensure_statics();
-
-        unsafe { REFLECTED_TYS.as_ref() }
-            .expect("static Reflection mapping not generated")
+        REFLECTED_TYS
+            .get_or_init(|| RwLock::new(HashMap::new()))
             .read()
             .expect("Couldn't get read lock on Reflection mapping")
             .get(name)

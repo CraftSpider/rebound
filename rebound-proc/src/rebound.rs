@@ -1,4 +1,8 @@
 
+use std::collections::HashMap;
+use std::lazy::SyncOnceCell;
+use std::sync::RwLock;
+
 use proc_macro2::{TokenStream, Span};
 use quote::quote;
 use syn::{Item, Token};
@@ -232,8 +236,114 @@ fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStrea
     ))
 }
 
-fn generate_reflect_impl(_item: syn::ItemImpl) -> Result<TokenStream> {
-    todo!()
+static IMPLS_PER_TY: SyncOnceCell<RwLock<HashMap<String, u8>>> = SyncOnceCell::new();
+
+fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenStream> {
+    if item.trait_.is_some() {
+        return Err("Rebound does not yet support trait reflection, this may work in a future version".to_string())
+    }
+    if item.generics.params.len() > 0 {
+        return Err("Rebound does not yet support generic impls, this may work in a future version".to_string())
+    }
+
+    let mut impls = IMPLS_PER_TY
+        .get_or_init(|| { RwLock::new(HashMap::new()) })
+        .write()
+        .unwrap();
+
+    let crate_name = &cfg.crate_name;
+    let self_ty = &item.self_ty;
+    let id = ty_id(self_ty)?;
+
+    let num = impls.entry(id).or_insert(0);
+
+    let mut impl_fns = Vec::new();
+    let mut impl_consts = Vec::new();
+    for i in item.items {
+        match i {
+            syn::ImplItem::Method(impl_item) => {
+                let fn_name = &impl_item.sig.ident;
+
+                let (helper, receiver_ty) = if impl_item.sig.inputs.len() > 0 && matches!(impl_item.sig.inputs[0], syn::FnArg::Receiver(..)) {
+                    let receiver = if let syn::FnArg::Receiver(arg) = &impl_item.sig.inputs[0] {
+                        if arg.reference.is_some() {
+                            let mutability = &arg.mutability;
+                            quote!(& #mutability #self_ty)
+                        } else {
+                            quote!(#self_ty)
+                        }
+                    } else {
+                        unreachable!()
+                    };
+
+                    (
+                        quote!(#crate_name::__helpers::__make_dyn_helper!(#self_ty::#fn_name, #receiver)),
+                        quote!(Some(#crate_name::Type::from::<#receiver>())),
+                    )
+                } else {
+                    (
+                        quote!(#crate_name::__helpers::__make_static_helper!(#self_ty::#fn_name)),
+                        quote!(None),
+                    )
+                };
+
+                let args = impl_item.sig.inputs.iter()
+                    .filter_map(|arg| {
+                        match arg {
+                            syn::FnArg::Receiver(..) => None,
+                            syn::FnArg::Typed(ty) => Some(quote!( #crate_name::Type::from::<#ty>() ))
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                let ret_ty = match &impl_item.sig.output {
+                    syn::ReturnType::Default => quote!(()),
+                    syn::ReturnType::Type(_, ty) => quote!(#ty)
+                };
+
+                impl_fns.push(quote!(
+                    #crate_name::AssocFn::new(
+                        #helper,
+                        stringify!(#fn_name),
+                        #crate_name::Type::from::<#self_ty>(),
+                        #receiver_ty,
+                        &[#(#args,)*],
+                        #crate_name::Type::from::<#ret_ty>(),
+                    )
+                ));
+            }
+            syn::ImplItem::Const(_impl_item) => {
+                impl_consts.push(quote!());
+                todo!()
+            }
+            // TODO: Warning instead of error?
+            _ => return Err("Rebound currently only supports reflecting fns and consts in impls".to_string())
+        }
+    }
+
+    let out = quote!(
+        impl #crate_name::reflect::ReflectedImpl<#num> for #self_ty {
+            fn assoc_fns() -> Option<Vec<#crate_name::AssocFn>> {
+                unsafe {
+                    Some(vec![
+                        #(#impl_fns,)*
+                    ])
+                }
+            }
+
+            fn assoc_consts() -> Option<Vec<#crate_name::AssocConst>> {
+                unsafe {
+                    Some(vec![
+                        #(#impl_consts,)*
+                    ])
+                }
+            }
+        }
+    );
+
+    *num += 1;
+
+    Ok(out)
 }
 
 fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenStream> {
@@ -344,7 +454,7 @@ fn generate_reflect_trait(_item: syn::ItemTrait) -> Result<TokenStream> {
 fn generate_reflect(cfg: &Config, item: Item) -> Result<TokenStream> {
     match item {
         Item::Enum(item) => generate_reflect_enum(cfg, item),
-        Item::Impl(item) => generate_reflect_impl(item),
+        Item::Impl(item) => generate_reflect_impl(cfg, item),
         Item::Struct(item) => generate_reflect_struct(cfg, item),
         Item::Trait(item) => generate_reflect_trait(item),
         _ => unreachable!()

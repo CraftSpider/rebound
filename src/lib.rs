@@ -1,9 +1,9 @@
 //! A crate aiming to implement 'full' reflection in Rust.
 
-// TODO: Find a way to not need specialization
+// TODO: Remove specialization / hope it gets completed
 #![allow(incomplete_features)]
 
-#![feature(min_const_generics, specialization, decl_macro)]
+#![feature(min_const_generics, specialization, decl_macro, once_cell)]
 
 #![cfg_attr(feature = "never-type", feature(never_type))]
 
@@ -56,73 +56,3 @@ pub macro init_tys($($ty:ty),+ $(,)?) {
 extern crate rebound_proc;
 #[doc(hidden)]
 pub use rebound_proc::rebound;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::reflect::*;
-    use crate::__helpers::*;
-    use crate::ty::CommonTypeInfo;
-
-    #[rebound(crate_name = "crate")]
-    #[derive(Debug)]
-    struct Foo {
-        a: i32
-    }
-
-    //#[rebound(crate_name = "crate")]
-    impl Foo {
-        fn new() -> Foo {
-            println!("New Foo");
-
-            Foo {
-                a: 1
-            }
-        }
-
-        fn do_thing(&self) {
-            println!("Doing Thing");
-        }
-    }
-
-    impl ReflectedImpl<0> for Foo {
-        fn assoc_fns() -> Option<Vec<AssocFn>> {
-            unsafe {
-                Some(vec![
-                    AssocFn::new(
-                        __make_static_helper!(Foo::new),
-                        "new",
-                        Type::from::<Foo>(),
-                        None,
-                        &[],
-                        Type::from::<Foo>()
-                    ),
-                    AssocFn::new(
-                        __make_dyn_helper!(Foo::do_thing, &Foo),
-                        "do_thing",
-                        Type::from::<Foo>(),
-                        Some(Type::from::<&Foo>()),
-                        &[],
-                        Type::from::<()>()
-                    )
-                ])
-            }
-        }
-
-        fn assoc_consts() -> Option<Vec<AssocConst>> {
-            Some(vec![])
-        }
-    }
-
-    #[test]
-    fn test_foo() {
-        let ty = Type::from::<Foo>();
-
-        let fns = ty.assoc_fns();
-
-        let foo = fns[0].call(None, Vec::new())
-            .unwrap();
-
-        println!("{:?}", unsafe { foo.cast::<Foo>() });
-    }
-}
