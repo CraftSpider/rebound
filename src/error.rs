@@ -20,6 +20,7 @@ pub enum Error {
     TooFewArgs,
 
     InvalidValue,
+    UnsupportedOperation,
 }
 
 impl Error {

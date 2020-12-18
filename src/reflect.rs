@@ -1,3 +1,5 @@
+//! Reflection related traits
+
 use crate::{AssocConst, AssocFn, Field, Type, VariantInfo};
 
 use rebound_proc::impl_find;

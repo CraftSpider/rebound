@@ -9,6 +9,8 @@ struct Foo {}
 
 #[rebound]
 impl Foo {
+    const FOO: Foo = Foo {};
+
     fn new() -> Foo {
         Foo {}
     }

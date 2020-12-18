@@ -319,16 +319,25 @@ fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenStrea
                     )
                 ));
             }
-            syn::ImplItem::Const(_impl_item) => {
-                impl_consts.push(quote!());
-                todo!()
+            syn::ImplItem::Const(impl_item) => {
+                let const_name = &impl_item.ident;
+                let const_ty = &impl_item.ty;
+
+                let helper = quote!( #crate_name::__helpers::__make_const_accessor!(#self_ty::#const_name) );
+
+                impl_consts.push(quote!(
+                    #crate_name::AssocConst::new(
+                        #helper,
+                        stringify!(#const_name),
+                        #crate_name::Type::from::<#self_ty>(),
+                        #crate_name::Type::from::<#const_ty>(),
+                    )
+                ));
             }
-            // TODO: Warning instead of error?
             _ => {
-                return Err(
-                    "Rebound currently only supports reflecting fns and consts in impls"
-                        .to_string(),
-                )
+                use proc_macro::{Diagnostic, Level};
+                Diagnostic::new(Level::Warning, "Rebound currently only supports reflecting fns and consts in impls")
+                    .emit();
             }
         }
     }

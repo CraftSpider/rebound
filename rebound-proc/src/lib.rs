@@ -1,4 +1,4 @@
-#![feature(once_cell)]
+#![feature(once_cell, proc_macro_diagnostic)]
 
 use std::ops::Range;
 

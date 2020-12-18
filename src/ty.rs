@@ -64,6 +64,7 @@ impl Type {
         map.insert(name, ty);
     }
 
+    #[doc(hidden)]
     pub unsafe fn new_prim<T: ?Sized + Reflected>() {
         let ty = Type::Primitive(PrimitiveInfo {
             vtable: TypeVTable {
@@ -76,7 +77,8 @@ impl Type {
         Type::add_ty(ty);
     }
 
-    pub unsafe fn new_tuple<T: ReflectedTuple>() {
+    #[doc(hidden)]
+    pub unsafe fn new_tuple<T: ?Sized + ReflectedTuple>() {
         let ty = Type::Tuple(TupleInfo {
             vtable: TypeVTable {
                 name: T::name,
@@ -89,6 +91,7 @@ impl Type {
         Type::add_ty(ty);
     }
 
+    #[doc(hidden)]
     pub unsafe fn new_array<T: ?Sized + ReflectedArray>() {
         let ty = Type::Array(ArrayInfo {
             vtable: TypeVTable {
@@ -103,6 +106,7 @@ impl Type {
         Type::add_ty(ty);
     }
 
+    #[doc(hidden)]
     pub unsafe fn new_slice<T: ?Sized + ReflectedSlice>() {
         let ty = Type::Slice(SliceInfo {
             vtable: TypeVTable {

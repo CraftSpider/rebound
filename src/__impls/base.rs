@@ -221,7 +221,10 @@ impl ReflectedTuple for () {
 }
 
 // TODO: Make this valid for non-static lifetimes maybe
-impl<T0: Reflected + 'static> Reflected for (T0,) {
+impl<T0> Reflected for (T0,)
+where
+    T0: Reflected + 'static,
+{
     fn name() -> String {
         format!("({},)", T0::name())
     }
@@ -231,7 +234,10 @@ impl<T0: Reflected + 'static> Reflected for (T0,) {
     }
 }
 
-impl<T0: Reflected + 'static> ReflectedTuple for (T0,) {
+impl<T0> ReflectedTuple for (T0,)
+where
+    T0: Reflected + 'static,
+{
     fn fields() -> Vec<Field> {
         unsafe {
             vec![Field::new_tuple(
@@ -245,7 +251,11 @@ impl<T0: Reflected + 'static> ReflectedTuple for (T0,) {
     }
 }
 
-impl<T0: Reflected + 'static, T1: Reflected + 'static> Reflected for (T0, T1) {
+impl<T0, T1> Reflected for (T0, T1)
+where
+    T0: Reflected + 'static,
+    T1: Reflected + 'static,
+{
     fn name() -> String {
         format!("({}, {})", T0::name(), T1::name())
     }
@@ -255,7 +265,11 @@ impl<T0: Reflected + 'static, T1: Reflected + 'static> Reflected for (T0, T1) {
     }
 }
 
-impl<T0: Reflected + 'static, T1: Reflected + 'static> ReflectedTuple for (T0, T1) {
+impl<T0, T1> ReflectedTuple for (T0, T1)
+where
+    T0: Reflected + 'static,
+    T1: Reflected + 'static,
+{
     fn fields() -> Vec<Field> {
         unsafe {
             vec![
@@ -271,6 +285,56 @@ impl<T0: Reflected + 'static, T1: Reflected + 'static> ReflectedTuple for (T0, T
                     __make_setter!((T0, T1), 1),
                     1,
                     Type::from::<(T0, T1)>(),
+                    Type::from::<T1>(),
+                ),
+            ]
+        }
+    }
+}
+
+impl<T0, T1, T2> Reflected for (T0, T1, T2)
+where
+    T0: Reflected + 'static,
+    T1: Reflected + 'static,
+    T2: Reflected + 'static,
+{
+    fn name() -> String {
+        format!("({}, {}, {})", T0::name(), T1::name(), T2::name())
+    }
+
+    unsafe fn init() {
+        Type::new_tuple::<(T0, T1, T2)>()
+    }
+}
+
+impl<T0, T1, T2> ReflectedTuple for (T0, T1, T2)
+where
+    T0: Reflected + 'static,
+    T1: Reflected + 'static,
+    T2: Reflected + 'static,
+{
+    fn fields() -> Vec<Field> {
+        unsafe {
+            vec![
+                Field::new_tuple(
+                    __make_ref_accessor!((T0, T1, T2), 0),
+                    __make_setter!((T0, T1, T2), 0),
+                    0,
+                    Type::from::<(T0, T1, T2)>(),
+                    Type::from::<T0>(),
+                ),
+                Field::new_tuple(
+                    __make_ref_accessor!((T0, T1, T2), 1),
+                    __make_setter!((T0, T1, T2), 1),
+                    1,
+                    Type::from::<(T0, T1, T2)>(),
+                    Type::from::<T1>(),
+                ),
+                Field::new_tuple(
+                    __make_ref_accessor!((T0, T1, T2), 2),
+                    __make_setter!((T0, T1, T2), 2),
+                    2,
+                    Type::from::<(T0, T1, T2)>(),
                     Type::from::<T1>(),
                 ),
             ]
@@ -316,7 +380,7 @@ impl<T: Reflected> ReflectedSlice for [T] {
 }
 
 // Pointers
-impl<T: Reflected> Reflected for *const T {
+impl<T: ?Sized + Reflected> Reflected for *const T {
     fn name() -> String {
         format!("*const {}", T::name())
     }
@@ -326,7 +390,7 @@ impl<T: Reflected> Reflected for *const T {
     }
 }
 
-impl<T: Reflected> ReflectedPointer for *const T {
+impl<T: ?Sized + Reflected> ReflectedPointer for *const T {
     fn element() -> Type {
         Type::from::<T>()
     }
@@ -336,7 +400,7 @@ impl<T: Reflected> ReflectedPointer for *const T {
     }
 }
 
-impl<T: Reflected> Reflected for *mut T {
+impl<T: ?Sized + Reflected> Reflected for *mut T {
     fn name() -> String {
         format!("*mut {}", T::name())
     }
@@ -346,7 +410,7 @@ impl<T: Reflected> Reflected for *mut T {
     }
 }
 
-impl<T: Reflected> ReflectedPointer for *mut T {
+impl<T: ?Sized + Reflected> ReflectedPointer for *mut T {
     fn element() -> Type {
         Type::from::<T>()
     }

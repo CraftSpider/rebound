@@ -31,7 +31,7 @@ pub struct Value<'a> {
 impl<'a> Value<'a> {
     /// Create a new borrowed Value from a reference, with a lifetime no greater than that of the
     /// provided reference.
-    pub fn from_ref<T: Reflected>(val: &T) -> Value {
+    pub fn from_ref<T: ?Sized + Reflected>(val: &T) -> Value {
         Value {
             ptr: val as *const T as *mut (),
             ty: Type::from::<T>(),

@@ -11,6 +11,8 @@ struct Foo {
 
 #[rebound]
 impl Foo {
+    const FOO: Foo = Foo { a: -1 };
+
     fn new() -> Foo {
         Foo { a: 1 }
     }
@@ -26,8 +28,24 @@ impl Foo {
 
 #[test]
 fn test_assoc_fns() {
-    let fns = Type::from::<Foo>().assoc_fns();
+    let ty = Type::from::<Foo>();
+
+    let consts = ty.assoc_consts();
+    assert_eq!(consts.len(), 1);
+    let fns = ty.assoc_fns();
     assert_eq!(fns.len(), 3);
+}
+
+#[test]
+fn test_const() {
+    let foo = &Type::from::<Foo>().assoc_consts()[0];
+
+    assert_eq!(foo.name(), "FOO");
+    assert_eq!(foo.assoc_ty(), Type::from::<Foo>());
+    assert_eq!(foo.ty(), Type::from::<Foo>());
+
+    let val = foo.get();
+    assert_eq!(val.borrow::<Foo>().a, -1);
 }
 
 #[test]
