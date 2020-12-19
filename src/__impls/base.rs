@@ -17,15 +17,12 @@ impl Reflected for u8 {
 
 impl ReflectedImpl<0> for u8 {
     fn assoc_fns() -> Option<Vec<AssocFn>> {
+        use rebound_proc::assocfn_from_def;
+
         unsafe {
-            Some(vec![AssocFn::new(
-                __make_static_helper!(u8::from_str_radix, &str, u32),
-                "from_str_radix",
-                Type::from::<u8>(),
-                None,
-                &[Type::from::<&str>(), Type::from::<u32>()],
-                Type::from::<Result<u8, core::num::ParseIntError>>(),
-            )])
+            Some(vec![
+                assocfn_from_def!(fn u8@from_str_radix(src: &str, radix: u32) -> Result<u8, core::num::ParseIntError>),
+            ])
         }
     }
 

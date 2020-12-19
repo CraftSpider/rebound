@@ -26,6 +26,11 @@ pub fn impl_find(input: TokenStream) -> TokenStream {
     .into()
 }
 
+#[proc_macro]
+pub fn assocfn_from_def(input: TokenStream) -> TokenStream {
+    rebound::assoc_fn_from_def(input.into()).into()
+}
+
 #[proc_macro_attribute]
 pub fn rebound(attrs: TokenStream, item: TokenStream) -> TokenStream {
     rebound::rebound(attrs.into(), item.into()).into()
