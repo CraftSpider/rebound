@@ -11,9 +11,10 @@ license = "MIT/Apache-2.0"
 edition = "2018"
 
 [features]
-default = ["core", "std"]
+default = ["core", "alloc", "std"]
 
 core = []
+alloc = []
 std = []
 never-type = []
 

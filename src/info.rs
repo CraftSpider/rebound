@@ -2,6 +2,7 @@ use crate::{Error, Type, Value};
 
 use core::fmt;
 
+// TODO: AssocFn with non-'static return types?
 pub(crate) type CallFnHelper = Box<dyn Fn(Option<Value>, Vec<Value>) -> Value<'static>>;
 pub(crate) type GetConstHelper = Box<dyn Fn() -> Value<'static>>;
 

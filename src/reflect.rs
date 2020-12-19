@@ -65,15 +65,15 @@ pub trait ReflectedTupleStruct: Reflected {
 pub trait ReflectedUnitStruct: Reflected {}
 
 pub trait ReflectedImpl<const N: u8>: Reflected {
-    fn assoc_fns() -> Option<Vec<AssocFn>>;
-    fn assoc_consts() -> Option<Vec<AssocConst>>;
+    fn assoc_fns() -> Vec<AssocFn>;
+    fn assoc_consts() -> Vec<AssocConst>;
 }
 
 impl<T: ?Sized + Reflected, const N: u8> ReflectedImpl<N> for T {
-    default fn assoc_fns() -> Option<Vec<AssocFn>> {
-        None
+    default fn assoc_fns() -> Vec<AssocFn> {
+        vec![]
     }
-    default fn assoc_consts() -> Option<Vec<AssocConst>> {
-        None
+    default fn assoc_consts() -> Vec<AssocConst> {
+        vec![]
     }
 }

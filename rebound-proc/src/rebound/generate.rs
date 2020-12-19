@@ -141,6 +141,13 @@ pub fn generate_assoc_fn(
     self_ty: &syn::Type,
     sig: &syn::Signature,
 ) -> Result<TokenStream> {
+    if sig.generics.params.len() > 0 {
+        return Err(
+            "Rebound does not support generic functions, this may work in a future version"
+                .to_string(),
+        );
+    }
+
     let crate_name = &cfg.crate_name;
     let fn_name = &sig.ident;
     let inputs = &sig.inputs;
@@ -176,12 +183,23 @@ pub fn generate_assoc_fn(
         };
 
         (
-            quote!(#crate_name::__helpers::__make_dyn_helper!(#self_ty::#fn_name, #receiver #(, #args)*)),
+            quote!(
+                #[allow(unused_mut, unused_variables)]
+                Box::new(|this, mut args| {
+                    let s = this.unwrap();
+                    #crate_name::Value::from( <#self_ty>::#fn_name( s.cast::<#receiver>(), #( args.remove(0).cast::<#args>(), )* ) )
+                })
+            ),
             quote!(Some(#crate_name::Type::from::<#receiver>())),
         )
     } else {
         (
-            quote!(#crate_name::__helpers::__make_static_helper!(#self_ty::#fn_name #(, #args)*)),
+            quote!(
+                #[allow(unused_mut, unused_variables)]
+                Box::new(move |_, mut args| {
+                    #crate_name::Value::from( <#self_ty>::#fn_name( #( args.remove(0).cast::<#args>(), )* ) )
+                })
+            ),
             quote!(None),
         )
     };
@@ -194,6 +212,26 @@ pub fn generate_assoc_fn(
             #receiver_ty,
             &[#( #crate_name::Type::from::<#args>(), )*],
             #crate_name::Type::from::<#ret_ty>(),
+        )
+    ))
+}
+
+pub fn generate_assoc_const(
+    cfg: &Config,
+    self_ty: &syn::Type,
+    const_name: &syn::Ident,
+    const_ty: &syn::Type,
+) -> Result<TokenStream> {
+    let crate_name = &cfg.crate_name;
+
+    let helper = quote!( #crate_name::__helpers::__make_const_accessor!(#self_ty::#const_name) );
+
+    Ok(quote!(
+        #crate_name::AssocConst::new(
+            #helper,
+            stringify!(#const_name),
+            #crate_name::Type::from::<#self_ty>(),
+            #crate_name::Type::from::<#const_ty>(),
         )
     ))
 }
@@ -233,20 +271,12 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
                 impl_fns.push(generate_assoc_fn(cfg, self_ty, &impl_item.sig)?);
             }
             syn::ImplItem::Const(impl_item) => {
-                let const_name = &impl_item.ident;
-                let const_ty = &impl_item.ty;
-
-                let helper =
-                    quote!( #crate_name::__helpers::__make_const_accessor!(#self_ty::#const_name) );
-
-                impl_consts.push(quote!(
-                    #crate_name::AssocConst::new(
-                        #helper,
-                        stringify!(#const_name),
-                        #crate_name::Type::from::<#self_ty>(),
-                        #crate_name::Type::from::<#const_ty>(),
-                    )
-                ));
+                impl_consts.push(generate_assoc_const(
+                    cfg,
+                    self_ty,
+                    &impl_item.ident,
+                    &impl_item.ty,
+                )?);
             }
             _ => {
                 use proc_macro::{Diagnostic, Level};
@@ -261,19 +291,19 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
 
     let out = quote!(
         impl #crate_name::reflect::ReflectedImpl<#num> for #self_ty {
-            fn assoc_fns() -> Option<Vec<#crate_name::AssocFn>> {
+            fn assoc_fns() -> Vec<#crate_name::AssocFn> {
                 unsafe {
-                    Some(vec![
+                    vec![
                         #(#impl_fns,)*
-                    ])
+                    ]
                 }
             }
 
-            fn assoc_consts() -> Option<Vec<#crate_name::AssocConst>> {
+            fn assoc_consts() -> Vec<#crate_name::AssocConst> {
                 unsafe {
-                    Some(vec![
+                    vec![
                         #(#impl_consts,)*
-                    ])
+                    ]
                 }
             }
         }

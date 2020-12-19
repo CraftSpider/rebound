@@ -5,6 +5,10 @@ mod base;
 #[cfg(feature = "core")]
 mod core;
 
+// Implementations for alloc types
+#[cfg(feature = "alloc")]
+mod alloc;
+
 // Implementations for std types
 #[cfg(feature = "std")]
 mod std;

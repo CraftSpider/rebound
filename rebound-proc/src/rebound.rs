@@ -115,74 +115,108 @@ fn verify_item(input: TokenStream) -> Result<Item> {
     }
 }
 
-struct AssocFnSig {
-    constness: Option<syn::Token![const]>,
-    asyncness: Option<syn::Token![async]>,
-    unsafety: Option<syn::Token![unsafe]>,
-    abi: Option<syn::Abi>,
-    fn_token: syn::Token![fn],
-    ty: syn::Type,
-    #[allow(dead_code)]
-    at: syn::Token![@],
-    ident: syn::Ident,
-    generics: syn::Generics,
-    paren_tok: syn::token::Paren,
-    inputs: syn::punctuated::Punctuated<syn::FnArg, syn::Token![,]>,
-    output: syn::ReturnType,
+#[allow(dead_code)]
+struct FnSig {
+    attrs: Vec<syn::Attribute>,
+    sig: syn::Signature,
 }
 
-impl AssocFnSig {
-    fn as_signature(&self) -> syn::Signature {
-        syn::Signature {
-            constness: self.constness.clone(),
-            asyncness: self.asyncness.clone(),
-            unsafety: self.unsafety.clone(),
-            abi: self.abi.clone(),
-            fn_token: self.fn_token.clone(),
-            ident: self.ident.clone(),
-            generics: self.generics.clone(),
-            paren_token: self.paren_tok.clone(),
-            inputs: self.inputs.clone(),
-            variadic: None,
-            output: self.output.clone(),
-        }
-    }
-}
-
-impl syn::parse::Parse for AssocFnSig {
-    fn parse(parser: syn::parse::ParseStream) -> syn::Result<AssocFnSig> {
-        let content;
-        Ok(AssocFnSig {
-            constness: parser.parse()?,
-            asyncness: parser.parse()?,
-            unsafety: parser.parse()?,
-            abi: parser.parse()?,
-            fn_token: parser.parse()?,
-            ty: parser.parse()?,
-            at: parser.parse()?,
-            ident: parser.parse()?,
-            generics: parser.parse()?,
-            paren_tok: syn::parenthesized!(content in parser),
-            inputs: content.parse_terminated(syn::FnArg::parse)?,
-            output: parser.parse()?,
+impl syn::parse::Parse for FnSig {
+    fn parse(parser: syn::parse::ParseStream) -> syn::Result<FnSig> {
+        Ok(FnSig {
+            attrs: syn::Attribute::parse_outer(parser)?,
+            sig: parser.parse()?,
         })
     }
 }
 
-pub fn assoc_fn_from_def(input: TokenStream) -> TokenStream {
+struct AssocFnSigs {
+    ty: syn::Type,
+    #[allow(dead_code)]
+    at: Token![@],
+    defs: Punctuated<FnSig, Token![;]>,
+}
+
+impl syn::parse::Parse for AssocFnSigs {
+    fn parse(parser: syn::parse::ParseStream) -> syn::Result<AssocFnSigs> {
+        Ok(AssocFnSigs {
+            ty: parser.parse()?,
+            at: parser.parse()?,
+            defs: parser.parse_terminated(FnSig::parse)?,
+        })
+    }
+}
+
+pub fn extern_assoc_fns(input: TokenStream) -> TokenStream {
     let mut config = Config::default();
     config.crate_name = syn::Ident::new("crate", Span::call_site());
 
-    let input: AssocFnSig = syn::parse2(input).expect("Couldn't parse assocfn def");
+    let input: AssocFnSigs = syn::parse2(input).expect("Couldn't parse assocfn def");
 
-    let sig = input.as_signature();
-
-    let res = generate_assoc_fn(&config, &input.ty, &sig);
-
-    match res {
-        Ok(ts) => ts,
-        Err(msg) => quote!(compile_error!(#msg)),
+    let mut output = Vec::new();
+    for sig in &input.defs {
+        let afn = generate_assoc_fn(&config, &input.ty, &sig.sig);
+        match afn {
+            Ok(ts) => output.push(ts),
+            Err(msg) => return quote!(compile_error!(#msg)),
+        }
     }
+
+    quote!(unsafe { vec![ #(#output,)* ] })
+}
+
+#[allow(dead_code)]
+struct IdentType {
+    attrs: Vec<syn::Attribute>,
+    ident: Box<syn::Ident>,
+    colon_token: Token![:],
+    ty: Box<syn::Type>,
+}
+
+impl syn::parse::Parse for IdentType {
+    fn parse(parser: syn::parse::ParseStream) -> syn::Result<IdentType> {
+        Ok(IdentType {
+            attrs: syn::Attribute::parse_outer(parser)?,
+            ident: parser.parse()?,
+            colon_token: parser.parse()?,
+            ty: parser.parse()?,
+        })
+    }
+}
+
+#[allow(dead_code)]
+struct AssocConstSigs {
+    ty: syn::Type,
+    at: Token![@],
+    defs: Punctuated<IdentType, Token![;]>,
+}
+
+impl syn::parse::Parse for AssocConstSigs {
+    fn parse(parser: syn::parse::ParseStream) -> syn::Result<AssocConstSigs> {
+        Ok(AssocConstSigs {
+            ty: parser.parse()?,
+            at: parser.parse()?,
+            defs: parser.parse_terminated(IdentType::parse)?,
+        })
+    }
+}
+
+pub fn extern_assoc_consts(input: TokenStream) -> TokenStream {
+    let mut config = Config::default();
+    config.crate_name = syn::Ident::new("crate", Span::call_site());
+
+    let input: AssocConstSigs = syn::parse2(input).expect("Couldn't parse assocconst def");
+
+    let mut output = Vec::new();
+    for sig in &input.defs {
+        let aconst = generate_assoc_const(&config, &input.ty, &sig.ident, &sig.ty);
+        match aconst {
+            Ok(ts) => output.push(ts),
+            Err(msg) => return quote!(compile_error!(#msg)),
+        }
+    }
+
+    quote!(unsafe { vec![ #(#output,)* ] })
 }
 
 fn rebound_impl(attrs: TokenStream, item: TokenStream) -> Result<TokenStream> {
