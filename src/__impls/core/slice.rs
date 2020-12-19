@@ -1,5 +1,5 @@
 use crate::reflect::*;
-use crate::{Type, Field};
+use crate::{Field, Type};
 
 use core::slice::*;
 
@@ -163,7 +163,7 @@ impl<T: Reflected> ReflectedStruct for RChunksMut<'_, T> {
     }
 }
 
-impl<T: Reflected> Reflected for Windows<'_,T> {
+impl<T: Reflected> Reflected for Windows<'_, T> {
     fn name() -> String {
         format!("core::slice::Windows<{}>", T::name())
     }

@@ -1,5 +1,5 @@
 use crate::reflect::*;
-use crate::{Type, Field};
+use crate::{Field, Type};
 
 use core::ops::*;
 

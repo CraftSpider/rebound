@@ -577,8 +577,8 @@ impl<T: Reflected + 'static> ReflectedImpl<0> for [T] {
     fn assoc_fns() -> Vec<AssocFn> {
         use core::ops::Range;
         use core::slice::{
-            Chunks, ChunksExact, ChunksExactMut,
-            ChunksMut, Iter, IterMut, RChunks, RChunksExact, RChunksExactMut, RChunksMut, Windows,
+            Chunks, ChunksExact, ChunksExactMut, ChunksMut, Iter, IterMut, RChunks, RChunksExact,
+            RChunksExactMut, RChunksMut, Windows,
         };
 
         extern_assoc_fns!([T] @
