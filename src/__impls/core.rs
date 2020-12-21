@@ -1,5 +1,5 @@
 use crate::reflect::*;
-use crate::{Field, Type, VariantInfo};
+use crate::{Field, Type, Variant};
 
 mod char;
 mod ops;
@@ -79,7 +79,7 @@ impl<T: Reflected> Reflected for core::option::Option<T> {
 }
 
 impl<T: Reflected> ReflectedEnum for core::option::Option<T> {
-    fn variants() -> Vec<VariantInfo> {
+    fn variants() -> Vec<Variant> {
         vec![] // TODO
     }
 }
@@ -95,7 +95,7 @@ impl<T: Reflected, U: Reflected> Reflected for core::result::Result<T, U> {
 }
 
 impl<T: Reflected, U: Reflected> ReflectedEnum for core::result::Result<T, U> {
-    fn variants() -> Vec<VariantInfo> {
+    fn variants() -> Vec<Variant> {
         vec![] // TODO
     }
 }

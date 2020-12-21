@@ -18,7 +18,7 @@ pub mod value;
 
 pub use crate::reflect::Reflected;
 pub use error::Error;
-pub use info::{AssocConst, AssocFn, Field, FieldKind, VariantInfo};
+pub use info::{AssocConst, AssocFn, Field, FieldKind, Variant};
 pub use tr::Trait;
 pub use ty::Type;
 pub use value::Value;

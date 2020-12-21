@@ -47,7 +47,7 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
                     .collect::<Vec<_>>();
 
                 variant_impls.push(quote!(
-                    #crate_name::VariantInfo::Struct(#crate_name::info::StructVariant::new(
+                    #crate_name::Variant::Struct(#crate_name::info::StructVariant::new(
                         stringify!(#var_name),
                         #crate_name::Type::from::<#name>(),
                         || { vec![ #(#fields),* ] }
@@ -97,7 +97,7 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
                     .collect::<Vec<_>>();
 
                 variant_impls.push(quote!(
-                    #crate_name::VariantInfo::Tuple(#crate_name::info::TupleVariant::new(
+                    #crate_name::Variant::Tuple(#crate_name::info::TupleVariant::new(
                         stringify!(#var_name),
                         #crate_name::Type::from::<#name>(),
                         || { vec![ #(#fields),* ] }
@@ -105,7 +105,7 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
                 ))
             }
             syn::Fields::Unit => variant_impls.push(quote!(
-                #crate_name::VariantInfo::Unit(#crate_name::info::UnitVariant::new(
+                #crate_name::Variant::Unit(#crate_name::info::UnitVariant::new(
                     stringify!(#i),
                     #crate_name::Type::from::<#name>(),
                 ))
@@ -125,7 +125,7 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
         }
 
         impl #impl_bounds #crate_name::reflect::ReflectedEnum for #name {
-            fn variants() -> Vec<#crate_name::VariantInfo> {
+            fn variants() -> Vec<#crate_name::Variant> {
                 unsafe {
                     vec![
                         #(#variant_impls),*

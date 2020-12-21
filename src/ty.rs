@@ -434,11 +434,11 @@ impl CommonTypeInfo for StructInfo {
 #[derive(Debug, Copy, Clone)]
 pub struct EnumInfo {
     vtable: TypeVTable,
-    variants: fn() -> Vec<VariantInfo>,
+    variants: fn() -> Vec<Variant>,
 }
 
 impl EnumInfo {
-    pub fn variants(&self) -> Vec<VariantInfo> {
+    pub fn variants(&self) -> Vec<Variant> {
         (self.variants)()
     }
 }

@@ -1,6 +1,6 @@
 //! Reflection related traits
 
-use crate::{AssocConst, AssocFn, Field, Type, VariantInfo};
+use crate::{AssocConst, AssocFn, Field, Type, Variant};
 
 use rebound_proc::impl_find;
 
@@ -55,7 +55,7 @@ pub trait ReflectedStruct: Reflected {
 }
 
 pub trait ReflectedEnum: Reflected {
-    fn variants() -> Vec<VariantInfo>;
+    fn variants() -> Vec<Variant>;
 }
 
 pub trait ReflectedTupleStruct: Reflected {
