@@ -27,6 +27,8 @@ impl Parse for AttrInput {
 pub struct Config {
     crate_name: syn::Ident,
     debug_out: bool,
+    no_get: bool,
+    no_set: bool,
 }
 
 impl Default for Config {
@@ -34,6 +36,8 @@ impl Default for Config {
         Config {
             crate_name: syn::Ident::new("rebound", Span::call_site()),
             debug_out: false,
+            no_get: false,
+            no_set: false,
         }
     }
 }
@@ -44,12 +48,17 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
     let mut crate_name = None;
     let mut debug_out = false;
 
+    let mut no_get = false;
+    let mut no_set = false;
+
     for i in args.values {
         match i {
             syn::NestedMeta::Meta(meta) => match meta {
                 syn::Meta::List(..) => return Err(format!("Found unexpected list element")),
                 syn::Meta::NameValue(nv) => {
-                    if path_to_string(&nv.path) == "crate_name" {
+                    let str = path_to_string(&nv.path);
+
+                    if str == "crate_name" {
                         crate_name = Some(lit_as_str(&nv.lit)?);
                     } else {
                         return Err(format!(
@@ -59,8 +68,14 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
                     }
                 }
                 syn::Meta::Path(path) => {
-                    if path_to_string(&path) == "debug_out" {
+                    let str = path_to_string(&path);
+
+                    if str == "debug_out" {
                         debug_out = true;
+                    } else if str == "no_get" {
+                        no_get = true;
+                    } else if str == "no_set" {
+                        no_set = true;
                     } else {
                         return Err(format!(
                             "Found unexpected path element {}",
@@ -81,6 +96,8 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
     Ok(Config {
         crate_name,
         debug_out,
+        no_get,
+        no_set,
     })
 }
 
@@ -113,6 +130,10 @@ fn verify_item(input: TokenStream) -> Result<Item> {
         Some(name) => Err(format!("#[rebound] can only be applied to a struct, enum, trait, or impl block. Instead got {}", name)),
         None => Ok(item)
     }
+}
+
+pub fn extern_fields(_: TokenStream) -> TokenStream {
+    todo!()
 }
 
 #[allow(dead_code)]

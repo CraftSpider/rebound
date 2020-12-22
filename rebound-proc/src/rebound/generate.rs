@@ -10,132 +10,6 @@ use quote::quote;
 use syn::spanned::Spanned;
 use syn::Item;
 
-pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStream> {
-    let crate_name = &cfg.crate_name;
-    let impl_bounds = impl_bounds(&item.generics);
-    let name = item_name(&item.ident, &item.generics);
-    let pat_name = item_pattern_name(&item.ident, &item.generics);
-    let qual_name = item_qual_name(&item.ident, &item.generics);
-
-    let mut variant_impls = Vec::new();
-
-    for i in &item.variants {
-        let var_name = &i.ident;
-
-        match &i.fields {
-            syn::Fields::Named(fields) => {
-                let fields = fields.named.iter()
-                    .map(|field| {
-                        let field_name = &field.ident;
-                        let field_ty = sanitized_field_ty(&field.ty);
-
-                        quote!(
-                            #crate_name::Field::new_enum_named(
-                                #crate_name::__helpers::__make_enum_named_ref_accessor!(#name, #name::#var_name, #field_name),
-                                #crate_name::__helpers::__make_enum_named_setter!(#name, #name::#var_name, #field_name),
-                                stringify!(#field_name),
-                                #crate_name::Type::from::<#name>(),
-                                if let #crate_name::Type::Enum(info) = #crate_name::Type::from::<#name>() {
-                                    *info.variants().iter().filter(|var| var.name() == stringify!(#var_name)).collect::<Vec<_>>()[0]
-                                } else {
-                                    unreachable!()
-                                },
-                                #crate_name::Type::from::<#field_ty>(),
-                            )
-                        )
-                    })
-                    .collect::<Vec<_>>();
-
-                variant_impls.push(quote!(
-                    #crate_name::Variant::Struct(#crate_name::info::StructVariant::new(
-                        stringify!(#var_name),
-                        #crate_name::Type::from::<#name>(),
-                        || { vec![ #(#fields),* ] }
-                    ))
-                ))
-            }
-            syn::Fields::Unnamed(fields) => {
-                let fields = fields.unnamed.iter()
-                    .enumerate()
-                    .map(|(idx, field)| {
-                        let field_ty = sanitized_field_ty(&field.ty);
-
-                        let mut skip: Vec<_> = Vec::new();
-                        for _ in 0..idx {
-                            skip.push(syn::Ident::new("_", Span::call_site()));
-                        }
-
-                        quote!(
-                            #crate_name::Field::new_enum_tuple(
-                                Box::new(|this| {
-                                    let inner = this.borrow::<#name>();
-                                    if let #pat_name::#var_name(#(#skip,)* wanted, ..) = inner {
-                                        #crate_name::Value::from_ref(wanted)
-                                    } else {
-                                        unreachable!()
-                                    }
-                                }),
-                                Box::new(|this, value| {
-                                    let inner = this.borrow_mut::<#name>();
-                                    if let #pat_name::#var_name(#(#skip,)* wanted, ..) = inner {
-                                        *wanted = value.cast();
-                                    } else {
-                                        unreachable!()
-                                    }
-                                }),
-                                #idx,
-                                #crate_name::Type::from::<#name>(),
-                                if let #crate_name::Type::Enum(info) = #crate_name::Type::from::<#name>() {
-                                    *info.variants().iter().filter(|var| var.name() == stringify!(#var_name)).collect::<Vec<_>>()[0]
-                                } else {
-                                    unreachable!()
-                                },
-                                #crate_name::Type::from::<#field_ty>(),
-                            )
-                        )
-                    })
-                    .collect::<Vec<_>>();
-
-                variant_impls.push(quote!(
-                    #crate_name::Variant::Tuple(#crate_name::info::TupleVariant::new(
-                        stringify!(#var_name),
-                        #crate_name::Type::from::<#name>(),
-                        || { vec![ #(#fields),* ] }
-                    ))
-                ))
-            }
-            syn::Fields::Unit => variant_impls.push(quote!(
-                #crate_name::Variant::Unit(#crate_name::info::UnitVariant::new(
-                    stringify!(#i),
-                    #crate_name::Type::from::<#name>(),
-                ))
-            )),
-        }
-    }
-
-    Ok(quote!(
-        impl #impl_bounds #crate_name::reflect::Reflected for #name {
-            fn name() -> String {
-                #qual_name.to_string()
-            }
-
-            unsafe fn init() {
-                #crate_name::Type::new_enum::<#name>()
-            }
-        }
-
-        impl #impl_bounds #crate_name::reflect::ReflectedEnum for #name {
-            fn variants() -> Vec<#crate_name::Variant> {
-                unsafe {
-                    vec![
-                        #(#variant_impls),*
-                    ]
-                }
-            }
-        }
-    ))
-}
-
 pub fn generate_assoc_fn(
     cfg: &Config,
     self_ty: &syn::Type,
@@ -169,8 +43,7 @@ pub fn generate_assoc_fn(
         syn::ReturnType::Type(_, ty) => quote!(#ty),
     };
 
-    let (helper, receiver_ty) = if inputs.len() > 0 && matches!(inputs[0], syn::FnArg::Receiver(..))
-    {
+    if inputs.len() > 0 && matches!(inputs[0], syn::FnArg::Receiver(..)) {
         let receiver = if let syn::FnArg::Receiver(arg) = &inputs[0] {
             if arg.reference.is_some() {
                 let mutability = &arg.mutability;
@@ -182,38 +55,33 @@ pub fn generate_assoc_fn(
             unreachable!()
         };
 
-        (
-            quote!(
+        Ok(quote!(
+            #crate_name::AssocFn::new_dynamic(
                 #[allow(unused_mut, unused_variables)]
                 Box::new(|this, mut args| {
-                    let s = this.unwrap();
-                    #crate_name::Value::from( <#self_ty>::#fn_name( s.cast::<#receiver>(), #( args.remove(0).cast::<#args>(), )* ) )
-                })
-            ),
-            quote!(Some(#crate_name::Type::from::<#receiver>())),
-        )
+                    #crate_name::Value::from( <#self_ty>::#fn_name(this.cast::<#receiver>(), #( args.remove(0).cast::<#args>(), )* ) )
+                }),
+                stringify!(#fn_name),
+                #crate_name::Type::from::<#self_ty>(),
+                #crate_name::Type::from::<#receiver>(),
+                &[#( #crate_name::Type::from::<#args>(), )*],
+                #crate_name::Type::from::<#ret_ty>(),
+            )
+        ))
     } else {
-        (
-            quote!(
+        Ok(quote!(
+            #crate_name::AssocFn::new_static(
                 #[allow(unused_mut, unused_variables)]
-                Box::new(move |_, mut args| {
+                Box::new(move |mut args| {
                     #crate_name::Value::from( <#self_ty>::#fn_name( #( args.remove(0).cast::<#args>(), )* ) )
-                })
-            ),
-            quote!(None),
-        )
-    };
-
-    Ok(quote!(
-        #crate_name::AssocFn::new(
-            #helper,
-            stringify!(#fn_name),
-            #crate_name::Type::from::<#self_ty>(),
-            #receiver_ty,
-            &[#( #crate_name::Type::from::<#args>(), )*],
-            #crate_name::Type::from::<#ret_ty>(),
-        )
-    ))
+                }),
+                stringify!(#fn_name),
+                #crate_name::Type::from::<#self_ty>(),
+                &[#( #crate_name::Type::from::<#args>(), )*],
+                #crate_name::Type::from::<#ret_ty>(),
+            )
+        ))
+    }
 }
 
 pub fn generate_assoc_const(
@@ -224,15 +92,209 @@ pub fn generate_assoc_const(
 ) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
 
-    let helper = quote!( #crate_name::__helpers::__make_const_accessor!(#self_ty::#const_name) );
-
     Ok(quote!(
         #crate_name::AssocConst::new(
-            #helper,
+            Box::new(move || #crate_name::Value::from(<#self_ty>::#const_name)),
             stringify!(#const_name),
             #crate_name::Type::from::<#self_ty>(),
             #crate_name::Type::from::<#const_ty>(),
         )
+    ))
+}
+
+pub fn generate_struct_field(
+    cfg: &Config,
+    name: &TokenStream,
+    idx: usize,
+    field: &syn::Field,
+) -> Result<TokenStream> {
+    let crate_name = &cfg.crate_name;
+    let no_get = cfg.no_get;
+    let no_set = cfg.no_set;
+
+    let field_ty = sanitized_field_ty(&field.ty);
+
+    let (field_name, fn_name, name_arg) = match &field.ident {
+        Some(field_name) => ( quote!(#field_name), quote!(new_named), quote!(stringify!(#field_name)) ),
+        None => {
+            let access = syn::Index::from(idx);
+            ( quote!(#access), quote!(new_tuple), quote!(#idx) )
+        }
+    };
+
+    let accessor = if !no_get {
+        quote!(Some(#crate_name::__helpers::__make_ref_accessor!(#name, #field_name),))
+    } else {
+        quote!(None)
+    };
+
+    let setter = if !no_set {
+        quote!(Some(#crate_name::__helpers::__make_setter!(#name, #field_name)))
+    } else {
+        quote!(None)
+    };
+
+    Ok(quote!(
+        #crate_name::Field::#fn_name(
+            #accessor,
+            #setter,
+            #name_arg,
+            #crate_name::Type::from::<#name>(),
+            #crate_name::Type::from::<#field_ty>(),
+        )
+    ))
+}
+
+pub fn generate_enum_field(
+    cfg: &Config,
+    name: &TokenStream,
+    pat_name: &TokenStream,
+    var_name: &syn::Ident,
+    idx: usize,
+    field: &syn::Field,
+) -> Result<TokenStream> {
+    let crate_name = &cfg.crate_name;
+    let no_get = cfg.no_get;
+    let no_set = cfg.no_set;
+
+    let field_ty = sanitized_field_ty(&field.ty);
+
+    let (field_access, fn_name, name_arg) = match &field.ident {
+        Some(field_name) => ( quote!({ #field_name: field }), quote!(new_enum_named), quote!(stringify!(#field_name)) ),
+        None =>{
+            let mut skip: Vec<_> = Vec::new();
+            for _ in 0..idx {
+                skip.push(syn::Ident::new("_", Span::call_site()));
+            }
+
+            ( quote!( (#(#skip,)* field, ..) ), quote!(new_enum_tuple), quote!(#idx) )
+        }
+    };
+
+    let accessor = if !no_get {
+        quote!(Some(Box::new(|this| {
+            let inner = this.borrow::<#name>();
+            if let #pat_name::#var_name #field_access = inner {
+                #crate_name::Value::from_ref(field)
+            } else {
+                unreachable!()
+            }
+        })))
+    } else {
+        quote!(None)
+    };
+
+    let setter = if !no_set {
+        quote!(Some(Box::new(|this, value| {
+            let inner = this.borrow_mut::<#name>();
+            if let #pat_name::#var_name #field_access = inner {
+                *field = value.cast();
+            }
+        })))
+    } else {
+        quote!(None)
+    };
+
+    Ok(quote!(
+        #crate_name::Field::#fn_name(
+            #accessor,
+            #setter,
+            #name_arg,
+            #crate_name::Type::from::<#name>(),
+            if let #crate_name::Type::Enum(info) = #crate_name::Type::from::<#name>() {
+                *info.variants().iter().filter(|var| var.name() == stringify!(#var_name)).collect::<Vec<_>>()[0]
+            } else {
+                unreachable!()
+            },
+            #crate_name::Type::from::<#field_ty>(),
+        )
+    ))
+}
+
+pub fn generate_variant(
+    cfg: &Config,
+    name: &TokenStream,
+    pat_name: &TokenStream,
+    variant: &syn::Variant,
+) -> Result<TokenStream> {
+    let crate_name = &cfg.crate_name;
+    let var_name = &variant.ident;
+
+    match &variant.fields {
+        syn::Fields::Named(fields) => {
+            let fields = fields.named.iter()
+                .enumerate()
+                .map(|(idx, field)| {
+                    generate_enum_field(cfg, name, pat_name, var_name, idx, field)
+                })
+                .collect::<Result<Vec<_>>>()?;
+
+            Ok(quote!(
+                #crate_name::Variant::Struct(#crate_name::info::StructVariant::new(
+                    stringify!(#var_name),
+                    #crate_name::Type::from::<#name>(),
+                    || { vec![ #(#fields),* ] }
+                ))
+            ))
+        }
+        syn::Fields::Unnamed(fields) => {
+            let fields = fields.unnamed.iter()
+                .enumerate()
+                .map(|(idx, field)| {
+                    generate_enum_field(cfg, name, pat_name, var_name, idx, field)
+                })
+                .collect::<Result<Vec<_>>>()?;
+
+            Ok(quote!(
+                #crate_name::Variant::Tuple(#crate_name::info::TupleVariant::new(
+                    stringify!(#var_name),
+                    #crate_name::Type::from::<#name>(),
+                    || { vec![ #(#fields),* ] }
+                ))
+            ))
+        }
+        syn::Fields::Unit => Ok(quote!(
+                #crate_name::Variant::Unit(#crate_name::info::UnitVariant::new(
+                    stringify!(#var_name),
+                    #crate_name::Type::from::<#name>(),
+                ))
+            )),
+    }
+}
+
+pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStream> {
+    let crate_name = &cfg.crate_name;
+    let impl_bounds = impl_bounds(&item.generics);
+    let name = item_name(&item.ident, &item.generics);
+    let pat_name = item_pattern_name(&item.ident, &item.generics);
+    let qual_name = item_qual_name(&item.ident, &item.generics);
+
+    let mut variant_impls = Vec::new();
+
+    for i in &item.variants {
+        variant_impls.push(generate_variant(cfg, &name, &pat_name, i)?)
+    }
+
+    Ok(quote!(
+        impl #impl_bounds #crate_name::reflect::Reflected for #name {
+            fn name() -> String {
+                #qual_name.to_string()
+            }
+
+            unsafe fn init() {
+                #crate_name::Type::new_enum::<#name>()
+            }
+        }
+
+        impl #impl_bounds #crate_name::reflect::ReflectedEnum for #name {
+            fn variants() -> Vec<#crate_name::Variant> {
+                unsafe {
+                    vec![
+                        #(#variant_impls),*
+                    ]
+                }
+            }
+        }
     ))
 }
 
@@ -330,21 +392,11 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
             let fields = fields
                 .named
                 .iter()
-                .map(|field| {
-                    let field_name = field.ident.as_ref().unwrap();
-                    let field_ty = sanitized_field_ty(&field.ty);
-
-                    quote!(
-                        #crate_name::Field::new_named(
-                            #crate_name::__helpers::__make_ref_accessor!(#name, #field_name),
-                            #crate_name::__helpers::__make_setter!(#name, #field_name),
-                            stringify!(#field_name),
-                            #crate_name::Type::from::<#name>(),
-                            #crate_name::Type::from::<#field_ty>(),
-                        )
-                    )
+                .enumerate()
+                .map(|(idx, field)| {
+                    generate_struct_field(cfg, &name, idx, field)
                 })
-                .collect::<Vec<_>>();
+                .collect::<Result<Vec<_>>>()?;
 
             struct_impl = quote!(
                 impl #impl_bounds #crate_name::reflect::ReflectedStruct for #name {
@@ -367,20 +419,9 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
                 .iter()
                 .enumerate()
                 .map(|(idx, field)| {
-                    let access = syn::Index::from(idx);
-                    let field_ty = sanitized_field_ty(&field.ty);
-
-                    quote!(
-                        #crate_name::Field::new_tuple(
-                            #crate_name::__helpers::__make_ref_accessor!(#name, #access),
-                            #crate_name::__helpers::__make_setter!(#name, #access),
-                            #idx,
-                            #crate_name::Type::from::<#name>(),
-                            #crate_name::Type::from::<#field_ty>(),
-                        )
-                    )
+                    generate_struct_field(cfg, &name, idx, field)
                 })
-                .collect::<Vec<_>>();
+                .collect::<Result<Vec<_>>>()?;
 
             struct_impl = quote!(
                 impl #impl_bounds #crate_name::reflect::ReflectedTupleStruct for #name {

@@ -2,7 +2,9 @@ use crate::reflect::*;
 use crate::{Field, Type, Variant};
 
 mod char;
+mod marker;
 mod ops;
+mod ptr;
 mod slice;
 mod str;
 
@@ -39,18 +41,6 @@ impl ReflectedStruct for core::alloc::LayoutError {
         vec![] // TODO
     }
 }
-
-impl<T: Reflected> Reflected for core::marker::PhantomData<T> {
-    fn name() -> String {
-        format!("core::marker::PhantomData<{}>", T::name())
-    }
-
-    unsafe fn init() {
-        Type::new_unit_struct::<core::marker::PhantomData<T>>()
-    }
-}
-
-impl<T: Reflected> ReflectedUnitStruct for core::marker::PhantomData<T> {}
 
 impl Reflected for core::num::ParseIntError {
     fn name() -> String {

@@ -5,6 +5,8 @@
 #![feature(min_const_generics, specialization, decl_macro, once_cell)]
 #![cfg_attr(feature = "never-type", feature(never_type))]
 
+// Features used just to implement reflection for their stuff
+#![feature(ptr_internals)]
 mod __impls;
 
 pub mod __helpers;

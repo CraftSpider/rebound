@@ -26,8 +26,8 @@ pub enum FieldKind {
 // TODO: Optional get/set, make macro support #[rebound(no_get, no_set)]
 
 pub struct Field {
-    get_ptr: AccessHelper,
-    set_ptr: SetHelper,
+    get_ptr: Option<AccessHelper>,
+    set_ptr: Option<SetHelper>,
     assoc_ty: Type,
     field_ty: Type,
     kind: FieldKind,
@@ -35,8 +35,8 @@ pub struct Field {
 
 impl Field {
     pub unsafe fn new_named(
-        get_ptr: AccessHelper,
-        set_ptr: SetHelper,
+        get_ptr: Option<AccessHelper>,
+        set_ptr: Option<SetHelper>,
         name: &'static str,
         assoc_ty: Type,
         field_ty: Type,
@@ -51,8 +51,8 @@ impl Field {
     }
 
     pub unsafe fn new_tuple(
-        get_ptr: AccessHelper,
-        set_ptr: SetHelper,
+        get_ptr: Option<AccessHelper>,
+        set_ptr: Option<SetHelper>,
         idx: usize,
         assoc_ty: Type,
         field_ty: Type,
@@ -67,8 +67,8 @@ impl Field {
     }
 
     pub unsafe fn new_enum_named(
-        get_ptr: AccessHelper,
-        set_ptr: SetHelper,
+        get_ptr: Option<AccessHelper>,
+        set_ptr: Option<SetHelper>,
         name: &'static str,
         assoc_ty: Type,
         assoc_var: Variant,
@@ -84,8 +84,8 @@ impl Field {
     }
 
     pub unsafe fn new_enum_tuple(
-        get_ptr: AccessHelper,
-        set_ptr: SetHelper,
+        get_ptr: Option<AccessHelper>,
+        set_ptr: Option<SetHelper>,
         idx: usize,
         assoc_ty: Type,
         assoc_var: Variant,
@@ -113,19 +113,27 @@ impl Field {
     }
 
     pub fn get_ref<'a>(&self, this: &'a Value<'a>) -> Result<Value<'a>, Error> {
-        if this.ty() != self.assoc_ty() {
-            Err(Error::wrong_type(this.ty(), self.assoc_ty))
+        if let Some(get_ptr) = &self.get_ptr {
+            if this.ty() != self.assoc_ty() {
+                Err(Error::wrong_type(this.ty(), self.assoc_ty))
+            } else {
+                Ok((get_ptr)(this))
+            }
         } else {
-            Ok((self.get_ptr)(this))
+            Err(Error::UnsupportedOperation)
         }
     }
 
     pub fn set(&self, this: &mut Value, other: Value<'static>) -> Result<(), Error> {
-        if this.ty() != self.assoc_ty() || other.ty() != self.ty() {
-            Err(Error::wrong_type(this.ty(), self.assoc_ty))
+        if let Some(set_ptr) = &self.set_ptr {
+            if this.ty() != self.assoc_ty() || other.ty() != self.ty() {
+                Err(Error::wrong_type(this.ty(), self.assoc_ty))
+            } else {
+                (set_ptr)(this, other);
+                Ok(())
+            }
         } else {
-            (self.set_ptr)(this, other);
-            Ok(())
+            Err(Error::UnsupportedOperation)
         }
     }
 }
@@ -134,8 +142,8 @@ impl fmt::Debug for Field {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Field {{ get_ptr: {:p}, set_ptr: {:p}, assoc_ty: {:?}, field_ty: {:?}, kind: {:?} }}",
-            self.get_ptr, self.set_ptr, self.assoc_ty, self.field_ty, self.kind
+            "Field {{ get_ptr: _, set_ptr: _, assoc_ty: {:?}, field_ty: {:?}, kind: {:?} }}",
+            self.assoc_ty, self.field_ty, self.kind
         )
     }
 }

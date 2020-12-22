@@ -13,8 +13,8 @@ use std::error;
 pub enum Error {
     WrongType { wrong_ty: Type, right_ty: Type },
 
-    ExpectedSelf,
-    UnexpectedSelf,
+    IsDynamic,
+    IsStatic,
 
     TooManyArgs,
     TooFewArgs,

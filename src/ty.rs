@@ -33,6 +33,9 @@ struct TypeVTable {
 /// type in Rust, including primitives, arrays, and references. Strictly, the only requirement is
 /// that the type implement the [`Reflected`] trait, though most types are also expected to
 /// implement another trait related to information they possess not shared by other type kinds.
+///
+/// This is not, and cannot, be backed by [`std::any::TypeId`], because that is only valid on
+/// `'static` types, while this works with dynamic lifetimes.
 #[derive(Debug, Copy, Clone)]
 pub enum Type {
     Primitive(PrimitiveInfo),
@@ -258,7 +261,7 @@ impl Type {
 
 impl PartialEq for Type {
     fn eq(&self, other: &Type) -> bool {
-        // TODO: May be possible to break this assumption. Is TypeId good?
+        // This is safe because Type creation is based on the name, overlaps will cause warnings
         return self.name() == other.name();
     }
 }

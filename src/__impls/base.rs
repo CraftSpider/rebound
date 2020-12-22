@@ -434,8 +434,8 @@ where
     fn fields() -> Vec<Field> {
         unsafe {
             vec![Field::new_tuple(
-                __make_ref_accessor!((T0,), 0),
-                __make_setter!((T0,), 0),
+                Some(__make_ref_accessor!((T0,), 0)),
+                Some(__make_setter!((T0,), 0)),
                 0,
                 Type::from::<(T0,)>(),
                 Type::from::<T0>(),
@@ -467,15 +467,15 @@ where
         unsafe {
             vec![
                 Field::new_tuple(
-                    __make_ref_accessor!((T0, T1), 0),
-                    __make_setter!((T0, T1), 0),
+                    Some(__make_ref_accessor!((T0, T1), 0)),
+                    Some(__make_setter!((T0, T1), 0)),
                     0,
                     Type::from::<(T0, T1)>(),
                     Type::from::<T0>(),
                 ),
                 Field::new_tuple(
-                    __make_ref_accessor!((T0, T1), 1),
-                    __make_setter!((T0, T1), 1),
+                    Some(__make_ref_accessor!((T0, T1), 1)),
+                    Some(__make_setter!((T0, T1), 1)),
                     1,
                     Type::from::<(T0, T1)>(),
                     Type::from::<T1>(),
@@ -510,22 +510,22 @@ where
         unsafe {
             vec![
                 Field::new_tuple(
-                    __make_ref_accessor!((T0, T1, T2), 0),
-                    __make_setter!((T0, T1, T2), 0),
+                    Some(__make_ref_accessor!((T0, T1, T2), 0)),
+                    Some(__make_setter!((T0, T1, T2), 0)),
                     0,
                     Type::from::<(T0, T1, T2)>(),
                     Type::from::<T0>(),
                 ),
                 Field::new_tuple(
-                    __make_ref_accessor!((T0, T1, T2), 1),
-                    __make_setter!((T0, T1, T2), 1),
+                    Some(__make_ref_accessor!((T0, T1, T2), 1)),
+                    Some(__make_setter!((T0, T1, T2), 1)),
                     1,
                     Type::from::<(T0, T1, T2)>(),
                     Type::from::<T1>(),
                 ),
                 Field::new_tuple(
-                    __make_ref_accessor!((T0, T1, T2), 2),
-                    __make_setter!((T0, T1, T2), 2),
+                    Some(__make_ref_accessor!((T0, T1, T2), 2)),
+                    Some(__make_setter!((T0, T1, T2), 2)),
                     2,
                     Type::from::<(T0, T1, T2)>(),
                     Type::from::<T1>(),

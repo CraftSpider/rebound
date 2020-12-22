@@ -21,6 +21,11 @@ pub fn impl_find(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
+pub fn extern_fields(input: TokenStream) -> TokenStream {
+    rebound::extern_fields(input.into()).into()
+}
+
+#[proc_macro]
 pub fn extern_assoc_fns(input: TokenStream) -> TokenStream {
     rebound::extern_assoc_fns(input.into()).into()
 }

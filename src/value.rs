@@ -27,7 +27,6 @@ pub struct Value<'a> {
     kind: ValueKind,
 }
 
-// TODO: Count borrows safely, RefCell style?
 impl<'a> Value<'a> {
     /// Create a new borrowed Value from a reference, with a lifetime no greater than that of the
     /// provided reference.

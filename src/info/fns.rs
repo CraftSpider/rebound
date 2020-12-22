@@ -3,33 +3,68 @@ use crate::{Error, Type, Value};
 use std::fmt;
 
 // TODO: AssocFn with non-'static return types?
-pub(crate) type CallFnHelper = Box<dyn Fn(Option<Value>, Vec<Value>) -> Value<'static>>;
+pub(crate) type CallStaticHelper = Box<dyn Fn(Vec<Value>) -> Value<'static>>;
+pub(crate) type CallDynamicHelper = Box<dyn Fn(Value, Vec<Value>) -> Value<'static>>;
 
+pub enum FnKind {
+    Static {
+        call: CallStaticHelper,
+    },
+    Dynamic {
+        call: CallDynamicHelper,
+        self_ty: Type,
+    },
+}
+
+impl fmt::Debug for FnKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FnKind::Static { call } => write!(f, "Static {{ call: {:p} }}", call),
+            FnKind::Dynamic { call, self_ty } => write!(f, "Dynamic {{ call: {:p}, self_ty: {:?} }}", call, self_ty)
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct AssocFn {
-    ptr: CallFnHelper,
     name: &'static str,
     assoc_ty: Type,
-    self_ty: Option<Type>,
     args: Vec<Type>,
     ret: Type,
+    kind: FnKind,
 }
 
 impl AssocFn {
-    pub unsafe fn new(
-        ptr: CallFnHelper,
+    pub unsafe fn new_static(
+        call: CallStaticHelper,
         name: &'static str,
         assoc_ty: Type,
-        self_ty: Option<Type>,
         args: &[Type],
         ret: Type,
     ) -> AssocFn {
         AssocFn {
-            ptr,
             name,
             assoc_ty,
-            self_ty,
-            args: Vec::from(args),
+            args: args.to_owned(),
             ret,
+            kind: FnKind::Static { call },
+        }
+    }
+
+    pub unsafe fn new_dynamic(
+        call: CallDynamicHelper,
+        name: &'static str,
+        assoc_ty: Type,
+        self_ty: Type,
+        args: &[Type],
+        ret: Type,
+    ) -> AssocFn {
+        AssocFn {
+            name,
+            assoc_ty,
+            args: args.to_owned(),
+            ret,
+            kind: FnKind::Dynamic { call, self_ty },
         }
     }
 
@@ -49,20 +84,24 @@ impl AssocFn {
         self.ret
     }
 
+    pub fn kind(&self) -> &FnKind {
+        &self.kind
+    }
+
     pub fn call(&self, this: Option<Value>, args: Vec<Value>) -> Result<Value<'static>, Error> {
         // Check the validity of `this`
-        match self.self_ty {
-            Some(ty) => match &this {
+        match self.kind {
+            FnKind::Dynamic { self_ty, .. } => match &this {
                 Some(val) => {
-                    if val.ty() != ty {
-                        return Err(Error::wrong_type(val.ty(), ty));
+                    if val.ty() != self_ty {
+                        return Err(Error::wrong_type(val.ty(), self_ty));
                     }
                 }
-                None => return Err(Error::ExpectedSelf),
+                None => return Err(Error::IsDynamic),
             },
-            None => {
+            FnKind::Static {..} => {
                 if this.is_some() {
-                    return Err(Error::UnexpectedSelf);
+                    return Err(Error::IsStatic);
                 }
             }
         }
@@ -81,16 +120,9 @@ impl AssocFn {
         }
 
         // Actually call the helper func
-        Ok((self.ptr)(this, args))
-    }
-}
-
-impl fmt::Debug for AssocFn {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "AssocFn {{ ptr: {:p}, name: {:?}, assoc_ty: {:?}, self_ty: {:?}, args: {:?}, ret: {:?} }}",
-            self.ptr, self.name, self.assoc_ty, self.self_ty, self.args, self.ret
-        )
+        Ok(match &self.kind {
+            FnKind::Static { call } => call(args),
+            FnKind::Dynamic { call, .. } => call(this.unwrap(), args)
+        })
     }
 }
