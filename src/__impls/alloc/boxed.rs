@@ -1,21 +1,9 @@
-use crate::reflect::*;
-use crate::{Field, Type};
 
 extern crate alloc;
 use alloc::boxed::*;
 
-impl<T: ?Sized + Reflected> Reflected for Box<T> {
-    fn name() -> String {
-        format!("alloc::boxed::Box<{}>", T::name())
-    }
+use rebound_proc::extern_items;
 
-    unsafe fn init() {
-        Type::new_tuple_struct::<Box<T>>()
-    }
-}
-
-impl<T: ?Sized + Reflected> ReflectedTupleStruct for Box<T> {
-    fn fields() -> Vec<Field> {
-        vec![] // TODO
-    }
+extern_items! {
+    pub struct Box<T: ?Sized, #[unstable(feature = "allocator_api", issue = "32838")] A: alloc::alloc::Allocator = Global>(core::ptr::Unique<T>, A);
 }

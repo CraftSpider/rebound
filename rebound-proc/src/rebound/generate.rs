@@ -264,7 +264,7 @@ pub fn generate_variant(
 
 pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
-    let impl_bounds = impl_bounds(&item.generics);
+    let impl_bounds = impl_bounds(cfg, &item.generics);
     let name = item_name(&item.ident, &item.generics);
     let pat_name = item_pattern_name(&item.ident, &item.generics);
     let qual_name = item_qual_name(&item.ident, &item.generics);
@@ -378,7 +378,7 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
 
 pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
-    let impl_bounds = impl_bounds(&item.generics);
+    let impl_bounds = impl_bounds(cfg, &item.generics);
     let name = item_name(&item.ident, &item.generics);
     let qual_name = item_qual_name(&item.ident, &item.generics);
 

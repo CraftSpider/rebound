@@ -6,7 +6,7 @@
 #![cfg_attr(feature = "never-type", feature(never_type))]
 
 // Features used just to implement reflection for their stuff
-#![feature(ptr_internals)]
+#![feature(allocator_api, ptr_internals, raw_vec_internals)]
 mod __impls;
 
 pub mod __helpers;

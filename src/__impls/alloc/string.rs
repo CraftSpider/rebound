@@ -1,21 +1,10 @@
-use crate::reflect::*;
-use crate::{Field, Type};
-
 extern crate alloc;
 use alloc::string::*;
 
-impl Reflected for String {
-    fn name() -> String {
-        "alloc::string::String".into()
-    }
+use rebound_proc::extern_items;
 
-    unsafe fn init() {
-        Type::new_struct::<String>()
-    }
-}
-
-impl ReflectedStruct for String {
-    fn fields() -> Vec<Field> {
-        vec![] // TODO
+extern_items! {
+    pub struct String {
+        vec: Vec<u8>,
     }
 }

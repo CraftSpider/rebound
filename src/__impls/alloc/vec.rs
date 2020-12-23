@@ -1,21 +1,11 @@
-use crate::reflect::*;
-use crate::{Field, Type};
-
 extern crate alloc;
 use alloc::vec::*;
 
-impl<T: Reflected> Reflected for Vec<T> {
-    fn name() -> String {
-        format!("alloc::vec::Vec<{}>", T::name())
-    }
+use rebound_proc::extern_items;
 
-    unsafe fn init() {
-        Type::new_struct::<Vec<T>>()
-    }
-}
-
-impl<T: Reflected> ReflectedStruct for Vec<T> {
-    fn fields() -> Vec<Field> {
-        vec![] // TODO
-    }
+extern_items! {
+    pub struct Vec<T, #[unstable(feature = "allocator_api", issue = "32838")] A: alloc::alloc::Allocator = Global> {
+        buf: alloc::raw_vec::RawVec<T, A>,
+        len: usize,
+    };
 }

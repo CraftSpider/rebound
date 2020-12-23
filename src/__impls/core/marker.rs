@@ -1,16 +1,7 @@
-use crate::reflect::*;
-use crate::Type;
-
 use core::marker::*;
 
-impl<T: Reflected> Reflected for PhantomData<T> {
-    fn name() -> String {
-        format!("core::marker::PhantomData<{}>", T::name())
-    }
+use rebound_proc::extern_items;
 
-    unsafe fn init() {
-        Type::new_unit_struct::<PhantomData<T>>()
-    }
+extern_items! {
+    struct PhantomData<T: ?Sized>;
 }
-
-impl<T: Reflected> ReflectedUnitStruct for PhantomData<T> {}

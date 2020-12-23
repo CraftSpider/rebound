@@ -1,5 +1,5 @@
 use proc_macro2::{Span, TokenStream};
-use quote::quote;
+use quote::{quote, TokenStreamExt};
 use syn::parse::{Parse, ParseBuffer};
 use syn::punctuated::Punctuated;
 use syn::{Item, Token};
@@ -10,7 +10,7 @@ mod utils;
 use generate::*;
 use utils::*;
 
-type Result<T> = std::result::Result<T, String>;
+type Result<T> = core::result::Result<T, String>;
 
 struct AttrInput {
     values: Punctuated<syn::NestedMeta, Token![,]>,
@@ -132,8 +132,38 @@ fn verify_item(input: TokenStream) -> Result<Item> {
     }
 }
 
-pub fn extern_fields(_: TokenStream) -> TokenStream {
-    todo!()
+struct Items {
+    items: Punctuated<syn::Item, Token![;]>
+}
+
+impl syn::parse::Parse for Items {
+    fn parse(parser: syn::parse::ParseStream) -> syn::Result<Items> {
+        Ok(Items {
+            items: parser.parse_terminated(syn::Item::parse)?,
+        })
+    }
+}
+
+pub fn extern_items(input: TokenStream) -> TokenStream {
+    let mut config = Config::default();
+    config.crate_name = syn::Ident::new("crate", Span::call_site());
+    config.no_get = true;
+    config.no_set = true;
+
+    let item = syn::parse2(input)
+        .map_err(|err| err.to_string())
+        .and_then(|Items { items }| items.into_iter()
+            .map(|item| generate_reflect(&config, item))
+            .collect::<Result<Vec<_>>>()
+        )
+        .map(|vec| vec.into_iter()
+            .fold(TokenStream::new(), |mut acc, ts| { acc.append_all(ts); acc })
+        );
+
+    match item {
+        Ok(ts) => ts,
+        Err(msg) => quote!(compile_error!(#msg))
+    }
 }
 
 #[allow(dead_code)]

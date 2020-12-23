@@ -1,3 +1,5 @@
+use super::Config;
+
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::spanned::Spanned;
@@ -32,7 +34,10 @@ pub fn item_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
         .iter()
         .map(|param| match param {
             syn::GenericParam::Lifetime(..) => quote!('_),
-            syn::GenericParam::Type(param) => quote!(#param),
+            syn::GenericParam::Type(param) => {
+                let param_name = &param.ident;
+                quote!(#param_name)
+            },
             syn::GenericParam::Const(param) => quote!(#param),
         })
         .collect::<Vec<_>>();
@@ -142,7 +147,9 @@ pub fn sanitized_field_ty(ty: &syn::Type) -> TokenStream {
     }
 }
 
-pub fn impl_bounds(generics: &syn::Generics) -> TokenStream {
+pub fn impl_bounds(cfg: &Config, generics: &syn::Generics) -> TokenStream {
+    let crate_name = &cfg.crate_name;
+
     let impl_bounds = generics
         .params
         .iter()
@@ -150,8 +157,9 @@ pub fn impl_bounds(generics: &syn::Generics) -> TokenStream {
             syn::GenericParam::Lifetime(..) => TokenStream::new(),
             syn::GenericParam::Type(param) => {
                 let name = &param.ident;
+                let bounds = param.bounds.iter();
 
-                quote!( #name: rebound::Reflected + 'static )
+                quote!( #name: #crate_name::Reflected + 'static #(+ #bounds)* )
             }
             syn::GenericParam::Const(param) => quote!( #param ),
         })
