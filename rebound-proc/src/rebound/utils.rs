@@ -37,7 +37,7 @@ pub fn item_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
             syn::GenericParam::Type(param) => {
                 let param_name = &param.ident;
                 quote!(#param_name)
-            },
+            }
             syn::GenericParam::Const(param) => quote!(#param),
         })
         .collect::<Vec<_>>();

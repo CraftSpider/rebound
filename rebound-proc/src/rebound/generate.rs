@@ -115,10 +115,14 @@ pub fn generate_struct_field(
     let field_ty = sanitized_field_ty(&field.ty);
 
     let (field_name, fn_name, name_arg) = match &field.ident {
-        Some(field_name) => ( quote!(#field_name), quote!(new_named), quote!(stringify!(#field_name)) ),
+        Some(field_name) => (
+            quote!(#field_name),
+            quote!(new_named),
+            quote!(stringify!(#field_name)),
+        ),
         None => {
             let access = syn::Index::from(idx);
-            ( quote!(#access), quote!(new_tuple), quote!(#idx) )
+            (quote!(#access), quote!(new_tuple), quote!(#idx))
         }
     };
 
@@ -160,14 +164,22 @@ pub fn generate_enum_field(
     let field_ty = sanitized_field_ty(&field.ty);
 
     let (field_access, fn_name, name_arg) = match &field.ident {
-        Some(field_name) => ( quote!({ #field_name: field }), quote!(new_enum_named), quote!(stringify!(#field_name)) ),
-        None =>{
+        Some(field_name) => (
+            quote!({ #field_name: field }),
+            quote!(new_enum_named),
+            quote!(stringify!(#field_name)),
+        ),
+        None => {
             let mut skip: Vec<_> = Vec::new();
             for _ in 0..idx {
                 skip.push(syn::Ident::new("_", Span::call_site()));
             }
 
-            ( quote!( (#(#skip,)* field, ..) ), quote!(new_enum_tuple), quote!(#idx) )
+            (
+                quote!( (#(#skip,)* field, ..) ),
+                quote!(new_enum_tuple),
+                quote!(#idx),
+            )
         }
     };
 
@@ -222,11 +234,11 @@ pub fn generate_variant(
 
     match &variant.fields {
         syn::Fields::Named(fields) => {
-            let fields = fields.named.iter()
+            let fields = fields
+                .named
+                .iter()
                 .enumerate()
-                .map(|(idx, field)| {
-                    generate_enum_field(cfg, name, pat_name, var_name, idx, field)
-                })
+                .map(|(idx, field)| generate_enum_field(cfg, name, pat_name, var_name, idx, field))
                 .collect::<Result<Vec<_>>>()?;
 
             Ok(quote!(
@@ -238,11 +250,11 @@ pub fn generate_variant(
             ))
         }
         syn::Fields::Unnamed(fields) => {
-            let fields = fields.unnamed.iter()
+            let fields = fields
+                .unnamed
+                .iter()
                 .enumerate()
-                .map(|(idx, field)| {
-                    generate_enum_field(cfg, name, pat_name, var_name, idx, field)
-                })
+                .map(|(idx, field)| generate_enum_field(cfg, name, pat_name, var_name, idx, field))
                 .collect::<Result<Vec<_>>>()?;
 
             Ok(quote!(
@@ -254,11 +266,11 @@ pub fn generate_variant(
             ))
         }
         syn::Fields::Unit => Ok(quote!(
-                #crate_name::Variant::Unit(#crate_name::info::UnitVariant::new(
-                    stringify!(#var_name),
-                    #crate_name::Type::from::<#name>(),
-                ))
-            )),
+            #crate_name::Variant::Unit(#crate_name::info::UnitVariant::new(
+                stringify!(#var_name),
+                #crate_name::Type::from::<#name>(),
+            ))
+        )),
     }
 }
 
@@ -393,9 +405,7 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
                 .named
                 .iter()
                 .enumerate()
-                .map(|(idx, field)| {
-                    generate_struct_field(cfg, &name, idx, field)
-                })
+                .map(|(idx, field)| generate_struct_field(cfg, &name, idx, field))
                 .collect::<Result<Vec<_>>>()?;
 
             struct_impl = quote!(
@@ -418,9 +428,7 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
                 .unnamed
                 .iter()
                 .enumerate()
-                .map(|(idx, field)| {
-                    generate_struct_field(cfg, &name, idx, field)
-                })
+                .map(|(idx, field)| generate_struct_field(cfg, &name, idx, field))
                 .collect::<Result<Vec<_>>>()?;
 
             struct_impl = quote!(

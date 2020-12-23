@@ -1,5 +1,5 @@
 mod boxed;
-mod string;
-mod vec;
 mod global;
 mod raw_vec;
+mod string;
+mod vec;

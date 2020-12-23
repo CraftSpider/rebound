@@ -133,7 +133,7 @@ fn verify_item(input: TokenStream) -> Result<Item> {
 }
 
 struct Items {
-    items: Punctuated<syn::Item, Token![;]>
+    items: Punctuated<syn::Item, Token![;]>,
 }
 
 impl syn::parse::Parse for Items {
@@ -152,17 +152,22 @@ pub fn extern_items(input: TokenStream) -> TokenStream {
 
     let item = syn::parse2(input)
         .map_err(|err| err.to_string())
-        .and_then(|Items { items }| items.into_iter()
-            .map(|item| generate_reflect(&config, item))
-            .collect::<Result<Vec<_>>>()
-        )
-        .map(|vec| vec.into_iter()
-            .fold(TokenStream::new(), |mut acc, ts| { acc.append_all(ts); acc })
-        );
+        .and_then(|Items { items }| {
+            items
+                .into_iter()
+                .map(|item| generate_reflect(&config, item))
+                .collect::<Result<Vec<_>>>()
+        })
+        .map(|vec| {
+            vec.into_iter().fold(TokenStream::new(), |mut acc, ts| {
+                acc.append_all(ts);
+                acc
+            })
+        });
 
     match item {
         Ok(ts) => ts,
-        Err(msg) => quote!(compile_error!(#msg))
+        Err(msg) => quote!(compile_error!(#msg)),
     }
 }
 

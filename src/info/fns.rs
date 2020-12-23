@@ -20,7 +20,9 @@ impl fmt::Debug for FnKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             FnKind::Static { call } => write!(f, "Static {{ call: {:p} }}", call),
-            FnKind::Dynamic { call, self_ty } => write!(f, "Dynamic {{ call: {:p}, self_ty: {:?} }}", call, self_ty)
+            FnKind::Dynamic { call, self_ty } => {
+                write!(f, "Dynamic {{ call: {:p}, self_ty: {:?} }}", call, self_ty)
+            }
         }
     }
 }
@@ -99,7 +101,7 @@ impl AssocFn {
                 }
                 None => return Err(Error::IsDynamic),
             },
-            FnKind::Static {..} => {
+            FnKind::Static { .. } => {
                 if this.is_some() {
                     return Err(Error::IsStatic);
                 }
@@ -122,7 +124,7 @@ impl AssocFn {
         // Actually call the helper func
         Ok(match &self.kind {
             FnKind::Static { call } => call(args),
-            FnKind::Dynamic { call, .. } => call(this.unwrap(), args)
+            FnKind::Dynamic { call, .. } => call(this.unwrap(), args),
         })
     }
 }
