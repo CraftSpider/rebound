@@ -16,13 +16,19 @@ jobs:
         with:
           toolchain: nightly
           override: true
-          components: rustfmt
+          components: rustfmt, miri
 
       - name: Run rustfmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
+
+      - name: Rune miri
+        uses: actions-rs/cargo@v1
+        with:
+          command: miri
+          args: test
   test:
     name: Rebound Tests
     runs-on: ubuntu-latest

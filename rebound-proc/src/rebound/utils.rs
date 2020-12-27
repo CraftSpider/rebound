@@ -59,7 +59,7 @@ pub fn item_pattern_name(name: &syn::Ident, generics: &syn::Generics) -> TokenSt
     quote!(#name::<#(#ty_generics,)*>)
 }
 
-pub fn item_qual_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
+pub fn item_qual_name(cfg: &Config, name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
     let ty_generics = generics
         .params
         .iter()
@@ -91,7 +91,13 @@ pub fn item_qual_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStrea
         )
     }
 
-    quote!(format!(#fmt_str, module_path!(), stringify!(#name), #(#ty_generics,)* ))
+    let module_path = if let Some((mat, rep)) = &cfg.name_replace {
+        quote!({ module_path!().replace(#mat, #rep) })
+    } else {
+        quote!(module_path!())
+    };
+
+    quote!(format!(#fmt_str, #module_path, stringify!(#name), #(#ty_generics,)* ))
 }
 
 pub fn sanitized_field_ty(ty: &syn::Type) -> TokenStream {
@@ -150,11 +156,44 @@ pub fn sanitized_field_ty(ty: &syn::Type) -> TokenStream {
 pub fn impl_bounds(cfg: &Config, generics: &syn::Generics) -> TokenStream {
     let crate_name = &cfg.crate_name;
 
+    // let mut clauses: HashMap<_, TokenStream> = HashMap::new();
+    //
+    // if let Some(clause) = &generics.where_clause {
+    //     for pred in &clause.predicates {
+    //         match &pred {
+    //             syn::WherePredicate::Lifetime(pred) => {
+    //                 let name = &pred.lifetime.ident;
+    //                 let bounds = &pred.bounds;
+    //                 let lifetime = syn::Lifetime::new(&name.to_string(), Span::call_site());
+    //
+    //                 clauses.entry(pred.lifetime.ident.to_string())
+    //                     .and_modify(|ts| {
+    //                         let bounds = bounds.iter();
+    //                         ts.append_all(quote!(#(+ #bounds)*))
+    //                     })
+    //                     .or_insert({ let bounds = bounds.iter(); quote!(#lifetime: #(#bounds)+* ) });
+    //             },
+    //             syn::WherePredicate::Type(pred) => {
+    //                 let ty = &pred.bounded_ty;
+    //                 let bounds = &pred.bounds;
+    //
+    //                 clauses.entry(ty_id(&ty).unwrap())
+    //                     .and_modify(|ts| {
+    //                         let bounds = bounds.iter();
+    //                         ts.append_all(quote!(#(+ #bounds)*))
+    //                     })
+    //                     .or_insert({ let bounds = bounds.iter(); quote!(#ty: #(#bounds)+*) });
+    //             },
+    //             _ => panic!("Unsupported where attribute")
+    //         }
+    //     }
+    // }
+
     let impl_bounds = generics
         .params
         .iter()
         .map(|param| match param {
-            syn::GenericParam::Lifetime(..) => TokenStream::new(),
+            syn::GenericParam::Lifetime(param) => quote!( #param ),
             syn::GenericParam::Type(param) => {
                 let name = &param.ident;
                 let bounds = param.bounds.iter();

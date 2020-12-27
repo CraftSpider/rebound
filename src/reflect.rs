@@ -50,6 +50,11 @@ pub trait ReflectedReference: Reflected {
     fn mutability() -> bool;
 }
 
+pub trait ReflectedFunction: Reflected {
+    fn args() -> Vec<Type>;
+    fn ret() -> Type;
+}
+
 pub trait ReflectedStruct: Reflected {
     fn fields() -> Vec<Field>;
 }

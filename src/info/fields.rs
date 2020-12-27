@@ -23,8 +23,6 @@ pub enum FieldKind {
     },
 }
 
-// TODO: Optional get/set, make macro support #[rebound(no_get, no_set)]
-
 pub struct Field {
     get_ptr: Option<AccessHelper>,
     set_ptr: Option<SetHelper>,

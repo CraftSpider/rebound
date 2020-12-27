@@ -279,7 +279,7 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
     let impl_bounds = impl_bounds(cfg, &item.generics);
     let name = item_name(&item.ident, &item.generics);
     let pat_name = item_pattern_name(&item.ident, &item.generics);
-    let qual_name = item_qual_name(&item.ident, &item.generics);
+    let qual_name = item_qual_name(cfg, &item.ident, &item.generics);
 
     let mut variant_impls = Vec::new();
 
@@ -392,7 +392,7 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
     let crate_name = &cfg.crate_name;
     let impl_bounds = impl_bounds(cfg, &item.generics);
     let name = item_name(&item.ident, &item.generics);
-    let qual_name = item_qual_name(&item.ident, &item.generics);
+    let qual_name = item_qual_name(cfg, &item.ident, &item.generics);
 
     let new_fn;
     let struct_impl;

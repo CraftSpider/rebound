@@ -865,8 +865,48 @@ impl<T: ?Sized + Reflected> ReflectedReference for &mut T {
     }
 }
 
+// Function pointers
+impl<T: Reflected> Reflected for fn() -> T {
+    fn name() -> String {
+        format!("fn() -> {}", T::name())
+    }
+
+    unsafe fn init() {
+        Type::new_fn::<fn() -> T>()
+    }
+}
+
+impl<T: Reflected> ReflectedFunction for fn() -> T {
+    fn args() -> Vec<Type> {
+        vec![]
+    }
+
+    fn ret() -> Type {
+        Type::from::<T>()
+    }
+}
+
+impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T {
+    fn name() -> String {
+        format!("fn({}) -> {}", A0::name(), T::name())
+    }
+
+    unsafe fn init() {
+        Type::new_fn::<fn(A0) -> T>()
+    }
+}
+
+impl<T: Reflected, A0: Reflected> ReflectedFunction for fn(A0) -> T {
+    fn args() -> Vec<Type> {
+        vec![Type::from::<A0>()]
+    }
+
+    fn ret() -> Type {
+        Type::from::<T>()
+    }
+}
+
 // Never type
-#[cfg(feature = "never-type")]
 impl Reflected for ! {
     fn name() -> String {
         "!".into()

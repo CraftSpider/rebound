@@ -1,14 +1,7 @@
 use rebound::{rebound, Type, Value};
-use std::marker::PhantomData;
 
 #[rebound]
 struct TestStruct {}
-
-#[rebound]
-struct TestRef<'a>(&'a i32);
-
-#[rebound]
-struct TestPhantom<'a>(PhantomData<&'a ()>);
 
 #[test]
 fn test_value_ty() {
@@ -42,4 +35,26 @@ fn test_value_borrow() {
     let norm_borrow = val.borrow::<i32>();
 
     assert_eq!(*norm_borrow, 2);
+}
+
+static mut DROP_FLAG: bool = false;
+
+#[test]
+fn test_value_drop() {
+    #[rebound]
+    struct Foo;
+
+    impl Drop for Foo {
+        fn drop(&mut self) {
+            unsafe { DROP_FLAG = true };
+        }
+    }
+
+    let val = Value::from(Foo);
+
+    assert_eq!(unsafe { DROP_FLAG }, false);
+
+    drop(val);
+
+    assert_eq!(unsafe { DROP_FLAG }, true);
 }

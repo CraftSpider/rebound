@@ -1,20 +1,12 @@
-use crate::reflect::*;
-use crate::{Field, Type};
-
 use core::ops::*;
 
-impl<T: Reflected> Reflected for Range<T> {
-    fn name() -> String {
-        format!("core::ops::Range<{}>", T::name())
-    }
+use rebound_proc::extern_items;
 
-    unsafe fn init() {
-        Type::new_struct::<Range<T>>()
-    }
-}
-
-impl<T: Reflected> ReflectedStruct for Range<T> {
-    fn fields() -> Vec<Field> {
-        vec![] // TODO
+extern_items! {
+    pub struct Range<Idx> {
+        /// The lower bound of the range (inclusive).
+        pub start: Idx,
+        /// The upper bound of the range (exclusive).
+        pub end: Idx,
     }
 }

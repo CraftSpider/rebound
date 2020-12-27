@@ -26,6 +26,7 @@ impl Parse for AttrInput {
 
 pub struct Config {
     crate_name: syn::Ident,
+    name_replace: Option<(String, String)>,
     debug_out: bool,
     no_get: bool,
     no_set: bool,
@@ -35,6 +36,7 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             crate_name: syn::Ident::new("rebound", Span::call_site()),
+            name_replace: None,
             debug_out: false,
             no_get: false,
             no_set: false,
@@ -42,6 +44,7 @@ impl Default for Config {
     }
 }
 
+// TODO: Support name_replace
 fn parse_attrs(attrs: TokenStream) -> Result<Config> {
     let args: AttrInput = syn::parse2(attrs).map_err(|err| err.to_string())?;
 
@@ -96,6 +99,7 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
     Ok(Config {
         crate_name,
         debug_out,
+        name_replace: None,
         no_get,
         no_set,
     })
@@ -133,13 +137,19 @@ fn verify_item(input: TokenStream) -> Result<Item> {
 }
 
 struct Items {
-    items: Punctuated<syn::Item, Token![;]>,
+    items: Vec<syn::Item>,
 }
 
 impl syn::parse::Parse for Items {
     fn parse(parser: syn::parse::ParseStream) -> syn::Result<Items> {
         Ok(Items {
-            items: parser.parse_terminated(syn::Item::parse)?,
+            items: {
+                let mut items = Vec::new();
+                while !parser.is_empty() {
+                    items.push(parser.parse()?);
+                }
+                items
+            },
         })
     }
 }
@@ -147,6 +157,7 @@ impl syn::parse::Parse for Items {
 pub fn extern_items(input: TokenStream) -> TokenStream {
     let mut config = Config::default();
     config.crate_name = syn::Ident::new("crate", Span::call_site());
+    config.name_replace = Some(("rebound::__impls::".into(), "".into()));
     config.no_get = true;
     config.no_set = true;
 
@@ -166,7 +177,12 @@ pub fn extern_items(input: TokenStream) -> TokenStream {
         });
 
     match item {
-        Ok(ts) => ts,
+        Ok(ts) => {
+            if config.debug_out {
+                println!("extern_items! generated code: {}", ts.to_string())
+            }
+            ts
+        }
         Err(msg) => quote!(compile_error!(#msg)),
     }
 }

@@ -52,10 +52,5 @@ impl Trait {
     }
 }
 
-//#[rebound]
-trait Foo {
-    fn meh(&self);
-}
-
 // TODO: How are traits reflected? This is needed to support cloning Values, as well as
 //       things like formatting. Can't assume things will be `dyn`able

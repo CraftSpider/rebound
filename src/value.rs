@@ -43,7 +43,7 @@ impl<'a> Value<'a> {
     ///
     /// # Safety
     ///
-    /// Similar to [`Box<T>`], the pointer returned by this function may outlive the borrowed Value,
+    /// Similar to [`pointer::as_ref`], the pointer returned by this function may outlive the borrowed Value,
     /// it is the user's responsibility to not use it past the lifetime of this Value.
     pub unsafe fn raw_ptr(&self) -> *mut () {
         self.ptr

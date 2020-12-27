@@ -7,4 +7,8 @@ extern_items! {
         pointer: *const T,
         _marker: core::marker::PhantomData<T>,
     }
+
+    struct NonNull<T: ?Sized> {
+        pointer: *const T,
+    }
 }

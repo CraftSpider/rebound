@@ -2,7 +2,7 @@ use crate::{Error, Type, Value};
 
 use std::fmt;
 
-// TODO: AssocFn with non-'static return types?
+// TODO: AssocFn with non-'static return types? Hard to make work with 'a lifetimes.
 pub(crate) type CallStaticHelper = Box<dyn Fn(Vec<Value>) -> Value<'static>>;
 pub(crate) type CallDynamicHelper = Box<dyn Fn(Value, Vec<Value>) -> Value<'static>>;
 
