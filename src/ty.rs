@@ -4,9 +4,9 @@ use crate::info::*;
 use crate::reflect::*;
 
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::lazy::SyncOnceCell;
 use std::sync::RwLock;
-use std::hash::{Hash, Hasher};
 
 // SAFETY: *do not touch these if you don't know what you're doing*
 static REFLECTED_TYS: SyncOnceCell<RwLock<HashMap<String, Type>>> = SyncOnceCell::new();
