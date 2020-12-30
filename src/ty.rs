@@ -3,11 +3,37 @@
 use crate::info::*;
 use crate::reflect::*;
 use crate::utils::StaticTypeMap;
+use crate::Value;
 
+use core::fmt;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::lazy::SyncOnceCell;
 use std::sync::RwLock;
+
+macro impl_common($ty:ty) {
+    impl CommonTypeInfo for $ty {
+        fn name(&self) -> String {
+            (self.vtable.name)()
+        }
+
+        fn assoc_fns(&self) -> Vec<AssocFn> {
+            (self.vtable.assoc_fns)()
+        }
+
+        fn assoc_consts(&self) -> Vec<AssocConst> {
+            (self.vtable.assoc_consts)()
+        }
+
+        fn as_ref<'a>(&self, val: &'a Value) -> Value<'a> {
+            (self.vtable.as_ref)(val)
+        }
+
+        fn as_mut<'a>(&self, val: &'a mut Value) -> Value<'a> {
+            (self.vtable.as_mut)(val)
+        }
+    }
+}
 
 // SAFETY: *do not touch these if you don't know what you're doing*
 static REFLECTED_TYS: SyncOnceCell<RwLock<HashMap<String, Type>>> = SyncOnceCell::new();
@@ -21,14 +47,77 @@ pub trait CommonTypeInfo {
     /// Get the known associated constants of this type
     fn assoc_consts(&self) -> Vec<AssocConst>;
     // fn impled_traits(&self) -> Vec<TraitInfo>;
+
+    /// Convert a Value of this type to a reference to that value, if it's not already a reference
+    fn as_ref<'a>(&self, val: &'a Value) -> Value<'a>;
+    /// Convert a Value of this type to a mutable reference to that value, if it's not already a
+    /// reference
+    fn as_mut<'a>(&self, val: &'a mut Value) -> Value<'a>;
 }
 
 /// Common VTable used by all types
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 struct TypeVTable {
     name: fn() -> String,
     assoc_fns: fn() -> Vec<AssocFn>,
     assoc_consts: fn() -> Vec<AssocConst>,
+
+    as_ref: for<'a> fn(&'a Value) -> Value<'a>,
+    as_mut: for<'a> fn(&'a mut Value) -> Value<'a>,
+}
+
+impl fmt::Debug for TypeVTable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "TypeVTable {{ name: {:?}, assoc_fns: {:?}, assoc_consts: {:?}, as_ref: {:p} }}",
+            self.name, self.assoc_fns, self.assoc_consts, self.as_ref as *const ()
+        )
+    }
+}
+
+trait Ref: Reflected {
+    fn as_ref<'a>(val: &'a Value) -> Value<'a>;
+    fn as_mut<'a>(val: &'a mut Value) -> Value<'a>;
+}
+
+impl<T: ?Sized + Reflected> Ref for T {
+    default fn as_ref<'a>(val: &'a Value) -> Value<'a> {
+        unsafe { std::mem::transmute(Value::from(val.borrow::<Self>())) }
+    }
+
+    default fn as_mut<'a>(val: &'a mut Value) -> Value<'a> {
+        unsafe { std::mem::transmute(Value::from(val.borrow_mut::<Self>())) }
+    }
+}
+
+impl<T: ?Sized + Reflected> Ref for &T {
+    fn as_ref<'a>(val: &'a Value) -> Value<'a> {
+        unsafe {
+            let ptr = &*<&T>::assemble(*val.raw_meta().cast(), val.raw_ptr().cast());
+            std::mem::transmute(Value::from_ref(ptr))
+        }
+    }
+
+    fn as_mut<'a>(_: &'a mut Value) -> Value<'a> {
+        panic!("Can't mutably borrow an immutable reference")
+    }
+}
+
+impl<T: ?Sized + Reflected> Ref for &mut T {
+    fn as_ref<'a>(val: &'a Value) -> Value<'a> {
+        unsafe {
+            let ptr = &*<&T>::assemble(*val.raw_meta().cast(), val.raw_ptr().cast());
+            std::mem::transmute(Value::from_ref(ptr))
+        }
+    }
+
+    fn as_mut<'a>(val: &'a mut Value) -> Value<'a> {
+        unsafe {
+            let ptr = &*<&mut T>::assemble(*val.raw_meta().cast(), val.raw_ptr().cast());
+            std::mem::transmute(Value::from_ref(ptr))
+        }
+    }
 }
 
 impl TypeVTable {
@@ -37,6 +126,9 @@ impl TypeVTable {
             name: T::name,
             assoc_fns: T::assoc_fns,
             assoc_consts: T::assoc_consts,
+
+            as_ref: <T as Ref>::as_ref,
+            as_mut: <T as Ref>::as_mut,
         }
     }
 }
@@ -291,6 +383,14 @@ impl CommonTypeInfo for Type {
     fn assoc_consts(&self) -> Vec<AssocConst> {
         self.as_inner().assoc_consts()
     }
+
+    fn as_ref<'a>(&self, val: &'a Value) -> Value<'a> {
+        self.as_inner().as_ref(val)
+    }
+
+    fn as_mut<'a>(&self, val: &'a mut Value) -> Value<'a> {
+        self.as_inner().as_mut(val)
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -298,19 +398,7 @@ pub struct PrimitiveInfo {
     vtable: TypeVTable,
 }
 
-impl CommonTypeInfo for PrimitiveInfo {
-    fn name(&self) -> String {
-        (self.vtable.name)()
-    }
-
-    fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.vtable.assoc_fns)()
-    }
-
-    fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.vtable.assoc_consts)()
-    }
-}
+impl_common!(PrimitiveInfo);
 
 #[derive(Debug, Copy, Clone)]
 pub struct TupleInfo {
@@ -324,19 +412,7 @@ impl TupleInfo {
     }
 }
 
-impl CommonTypeInfo for TupleInfo {
-    fn name(&self) -> String {
-        (self.vtable.name)()
-    }
-
-    fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.vtable.assoc_fns)()
-    }
-
-    fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.vtable.assoc_consts)()
-    }
-}
+impl_common!(TupleInfo);
 
 #[derive(Debug, Copy, Clone)]
 pub struct ArrayInfo {
@@ -355,19 +431,7 @@ impl ArrayInfo {
     }
 }
 
-impl CommonTypeInfo for ArrayInfo {
-    fn name(&self) -> String {
-        (self.vtable.name)()
-    }
-
-    fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.vtable.assoc_fns)()
-    }
-
-    fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.vtable.assoc_consts)()
-    }
-}
+impl_common!(ArrayInfo);
 
 #[derive(Debug, Copy, Clone)]
 pub struct SliceInfo {
@@ -381,19 +445,7 @@ impl SliceInfo {
     }
 }
 
-impl CommonTypeInfo for SliceInfo {
-    fn name(&self) -> String {
-        (self.vtable.name)()
-    }
-
-    fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.vtable.assoc_fns)()
-    }
-
-    fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.vtable.assoc_consts)()
-    }
-}
+impl_common!(SliceInfo);
 
 #[derive(Debug, Copy, Clone)]
 pub struct PointerInfo {
@@ -412,19 +464,7 @@ impl PointerInfo {
     }
 }
 
-impl CommonTypeInfo for PointerInfo {
-    fn name(&self) -> String {
-        (self.vtable.name)()
-    }
-
-    fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.vtable.assoc_fns)()
-    }
-
-    fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.vtable.assoc_consts)()
-    }
-}
+impl_common!(PointerInfo);
 
 #[derive(Debug, Copy, Clone)]
 pub struct ReferenceInfo {
@@ -443,19 +483,7 @@ impl ReferenceInfo {
     }
 }
 
-impl CommonTypeInfo for ReferenceInfo {
-    fn name(&self) -> String {
-        (self.vtable.name)()
-    }
-
-    fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.vtable.assoc_fns)()
-    }
-
-    fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.vtable.assoc_consts)()
-    }
-}
+impl_common!(ReferenceInfo);
 
 #[derive(Debug, Copy, Clone)]
 pub struct FunctionInfo {
@@ -474,19 +502,7 @@ impl FunctionInfo {
     }
 }
 
-impl CommonTypeInfo for FunctionInfo {
-    fn name(&self) -> String {
-        (self.vtable.name)()
-    }
-
-    fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.vtable.assoc_fns)()
-    }
-
-    fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.vtable.assoc_consts)()
-    }
-}
+impl_common!(FunctionInfo);
 
 #[derive(Debug, Copy, Clone)]
 pub struct StructInfo {
@@ -500,19 +516,7 @@ impl StructInfo {
     }
 }
 
-impl CommonTypeInfo for StructInfo {
-    fn name(&self) -> String {
-        (self.vtable.name)()
-    }
-
-    fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.vtable.assoc_fns)()
-    }
-
-    fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.vtable.assoc_consts)()
-    }
-}
+impl_common!(StructInfo);
 
 #[derive(Debug, Copy, Clone)]
 pub struct TupleStructInfo {
@@ -526,38 +530,14 @@ impl TupleStructInfo {
     }
 }
 
-impl CommonTypeInfo for TupleStructInfo {
-    fn name(&self) -> String {
-        (self.vtable.name)()
-    }
-
-    fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.vtable.assoc_fns)()
-    }
-
-    fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.vtable.assoc_consts)()
-    }
-}
+impl_common!(TupleStructInfo);
 
 #[derive(Debug, Copy, Clone)]
 pub struct UnitStructInfo {
     vtable: TypeVTable,
 }
 
-impl CommonTypeInfo for UnitStructInfo {
-    fn name(&self) -> String {
-        (self.vtable.name)()
-    }
-
-    fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.vtable.assoc_fns)()
-    }
-
-    fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.vtable.assoc_consts)()
-    }
-}
+impl_common!(UnitStructInfo);
 
 #[derive(Debug, Copy, Clone)]
 pub struct EnumInfo {
@@ -571,16 +551,4 @@ impl EnumInfo {
     }
 }
 
-impl CommonTypeInfo for EnumInfo {
-    fn name(&self) -> String {
-        (self.vtable.name)()
-    }
-
-    fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.vtable.assoc_fns)()
-    }
-
-    fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.vtable.assoc_consts)()
-    }
-}
+impl_common!(EnumInfo);

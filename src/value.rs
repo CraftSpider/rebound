@@ -2,6 +2,7 @@
 
 use crate::{Error, Reflected, Type};
 
+use crate::ty::CommonTypeInfo;
 use core::fmt;
 use core::marker::PhantomData;
 use core::ptr;
@@ -71,6 +72,10 @@ impl<'a> Value<'a> {
             _phantom: PhantomData,
             kind: ValueKind::Borrowed,
         }
+    }
+
+    pub unsafe fn raw_meta(&self) -> *mut () {
+        self.meta
     }
 
     /// Get the raw backing pointer of this Value
@@ -151,10 +156,7 @@ impl<'a> Value<'a> {
         if Type::from::<T>() != self.ty() {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         } else {
-            let ptr = T::assemble(
-                unsafe { *Box::from_raw(self.meta.cast::<T::Meta>()) },
-                self.ptr,
-            );
+            let ptr = T::assemble(unsafe { *self.meta.cast::<T::Meta>() }, self.ptr);
             unsafe { Ok(&*ptr) }
         }
     }
@@ -202,10 +204,7 @@ impl<'a> Value<'a> {
         if Type::from::<T>() != self.ty() {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         } else {
-            let ptr = T::assemble(
-                unsafe { *Box::from_raw(self.meta.cast::<T::Meta>()) },
-                self.ptr,
-            );
+            let ptr = T::assemble(unsafe { *self.meta.cast::<T::Meta>() }, self.ptr);
             unsafe { Ok(&mut *ptr) }
         }
     }
@@ -227,6 +226,15 @@ impl<'a> Value<'a> {
             "Couldn't mutably borrow Value as type {}",
             T::name()
         ))
+    }
+
+    pub fn as_ref(&self) -> Value {
+        self.ty.as_ref(self)
+    }
+
+    pub fn as_mut(&mut self) -> Value {
+        let ty = self.ty;
+        ty.as_mut(self)
     }
 }
 
