@@ -544,7 +544,9 @@ pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<Toke
     let name = item_name(&item.ident, &item.generics);
     let qual_name = item_qual_name(cfg, &item.ident, &item.generics);
 
-    let fields = item.fields.named
+    let fields = item
+        .fields
+        .named
         .iter()
         .enumerate()
         .map(|(idx, field)| generate_union_field(cfg, &name, idx, field))

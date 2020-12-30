@@ -50,7 +50,7 @@ pub fn item_pattern_name(name: &syn::Ident, generics: &syn::Generics) -> TokenSt
         .iter()
         .map(|param| match param {
             syn::GenericParam::Lifetime(..) => quote!('_),
-            syn::GenericParam::Type(syn::TypeParam { ident, ..})
+            syn::GenericParam::Type(syn::TypeParam { ident, .. })
             | syn::GenericParam::Const(syn::ConstParam { ident, .. }) => quote!(#ident),
         })
         .collect::<Vec<_>>();

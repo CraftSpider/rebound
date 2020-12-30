@@ -1,5 +1,5 @@
-use crate::{Type, Error, Value};
 use super::{AccessHelper, SetHelper};
+use crate::{Error, Type, Value};
 
 pub struct UnionField {
     get_ptr: Option<AccessHelper>,

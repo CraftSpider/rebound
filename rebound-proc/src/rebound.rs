@@ -112,7 +112,9 @@ fn verify_item(input: TokenStream) -> Result<Item> {
     })?;
 
     let err = match &item {
-        Item::Enum(..) | Item::Impl(..) | Item::Struct(..) | Item::Trait(..) | Item::Union(..) => None,
+        Item::Enum(..) | Item::Impl(..) | Item::Struct(..) | Item::Trait(..) | Item::Union(..) => {
+            None
+        }
 
         Item::Const(..) => Some("a const"),
         Item::ExternCrate(..) => Some("an extern crate"),

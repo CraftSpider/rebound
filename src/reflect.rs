@@ -2,8 +2,8 @@
 
 use crate::{AssocConst, AssocFn, Field, Type, Variant};
 
-use rebound_proc::impl_find;
 use crate::info::UnionField;
+use rebound_proc::impl_find;
 
 pub trait Reflected {
     type Meta: Copy = ();

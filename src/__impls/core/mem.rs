@@ -1,5 +1,5 @@
-use crate::{Reflected, Type, Field};
 use crate::reflect::ReflectedStruct;
+use crate::{Field, Reflected, Type};
 
 use core::mem::*;
 
@@ -28,15 +28,13 @@ impl<T: ?Sized + Reflected> Reflected for ManuallyDrop<T> {
 impl<T: ?Sized + Reflected> ReflectedStruct for ManuallyDrop<T> {
     fn fields() -> Vec<Field> {
         unsafe {
-            vec![
-                Field::new_named(
-                    None,
-                    None,
-                    "value",
-                    Type::from::<ManuallyDrop<T>>(),
-                    Type::from::<T>(),
-                )
-            ]
+            vec![Field::new_named(
+                None,
+                None,
+                "value",
+                Type::from::<ManuallyDrop<T>>(),
+                Type::from::<T>(),
+            )]
         }
     }
 }
