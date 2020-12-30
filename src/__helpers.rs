@@ -1,7 +1,10 @@
 pub macro __make_ref_accessor($ty:ty, $($item:tt)+) {
     Box::new(|this| {
         let inner = this.borrow::<$ty>();
-        $crate::Value::from_ref(&inner.$($item)+)
+        let v = $crate::Value::from_ref(&inner.$($item)+);
+        // SAFETY: See rebound::ty::Ref
+        #[allow(unused_unsafe)]
+        unsafe { core::mem::transmute(v) }
     })
 }
 

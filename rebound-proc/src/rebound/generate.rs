@@ -59,7 +59,10 @@ pub fn generate_assoc_fn(
             #crate_name::AssocFn::new_dynamic(
                 #[allow(unused_mut, unused_variables)]
                 |this, mut args| {
-                    #crate_name::Value::from( <#self_ty>::#fn_name(this.cast::<#receiver>(), #( args.remove(0).cast::<#args>(), )* ) )
+                    let v = #crate_name::Value::from( <#self_ty>::#fn_name(this.cast::<#receiver>(), #( args.remove(0).cast::<#args>(), )* ) );
+                    // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
+                    //         As such, we know that the lifetimes here should never be violated.
+                    unsafe { core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v) }
                 },
                 stringify!(#fn_name),
                 #crate_name::Type::from::<#self_ty>(),
@@ -73,7 +76,10 @@ pub fn generate_assoc_fn(
             #crate_name::AssocFn::new_static(
                 #[allow(unused_mut, unused_variables)]
                 |mut args| {
-                    #crate_name::Value::from( <#self_ty>::#fn_name( #( args.remove(0).cast::<#args>(), )* ) )
+                    let v = #crate_name::Value::from( <#self_ty>::#fn_name( #( args.remove(0).cast::<#args>(), )* ) );
+                    // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
+                    //         As such, we know that the lifetimes here should never be violated.
+                    unsafe { core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v) }
                 },
                 stringify!(#fn_name),
                 #crate_name::Type::from::<#self_ty>(),

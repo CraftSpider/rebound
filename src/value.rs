@@ -46,7 +46,7 @@ impl<'a> Value<'a> {
     /// Similar to [`Box::from_raw`], this function may result in a double-free if called more than
     /// once with the same pointer.
     pub unsafe fn from_ptr_owned<T: ?Sized + Reflected + 'a>(val: *mut T) -> Value<'a> {
-        let meta = Box::into_raw(Box::new(val.disassemble().0)).cast();
+        let meta = Box::into_raw(Box::new(T::disassemble(&*val).0)).cast();
         let ptr = val.cast();
 
         Value {

@@ -1,6 +1,6 @@
 #![feature(once_cell, proc_macro_diagnostic)]
 
-use std::ops::Range;
+use core::ops::Range;
 
 use proc_macro::TokenStream;
 use quote::{quote, TokenStreamExt};

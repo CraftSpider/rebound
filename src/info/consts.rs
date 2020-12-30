@@ -1,6 +1,6 @@
 use crate::{Type, Value};
 
-use std::fmt;
+use core::fmt;
 
 pub(crate) type GetConstHelper = Box<dyn Fn() -> Value<'static>>;
 

@@ -1,6 +1,6 @@
 use crate::{Error, Type, Value};
 
-use std::fmt;
+use core::fmt;
 
 // TODO: AssocFn with non-'static return types? Hard to make work with 'a lifetimes.
 pub(crate) type CallStaticHelper = for<'a> fn(Vec<Value<'a>>) -> Value<'a>;

@@ -198,7 +198,7 @@ pub fn impl_bounds(cfg: &Config, generics: &syn::Generics) -> TokenStream {
                 let name = &param.ident;
                 let bounds = param.bounds.iter();
 
-                quote!( #name: #crate_name::Reflected + 'static #(+ #bounds)* )
+                quote!( #name: #crate_name::Reflected #(+ #bounds)* )
             }
             syn::GenericParam::Const(param) => quote!( #param ),
         })

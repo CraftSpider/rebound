@@ -300,7 +300,7 @@ impl ReflectedTuple for () {
 // TODO: Make this valid for non-static lifetimes maybe
 impl<T0> Reflected for (T0,)
 where
-    T0: Reflected + 'static,
+    T0: Reflected,
 {
     fn name() -> String {
         format!("({},)", T0::name())
@@ -321,7 +321,7 @@ where
 
 impl<T0> ReflectedTuple for (T0,)
 where
-    T0: Reflected + 'static,
+    T0: Reflected,
 {
     fn fields() -> Vec<Field> {
         unsafe {
@@ -338,8 +338,8 @@ where
 
 impl<T0, T1> Reflected for (T0, T1)
 where
-    T0: Reflected + 'static,
-    T1: Reflected + 'static,
+    T0: Reflected,
+    T1: Reflected,
 {
     fn name() -> String {
         format!("({}, {})", T0::name(), T1::name())
@@ -360,8 +360,8 @@ where
 
 impl<T0, T1> ReflectedTuple for (T0, T1)
 where
-    T0: Reflected + 'static,
-    T1: Reflected + 'static,
+    T0: Reflected,
+    T1: Reflected,
 {
     fn fields() -> Vec<Field> {
         unsafe {
@@ -387,9 +387,9 @@ where
 
 impl<T0, T1, T2> Reflected for (T0, T1, T2)
 where
-    T0: Reflected + 'static,
-    T1: Reflected + 'static,
-    T2: Reflected + 'static,
+    T0: Reflected,
+    T1: Reflected,
+    T2: Reflected,
 {
     fn name() -> String {
         format!("({}, {}, {})", T0::name(), T1::name(), T2::name())
@@ -410,9 +410,9 @@ where
 
 impl<T0, T1, T2> ReflectedTuple for (T0, T1, T2)
 where
-    T0: Reflected + 'static,
-    T1: Reflected + 'static,
-    T2: Reflected + 'static,
+    T0: Reflected,
+    T1: Reflected,
+    T2: Reflected,
 {
     fn fields() -> Vec<Field> {
         unsafe {
@@ -498,8 +498,7 @@ impl<T: Reflected> ReflectedSlice for [T] {
     }
 }
 
-// TODO: Split into 'static and non-'static impls.
-impl<T: Reflected + 'static> ReflectedImpl<0> for [T] {
+impl<T: Reflected> ReflectedImpl<0> for [T] {
     fn assoc_fns() -> Vec<AssocFn> {
         use core::ops::Range;
         use core::slice::{
@@ -660,19 +659,17 @@ impl ReflectedImpl<8> for [u8] {
 
 // Pointers
 impl<T: ?Sized + Reflected> Reflected for *const T {
-    type Meta = T::Meta;
-
     fn name() -> String {
         format!("*const {}", T::name())
     }
 
     fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
-        unsafe { std::mem::transmute(ptr) }
+        ptr as _
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
         (
-            T::disassemble(unsafe { &**self }).0,
+            (),
             self as *const *const T as _,
         )
     }
@@ -744,19 +741,17 @@ impl<T: Reflected + 'static> ReflectedImpl<2> for *const T {
 }
 
 impl<T: ?Sized + Reflected> Reflected for *mut T {
-    type Meta = T::Meta;
-
     fn name() -> String {
         format!("*mut {}", T::name())
     }
 
     fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
-        unsafe { std::mem::transmute(ptr) }
+        ptr as _
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
         (
-            T::disassemble(unsafe { &mut **self }).0,
+            (),
             self as *const *mut T as _,
         )
     }
@@ -778,18 +773,16 @@ impl<T: ?Sized + Reflected> ReflectedPointer for *mut T {
 
 // References
 impl<T: ?Sized + Reflected> Reflected for &T {
-    type Meta = T::Meta;
-
     fn name() -> String {
         format!("&{}", T::name())
     }
 
     fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
-        unsafe { std::mem::transmute(ptr) }
+        ptr as _
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        (T::disassemble(&**self).0, self as *const &T as _)
+        ((), self as *const &T as _)
     }
 
     unsafe fn init() {
@@ -808,18 +801,16 @@ impl<T: ?Sized + Reflected> ReflectedReference for &T {
 }
 
 impl<T: ?Sized + Reflected> Reflected for &mut T {
-    type Meta = T::Meta;
-
     fn name() -> String {
         format!("&mut {}", T::name())
     }
 
     fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
-        unsafe { std::mem::transmute(ptr) }
+        ptr as _
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        (T::disassemble(*self).0, self as *const &mut T as _)
+        ((), self as *const &mut T as _)
     }
 
     unsafe fn init() {

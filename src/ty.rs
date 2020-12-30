@@ -6,8 +6,8 @@ use crate::utils::StaticTypeMap;
 use crate::Value;
 
 use core::fmt;
+use core::hash::{Hash, Hasher};
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 use std::lazy::SyncOnceCell;
 use std::sync::RwLock;
 
@@ -81,13 +81,17 @@ trait Ref: Reflected {
     fn as_mut<'a>(val: &'a mut Value) -> Value<'a>;
 }
 
+// SAFETY: Value cannot be safely constructed with a lifetime that outlives the contained object.
+//         As such, we know getting a ref to the internal object will always be valid.
+//         The transmute just conveys this to the rust compiler, converting the lifetime.
+
 impl<T: ?Sized + Reflected> Ref for T {
     default fn as_ref<'a>(val: &'a Value) -> Value<'a> {
-        unsafe { std::mem::transmute(Value::from(val.borrow::<Self>())) }
+        unsafe { core::mem::transmute::<Value, Value>(Value::from(val.borrow::<Self>())) }
     }
 
     default fn as_mut<'a>(val: &'a mut Value) -> Value<'a> {
-        unsafe { std::mem::transmute(Value::from(val.borrow_mut::<Self>())) }
+        unsafe { core::mem::transmute::<Value, Value>(Value::from(val.borrow_mut::<Self>())) }
     }
 }
 
@@ -95,7 +99,7 @@ impl<T: ?Sized + Reflected> Ref for &T {
     fn as_ref<'a>(val: &'a Value) -> Value<'a> {
         unsafe {
             let ptr = *<&T>::assemble(*val.raw_meta().cast(), val.raw_ptr().cast());
-            std::mem::transmute(Value::from(ptr))
+            core::mem::transmute::<Value, Value>(Value::from(ptr))
         }
     }
 
