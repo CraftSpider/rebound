@@ -193,7 +193,10 @@ pub fn generate_enum_field(
         quote!(Some(Box::new(|this| {
             let inner = this.borrow::<#name>();
             if let #pat_name::#var_name #field_access = inner {
-                #crate_name::Value::from_ref(field)
+                let v = #crate_name::Value::from_ref(field);
+                // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
+                //         As such, we know that the lifetimes here should never be violated.
+                core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v)
             } else {
                 unreachable!()
             }

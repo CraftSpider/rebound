@@ -1,0 +1,37 @@
+error[E0716]: temporary value dropped while borrowed
+  --> $DIR/fn_result_lifetime.rs:9:27
+   |
+9  |         let c: &[&i32] = &[&a, &b];
+   |                           ^^^^^^^^ creates a temporary which is freed while still in use
+...
+20 |     }
+   |     - temporary value is freed at the end of this statement
+21 |
+22 |     println!("{:p}", result)
+   |                      ------ borrow later used here
+   |
+   = note: consider using a `let` binding to create a longer lived value
+
+error[E0597]: `a` does not live long enough
+  --> $DIR/fn_result_lifetime.rs:9:28
+   |
+9  |         let c: &[&i32] = &[&a, &b];
+   |                            ^^ borrowed value does not live long enough
+...
+20 |     }
+   |     - `a` dropped here while still borrowed
+21 |
+22 |     println!("{:p}", result)
+   |                      ------ borrow later used here
+
+error[E0597]: `b` does not live long enough
+  --> $DIR/fn_result_lifetime.rs:9:32
+   |
+9  |         let c: &[&i32] = &[&a, &b];
+   |                                ^^ borrowed value does not live long enough
+...
+20 |     }
+   |     - `b` dropped here while still borrowed
+21 |
+22 |     println!("{:p}", result)
+   |                      ------ borrow later used here

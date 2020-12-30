@@ -1,5 +1,5 @@
 
-use rebound::{Value, Type, ty::CommonTypeInfo};
+use rebound::{Value, ty::CommonTypeInfo};
 
 fn main() {
     let result;

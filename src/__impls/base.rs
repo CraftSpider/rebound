@@ -668,10 +668,7 @@ impl<T: ?Sized + Reflected> Reflected for *const T {
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        (
-            (),
-            self as *const *const T as _,
-        )
+        ((), self as *const *const T as _)
     }
 
     unsafe fn init() {
@@ -750,10 +747,7 @@ impl<T: ?Sized + Reflected> Reflected for *mut T {
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        (
-            (),
-            self as *const *mut T as _,
-        )
+        ((), self as *const *mut T as _)
     }
 
     unsafe fn init() {
