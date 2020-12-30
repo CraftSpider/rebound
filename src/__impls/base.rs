@@ -666,8 +666,8 @@ impl<T: ?Sized + Reflected> Reflected for *const T {
         format!("*const {}", T::name())
     }
 
-    fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
-        &mut T::assemble(meta, unsafe { *(ptr as *mut *mut ()) }) as *mut *mut T as _
+    fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
+        unsafe { std::mem::transmute(ptr) }
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -750,8 +750,8 @@ impl<T: ?Sized + Reflected> Reflected for *mut T {
         format!("*mut {}", T::name())
     }
 
-    fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
-        &mut T::assemble(meta, unsafe { *(ptr as *mut *mut ()) }) as _
+    fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
+        unsafe { std::mem::transmute(ptr) }
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -784,8 +784,8 @@ impl<T: ?Sized + Reflected> Reflected for &T {
         format!("&{}", T::name())
     }
 
-    fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
-        &mut T::assemble(meta, unsafe { *(ptr as *const *mut ()) }) as *mut *mut T as _
+    fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
+        unsafe { std::mem::transmute(ptr) }
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -814,8 +814,8 @@ impl<T: ?Sized + Reflected> Reflected for &mut T {
         format!("&mut {}", T::name())
     }
 
-    fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
-        &mut T::assemble(meta, unsafe { *(ptr as *mut *mut ()) }) as *mut *mut T as _
+    fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
+        unsafe { std::mem::transmute(ptr) }
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {

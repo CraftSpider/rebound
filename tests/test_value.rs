@@ -37,6 +37,42 @@ fn test_value_borrow() {
     assert_eq!(*norm_borrow, 2);
 }
 
+#[test]
+fn test_ref_value() {
+    let i = 1;
+    let v = Value::from(&i);
+
+    assert_eq!(v.ty(), Type::from::<&i32>());
+    let r = v.borrow::<&i32>();
+    assert_eq!(**r, 1);
+}
+
+#[test]
+fn test_mut_ref_value() {
+    let mut i = 1;
+    let mut v = Value::from(&mut i);
+
+    assert_eq!(v.ty(), Type::from::<&mut i32>());
+    let r = v.borrow_mut::<&mut i32>();
+    **r = 2;
+
+    drop(v);
+
+    assert_eq!(i, 2);
+}
+
+#[test]
+fn test_slice_value() {
+    let slice = Box::<[i32]>::from(&[1, 2, 3] as &[i32]);
+    let v = unsafe { Value::from_ptr_owned(Box::into_raw(slice)) };
+
+    assert_eq!(v.ty(), Type::from::<[i32]>());
+    let r = v.borrow::<[i32]>();
+    assert_eq!(r[0], 1);
+    assert_eq!(r[1], 2);
+    assert_eq!(r[2], 3);
+}
+
 static mut DROP_FLAG: bool = false;
 
 #[test]

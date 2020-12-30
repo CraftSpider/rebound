@@ -246,8 +246,8 @@ impl<'a> fmt::Pointer for Value<'a> {
 
 impl<'a, T: Reflected + 'a> From<T> for Value<'a> {
     fn from(val: T) -> Value<'a> {
-        let meta = Box::into_raw(Box::new(val.disassemble().0)).cast();
-        let ptr = Box::into_raw(Box::new(val)).cast();
+        let meta = Box::<T::Meta>::into_raw(Box::<T::Meta>::new(val.disassemble().0)).cast();
+        let ptr = Box::<T>::into_raw(Box::<T>::new(val)).cast();
 
         Value {
             meta,
