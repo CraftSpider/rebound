@@ -3,7 +3,6 @@
 // TODO: Remove specialization / hope it gets completed
 #![allow(incomplete_features)]
 #![feature(
-    min_const_generics,
     specialization,
     decl_macro,
     once_cell,
