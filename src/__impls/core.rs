@@ -9,5 +9,6 @@ mod ops;
 mod option;
 mod ptr;
 mod result;
+mod mem;
 mod slice;
 mod str;

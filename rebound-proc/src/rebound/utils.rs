@@ -34,11 +34,10 @@ pub fn item_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
         .iter()
         .map(|param| match param {
             syn::GenericParam::Lifetime(..) => quote!('_),
-            syn::GenericParam::Type(param) => {
-                let param_name = &param.ident;
-                quote!(#param_name)
+            syn::GenericParam::Type(syn::TypeParam { ident, .. })
+            | syn::GenericParam::Const(syn::ConstParam { ident, .. }) => {
+                quote!(#ident)
             }
-            syn::GenericParam::Const(param) => quote!(#param),
         })
         .collect::<Vec<_>>();
 
@@ -51,8 +50,8 @@ pub fn item_pattern_name(name: &syn::Ident, generics: &syn::Generics) -> TokenSt
         .iter()
         .map(|param| match param {
             syn::GenericParam::Lifetime(..) => quote!('_),
-            syn::GenericParam::Type(param) => quote!(#param),
-            syn::GenericParam::Const(param) => quote!(#param),
+            syn::GenericParam::Type(syn::TypeParam { ident, ..})
+            | syn::GenericParam::Const(syn::ConstParam { ident, .. }) => quote!(#ident),
         })
         .collect::<Vec<_>>();
 

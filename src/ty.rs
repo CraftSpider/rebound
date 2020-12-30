@@ -163,6 +163,8 @@ pub enum Type {
     UnitStruct(UnitStructInfo),
     /// An enum type, with variants
     Enum(EnumInfo),
+    /// A union type, with fields
+    Union(UnionInfo),
 }
 
 impl Type {
@@ -262,7 +264,7 @@ impl Type {
     }
 
     /// Internal function used by generated code to initialize a Type for structs
-    pub unsafe fn new_struct<T: ReflectedStruct>() {
+    pub unsafe fn new_struct<T: ?Sized + ReflectedStruct>() {
         let ty = Type::Struct(StructInfo {
             vtable: TypeVTable::new::<T>(),
             fields: T::fields,
@@ -295,6 +297,16 @@ impl Type {
         let ty = Type::Enum(EnumInfo {
             vtable: TypeVTable::new::<T>(),
             variants: T::variants,
+        });
+
+        Type::add_ty(ty);
+    }
+
+    /// Internal function used by generated code to initialize a Type for unions
+    pub unsafe fn new_union<T: ReflectedUnion>() {
+        let ty = Type::Union(UnionInfo {
+            vtable: TypeVTable::new::<T>(),
+            fields: T::fields,
         });
 
         Type::add_ty(ty);
@@ -350,6 +362,7 @@ impl Type {
             Type::TupleStruct(i) => i,
             Type::UnitStruct(i) => i,
             Type::Enum(i) => i,
+            Type::Union(i) => i,
         }
     }
 }
@@ -550,3 +563,17 @@ impl EnumInfo {
 }
 
 impl_common!(EnumInfo);
+
+#[derive(Debug, Copy, Clone)]
+pub struct UnionInfo {
+    vtable: TypeVTable,
+    fields: fn() -> Vec<UnionField>,
+}
+
+impl UnionInfo {
+    pub fn fields(&self) -> Vec<UnionField> {
+        (self.fields)()
+    }
+}
+
+impl_common!(UnionInfo);

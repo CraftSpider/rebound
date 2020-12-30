@@ -33,7 +33,7 @@ pub mod utils;
 
 pub use crate::reflect::Reflected;
 pub use error::Error;
-pub use info::{AssocConst, AssocFn, Field, FieldKind, Variant};
+pub use info::{AssocConst, AssocFn, Field, FieldKind, Variant, UnionField};
 pub use tr::Trait;
 pub use ty::Type;
 pub use value::Value;

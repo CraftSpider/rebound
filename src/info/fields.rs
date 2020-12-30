@@ -1,9 +1,7 @@
 use crate::{Error, Type, Value, Variant};
+use super::{AccessHelper, SetHelper};
 
 use core::fmt;
-
-pub(crate) type AccessHelper = Box<dyn for<'a> Fn(&'a Value<'a>) -> Value<'a>>;
-pub(crate) type SetHelper = Box<dyn Fn(&mut Value, Value<'static>)>;
 
 #[derive(Debug)]
 pub enum FieldKind {

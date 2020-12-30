@@ -232,6 +232,51 @@ pub fn generate_enum_field(
     ))
 }
 
+pub fn generate_union_field(
+    cfg: &Config,
+    name: &TokenStream,
+    _: usize,
+    field: &syn::Field,
+) -> Result<TokenStream> {
+    let crate_name = &cfg.crate_name;
+    let no_get = cfg.no_get;
+    let no_set = cfg.no_set;
+
+    let field_ty = sanitized_field_ty(&field.ty);
+    let field_name = field.ident.as_ref().unwrap();
+
+    let accessor = if !no_get {
+        quote!(Some(Box::new(|this| {
+            let inner = this.borrow::<#name>();
+            let v = #crate_name::Value::from_ref(unsafe { &inner.#field_name });
+            // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
+            //         As such, we know that the lifetimes here should never be violated.
+            core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v)
+        })))
+    } else {
+        quote!(None)
+    };
+
+    let setter = if !no_set {
+        quote!(Some(Box::new(|this, value| {
+            let inner = this.borrow_mut::<#name>();
+            unsafe { inner.#field_name = value.cast() };
+        })))
+    } else {
+        quote!(None)
+    };
+
+    Ok(quote!(
+        #crate_name::UnionField::new(
+            #accessor,
+            #setter,
+            stringify!(#field_name),
+            #crate_name::Type::from::<#name>(),
+            #crate_name::Type::from::<#field_ty>(),
+        )
+    ))
+}
+
 pub fn generate_variant(
     cfg: &Config,
     name: &TokenStream,
@@ -299,7 +344,7 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
     Ok(quote!(
         impl #impl_bounds #crate_name::reflect::Reflected for #name {
             fn name() -> String {
-                #qual_name.to_string()
+                #qual_name
             }
 
             fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
@@ -473,7 +518,7 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
     Ok(quote!(
         impl #impl_bounds #crate_name::reflect::Reflected for #name {
             fn name() -> String {
-                #qual_name.to_string()
+                #qual_name
             }
 
             fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
@@ -493,16 +538,61 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
     ))
 }
 
+pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<TokenStream> {
+    let crate_name = &cfg.crate_name;
+    let impl_bounds = impl_bounds(cfg, &item.generics);
+    let name = item_name(&item.ident, &item.generics);
+    let qual_name = item_qual_name(cfg, &item.ident, &item.generics);
+
+    let fields = item.fields.named
+        .iter()
+        .enumerate()
+        .map(|(idx, field)| generate_union_field(cfg, &name, idx, field))
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(quote!(
+        impl #impl_bounds #crate_name::reflect::Reflected for #name {
+            fn name() -> String {
+                #qual_name
+            }
+
+            fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
+                ptr as _
+            }
+
+            fn disassemble(&self) -> (Self::Meta, *mut ()) {
+                ((), self as *const Self as _)
+            }
+
+            unsafe fn init() {
+                #crate_name::Type::new_union::<#name>();
+            }
+        }
+
+        impl #impl_bounds #crate_name::reflect::ReflectedUnion for #name {
+            #[allow(unused_unsafe)]
+            fn fields() -> Vec<#crate_name::UnionField> {
+                unsafe {
+                    vec![
+                        #(#fields,)*
+                    ]
+                }
+            }
+        }
+    ))
+}
+
 pub fn generate_reflect_trait(_item: syn::ItemTrait) -> Result<TokenStream> {
     todo!()
 }
 
 pub fn generate_reflect(cfg: &Config, item: Item) -> Result<TokenStream> {
     match item {
-        Item::Enum(item) => generate_reflect_enum(cfg, item),
-        Item::Impl(item) => generate_reflect_impl(cfg, item),
         Item::Struct(item) => generate_reflect_struct(cfg, item),
+        Item::Enum(item) => generate_reflect_enum(cfg, item),
+        Item::Union(item) => generate_reflect_union(cfg, item),
         Item::Trait(item) => generate_reflect_trait(item),
+        Item::Impl(item) => generate_reflect_impl(cfg, item),
         _ => unreachable!(),
     }
 }

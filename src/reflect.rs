@@ -3,6 +3,7 @@
 use crate::{AssocConst, AssocFn, Field, Type, Variant};
 
 use rebound_proc::impl_find;
+use crate::info::UnionField;
 
 pub trait Reflected {
     type Meta: Copy = ();
@@ -65,15 +66,19 @@ pub trait ReflectedStruct: Reflected {
     fn fields() -> Vec<Field>;
 }
 
-pub trait ReflectedEnum: Reflected {
-    fn variants() -> Vec<Variant>;
-}
-
 pub trait ReflectedTupleStruct: Reflected {
     fn fields() -> Vec<Field>;
 }
 
 pub trait ReflectedUnitStruct: Reflected {}
+
+pub trait ReflectedEnum: Reflected {
+    fn variants() -> Vec<Variant>;
+}
+
+pub trait ReflectedUnion: Reflected {
+    fn fields() -> Vec<UnionField>;
+}
 
 pub trait ReflectedImpl<const N: u8>: Reflected {
     fn assoc_fns() -> Vec<AssocFn>;

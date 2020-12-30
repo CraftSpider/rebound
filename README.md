@@ -24,16 +24,16 @@ Rebound currently provides these features:
 - Support for these items
   - Structs
   - Enums
+  - Unions
   - All three kinds of generics
   - Impl Blocks
 - Support for these things is being worked on
-  - Unions
   - Traits
   - Top-level Functions
   - Statics
   - Consts
 - The `Value` type, an untyped smart pointer with lifetime safety.
-- Reflection of all primitive types, including the `!` type with feature-gate
+- Reflection of all primitive types, including the `!` type
 - Reflection of the `core` and `std` builtin libraries, with feature-gates
 
 ## License

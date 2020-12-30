@@ -11,7 +11,7 @@ enum Foo {
 }
 
 #[test]
-fn test_foo_ty() {
+fn test_enum_ty() {
     let ty = Type::from::<Foo>();
 
     assert_eq!(ty, Type::from::<Foo>());

@@ -8,7 +8,7 @@ struct Foo {
 }
 
 #[test]
-fn test_foo_ty() {
+fn test_struct_ty() {
     let ty = Type::from::<Foo>();
 
     assert_eq!(ty, Type::from::<Foo>());
