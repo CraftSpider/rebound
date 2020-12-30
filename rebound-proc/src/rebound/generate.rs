@@ -58,9 +58,9 @@ pub fn generate_assoc_fn(
         Ok(quote!(
             #crate_name::AssocFn::new_dynamic(
                 #[allow(unused_mut, unused_variables)]
-                Box::new(|this, mut args| {
+                |this, mut args| {
                     #crate_name::Value::from( <#self_ty>::#fn_name(this.cast::<#receiver>(), #( args.remove(0).cast::<#args>(), )* ) )
-                }),
+                },
                 stringify!(#fn_name),
                 #crate_name::Type::from::<#self_ty>(),
                 #crate_name::Type::from::<#receiver>(),
@@ -72,9 +72,9 @@ pub fn generate_assoc_fn(
         Ok(quote!(
             #crate_name::AssocFn::new_static(
                 #[allow(unused_mut, unused_variables)]
-                Box::new(move |mut args| {
+                |mut args| {
                     #crate_name::Value::from( <#self_ty>::#fn_name( #( args.remove(0).cast::<#args>(), )* ) )
-                }),
+                },
                 stringify!(#fn_name),
                 #crate_name::Type::from::<#self_ty>(),
                 &[#( #crate_name::Type::from::<#args>(), )*],
@@ -94,7 +94,7 @@ pub fn generate_assoc_const(
 
     Ok(quote!(
         #crate_name::AssocConst::new(
-            Box::new(move || #crate_name::Value::from(<#self_ty>::#const_name)),
+            Box::new(|| #crate_name::Value::from(<#self_ty>::#const_name)),
             stringify!(#const_name),
             #crate_name::Type::from::<#self_ty>(),
             #crate_name::Type::from::<#const_ty>(),
@@ -293,6 +293,14 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
                 #qual_name.to_string()
             }
 
+            fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
+                ptr as _
+            }
+
+            fn disassemble(&self) -> (Self::Meta, *mut ()) {
+                ((), self as *const Self as _)
+            }
+
             unsafe fn init() {
                 #crate_name::Type::new_enum::<#name>()
             }
@@ -457,6 +465,14 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
         impl #impl_bounds #crate_name::reflect::Reflected for #name {
             fn name() -> String {
                 #qual_name.to_string()
+            }
+
+            fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
+                ptr as _
+            }
+
+            fn disassemble(&self) -> (Self::Meta, *mut ()) {
+                ((), self as *const Self as _)
             }
 
             unsafe fn init() {

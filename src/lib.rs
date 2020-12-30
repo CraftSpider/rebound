@@ -2,8 +2,12 @@
 
 // TODO: Remove specialization / hope it gets completed
 #![allow(incomplete_features)]
-#![feature(min_const_generics, specialization, decl_macro, once_cell, never_type)]
+#![feature(
+    min_const_generics, specialization, decl_macro, once_cell, never_type, associated_type_defaults,
+)]
+
 // Features used just to implement reflection for their stuff
+// TODO: Make individual cargo features to support these
 #![feature(
     allocator_api,
     ptr_internals,
@@ -21,6 +25,8 @@ pub mod reflect;
 pub mod tr;
 pub mod ty;
 pub mod value;
+
+pub mod utils;
 
 pub use crate::reflect::Reflected;
 pub use error::Error;

@@ -4,11 +4,19 @@ use crate::{Error, Reflected, Type};
 
 use core::marker::PhantomData;
 use core::ptr;
+use core::fmt;
 
 #[derive(Debug)]
 enum ValueKind {
-    Owned { drop: fn(*mut ()) },
+    Owned { drop: fn(*mut(), *mut ()) },
     Borrowed,
+}
+
+fn drop_impl<T: ?Sized + Reflected>(meta: *mut(), ptr: *mut()) {
+    unsafe {
+        let meta = Box::from_raw(meta.cast::<T::Meta>());
+        Box::from_raw(T::assemble(*meta, ptr));
+    }
 }
 
 /// A Value represents a value with an erased type. It may be owned or borrowed.
@@ -21,6 +29,7 @@ enum ValueKind {
 /// as a type not the same as the input type will result in a failure at runtime.
 #[derive(Debug)]
 pub struct Value<'a> {
+    meta: *mut (),
     ptr: *mut (),
     ty: Type,
     _phantom: PhantomData<&'a ()>,
@@ -28,11 +37,36 @@ pub struct Value<'a> {
 }
 
 impl<'a> Value<'a> {
+    /// Create a new owned Value from a pointer, with a lifetime no greater than that of the
+    /// provided type.
+    ///
+    /// # Safety
+    ///
+    /// Similar to [`Box::from_raw`], this function may result in a double-free if called more than
+    /// once with the same pointer.
+    pub unsafe fn from_ptr_owned<T: ?Sized + Reflected + 'a>(val: *mut T) -> Value<'a> {
+        let meta = Box::into_raw(Box::new(val.disassemble().0)).cast();
+        let ptr = val.cast();
+
+        Value {
+            meta,
+            ptr,
+            ty: Type::from::<T>(),
+            _phantom: PhantomData,
+            kind: ValueKind::Owned {
+                drop: drop_impl::<T>,
+            },
+        }
+    }
+
     /// Create a new borrowed Value from a reference, with a lifetime no greater than that of the
     /// provided reference.
     pub fn from_ref<T: ?Sized + Reflected>(val: &T) -> Value {
+        let (_, ptr) = T::disassemble(val);
+
         Value {
-            ptr: val as *const T as *mut (),
+            meta: ptr::null_mut(),
+            ptr,
             ty: Type::from::<T>(),
             _phantom: PhantomData,
             kind: ValueKind::Borrowed,
@@ -43,8 +77,9 @@ impl<'a> Value<'a> {
     ///
     /// # Safety
     ///
-    /// Similar to [`pointer::as_ref`], the pointer returned by this function may outlive the borrowed Value,
-    /// it is the user's responsibility to not use it past the lifetime of this Value.
+    /// Similar to [`pointer::as_ref`], the pointer returned by this function may outlive the
+    /// borrowed Value, it is the user's responsibility to not use it past the lifetime of this
+    /// Value.
     pub unsafe fn raw_ptr(&self) -> *mut () {
         self.ptr
     }
@@ -112,11 +147,12 @@ impl<'a> Value<'a> {
     /// // Fails
     /// let i = int.try_borrow::<&str>();
     /// ```
-    pub fn try_borrow<T: Reflected>(&self) -> Result<&T, Error> {
+    pub fn try_borrow<T: ?Sized + Reflected>(&self) -> Result<&T, Error> {
         if Type::from::<T>() != self.ty() {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         } else {
-            unsafe { Ok(&*(self.ptr as *const T)) }
+            let ptr = T::assemble(unsafe { *Box::from_raw(self.meta.cast::<T::Meta>()) }, self.ptr);
+            unsafe { Ok(&*ptr) }
         }
     }
 
@@ -134,7 +170,7 @@ impl<'a> Value<'a> {
     /// // Panics
     /// let b = bool.borrow::<char>();
     /// ```
-    pub fn borrow<T: Reflected>(&self) -> &T {
+    pub fn borrow<T: ?Sized + Reflected>(&self) -> &T {
         self.try_borrow()
             .expect(&format!("Couldn't borrow Value as type {}", T::name()))
     }
@@ -159,11 +195,12 @@ impl<'a> Value<'a> {
     /// *c = 2;
     ///
     /// ```
-    pub fn try_borrow_mut<T: Reflected>(&mut self) -> Result<&mut T, Error> {
+    pub fn try_borrow_mut<T: ?Sized + Reflected>(&mut self) -> Result<&mut T, Error> {
         if Type::from::<T>() != self.ty() {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         } else {
-            unsafe { Ok(&mut *(self.ptr as *mut T)) }
+            let ptr = T::assemble(unsafe { *Box::from_raw(self.meta.cast::<T::Meta>()) }, self.ptr);
+            unsafe { Ok(&mut *ptr) }
         }
     }
 
@@ -179,7 +216,7 @@ impl<'a> Value<'a> {
     /// // Fails
     /// let s = str.borrow_mut::<&i32>();
     /// ```
-    pub fn borrow_mut<T: Reflected>(&mut self) -> &mut T {
+    pub fn borrow_mut<T: ?Sized + Reflected>(&mut self) -> &mut T {
         self.try_borrow_mut().expect(&format!(
             "Couldn't mutably borrow Value as type {}",
             T::name()
@@ -187,18 +224,24 @@ impl<'a> Value<'a> {
     }
 }
 
+impl<'a> fmt::Pointer for Value<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Pointer::fmt(&self.ptr, f)
+    }
+}
+
 impl<'a, T: Reflected + 'a> From<T> for Value<'a> {
     fn from(val: T) -> Value<'a> {
-        let ptr = Box::into_raw(Box::from(val)) as *mut ();
+        let meta = Box::into_raw(Box::new(val.disassemble().0)).cast();
+        let ptr = Box::into_raw(Box::new(val)).cast();
 
         Value {
+            meta,
             ptr,
             ty: Type::from::<T>(),
             _phantom: PhantomData,
             kind: ValueKind::Owned {
-                drop: |ptr| {
-                    unsafe { Box::from_raw(ptr as *mut T) };
-                },
+                drop: drop_impl::<T>,
             },
         }
     }
@@ -208,7 +251,7 @@ impl<'a> Drop for Value<'a> {
     fn drop(&mut self) {
         if let ValueKind::Owned { drop } = &self.kind {
             if !self.ptr.is_null() {
-                drop(self.ptr);
+                drop(self.meta, self.ptr);
             }
         }
     }

@@ -5,6 +5,8 @@ use crate::{AssocConst, AssocFn, Field, Type, Variant};
 use rebound_proc::impl_find;
 
 pub trait Reflected {
+    type Meta: Copy = ();
+
     fn name() -> String;
 
     // TODO: These should cache results, if possible
@@ -23,6 +25,10 @@ pub trait Reflected {
 
         sum
     }
+
+    fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self;
+
+    fn disassemble(&self) -> (Self::Meta, *mut ());
 
     unsafe fn init();
 }

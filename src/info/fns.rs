@@ -3,8 +3,8 @@ use crate::{Error, Type, Value};
 use std::fmt;
 
 // TODO: AssocFn with non-'static return types? Hard to make work with 'a lifetimes.
-pub(crate) type CallStaticHelper = Box<dyn Fn(Vec<Value>) -> Value<'static>>;
-pub(crate) type CallDynamicHelper = Box<dyn Fn(Value, Vec<Value>) -> Value<'static>>;
+pub(crate) type CallStaticHelper = for<'a> fn(Vec<Value<'a>>) -> Value<'a>;
+pub(crate) type CallDynamicHelper = for<'a> fn(Value<'a>, Vec<Value<'a>>) -> Value<'a>;
 
 pub enum FnKind {
     Static {
@@ -90,7 +90,7 @@ impl AssocFn {
         &self.kind
     }
 
-    pub fn call(&self, this: Option<Value>, args: Vec<Value>) -> Result<Value<'static>, Error> {
+    pub fn call<'a>(&self, this: Option<Value<'a>>, args: Vec<Value<'a>>) -> Result<Value<'a>, Error> {
         // Check the validity of `this`
         match self.kind {
             FnKind::Dynamic { self_ty, .. } => match &this {

@@ -3,7 +3,7 @@
 use std::ops::Range;
 
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{quote, TokenStreamExt};
 
 mod rebound;
 
@@ -18,6 +18,41 @@ pub fn impl_find(input: TokenStream) -> TokenStream {
         )*
     )
     .into()
+}
+
+#[proc_macro]
+pub fn reflect_prims(input: TokenStream) -> TokenStream {
+    let info = <fn(syn::parse::ParseStream) -> syn::Result<syn::punctuated::Punctuated<syn::Type, syn::Token![,]>> as syn::parse::Parser>::parse2(
+        syn::punctuated::Punctuated::<_, _>::parse_terminated,
+        input.into()
+    )
+        .unwrap();
+
+    let mut out = proc_macro2::TokenStream::new();
+
+    for i in info {
+        out.append_all(quote!(
+            impl Reflected for #i {
+                fn name() -> String {
+                    stringify!(#i).into()
+                }
+
+                fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
+                    ptr as _
+                }
+
+                fn disassemble(&self) -> (Self::Meta, *mut ()) {
+                    ((), self as *const Self as _)
+                }
+
+                unsafe fn init() {
+                    Type::new_prim::<#i>()
+                }
+            }
+        ))
+    }
+
+    out.into()
 }
 
 #[proc_macro]

@@ -2,6 +2,7 @@
 
 use crate::info::*;
 use crate::reflect::*;
+use crate::utils::StaticTypeMap;
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -49,18 +50,29 @@ impl TypeVTable {
 /// `'static` types, while this works with dynamic lifetimes.
 #[derive(Debug, Copy, Clone)]
 pub enum Type {
+    /// A primitive simple type, such as `u8` or `str`
     Primitive(PrimitiveInfo),
+    /// A tuple type, `(T0, .., Tn)`
     Tuple(TupleInfo),
+    /// An array type, `[T; N]`
     Array(ArrayInfo),
+    /// A slice type, `[T]`
     Slice(SliceInfo),
+    /// A pointer type, either `*const T` or `*mut T`
     Pointer(PointerInfo),
+    /// A reference type, either `&T` or `&mut T`
     Reference(ReferenceInfo),
+    /// A function pointer type, `fn(T1..Tn) -> T0`
     Function(FunctionInfo),
 
+    /// A struct type, with named fields
     Struct(StructInfo),
-    Enum(EnumInfo),
+    /// A struct type, with unnamed fields
     TupleStruct(TupleStructInfo),
+    /// A struct type, with no fields
     UnitStruct(UnitStructInfo),
+    /// An enum type, with variants
+    Enum(EnumInfo),
 }
 
 impl Type {
@@ -79,6 +91,7 @@ impl Type {
         map.insert(name, ty);
     }
 
+    /// Internal function used by generated code to initialize a Type for primitives
     #[doc(hidden)]
     pub unsafe fn new_prim<T: ?Sized + Reflected>() {
         let ty = Type::Primitive(PrimitiveInfo {
@@ -88,6 +101,7 @@ impl Type {
         Type::add_ty(ty);
     }
 
+    /// Internal function used by generated code to initialize a Type for tuples
     #[doc(hidden)]
     pub unsafe fn new_tuple<T: ?Sized + ReflectedTuple>() {
         let ty = Type::Tuple(TupleInfo {
@@ -98,6 +112,7 @@ impl Type {
         Type::add_ty(ty);
     }
 
+    /// Internal function used by generated code to initialize a Type for arrays
     #[doc(hidden)]
     pub unsafe fn new_array<T: ?Sized + ReflectedArray>() {
         let ty = Type::Array(ArrayInfo {
@@ -109,6 +124,7 @@ impl Type {
         Type::add_ty(ty);
     }
 
+    /// Internal function used by generated code to initialize a Type for slices
     #[doc(hidden)]
     pub unsafe fn new_slice<T: ?Sized + ReflectedSlice>() {
         let ty = Type::Slice(SliceInfo {
@@ -119,6 +135,8 @@ impl Type {
         Type::add_ty(ty);
     }
 
+    /// Internal function used by generated code to initialize a Type for pointers
+    #[doc(hidden)]
     pub unsafe fn new_ptr<T: ReflectedPointer>() {
         let ty = Type::Pointer(PointerInfo {
             vtable: TypeVTable::new::<T>(),
@@ -129,6 +147,8 @@ impl Type {
         Type::add_ty(ty);
     }
 
+    /// Internal function used by generated code to initialize a Type for references
+    #[doc(hidden)]
     pub unsafe fn new_ref<T: ReflectedReference>() {
         let ty = Type::Reference(ReferenceInfo {
             vtable: TypeVTable::new::<T>(),
@@ -139,6 +159,8 @@ impl Type {
         Type::add_ty(ty);
     }
 
+    /// Internal function used by generated code to initialize a Type for function pointers
+    #[doc(hidden)]
     pub unsafe fn new_fn<T: ReflectedFunction>() {
         let ty = Type::Function(FunctionInfo {
             vtable: TypeVTable::new::<T>(),
@@ -149,6 +171,7 @@ impl Type {
         Type::add_ty(ty);
     }
 
+    /// Internal function used by generated code to initialize a Type for structs
     pub unsafe fn new_struct<T: ReflectedStruct>() {
         let ty = Type::Struct(StructInfo {
             vtable: TypeVTable::new::<T>(),
@@ -158,15 +181,7 @@ impl Type {
         Type::add_ty(ty);
     }
 
-    pub unsafe fn new_enum<T: ReflectedEnum>() {
-        let ty = Type::Enum(EnumInfo {
-            vtable: TypeVTable::new::<T>(),
-            variants: T::variants,
-        });
-
-        Type::add_ty(ty);
-    }
-
+    /// Internal function used by generated code to initialize a Type for tuple structs
     pub unsafe fn new_tuple_struct<T: ReflectedTupleStruct>() {
         let ty = Type::TupleStruct(TupleStructInfo {
             vtable: TypeVTable::new::<T>(),
@@ -176,9 +191,20 @@ impl Type {
         Type::add_ty(ty);
     }
 
+    /// Internal function used by generated code to initialize a Type for unit structs
     pub unsafe fn new_unit_struct<T: ReflectedUnitStruct>() {
         let ty = Type::UnitStruct(UnitStructInfo {
             vtable: TypeVTable::new::<T>(),
+        });
+
+        Type::add_ty(ty);
+    }
+
+    /// Internal function used by generated code to initialize a Type for enums
+    pub unsafe fn new_enum<T: ReflectedEnum>() {
+        let ty = Type::Enum(EnumInfo {
+            vtable: TypeVTable::new::<T>(),
+            variants: T::variants,
         });
 
         Type::add_ty(ty);
@@ -211,17 +237,14 @@ impl Type {
 
     /// Get a Type instance from any reflected type, instantiating it if necessary.
     pub fn from<T: ?Sized + Reflected>() -> Type {
-        // TODO: Multithreading support, so init isn't called multiple times
-        unsafe {
-            Type::from_name(&T::name()).unwrap_or_else(|| {
-                T::init();
+        static INIT: SyncOnceCell<StaticTypeMap<()>> = SyncOnceCell::new();
+        INIT
+            .get_or_init(|| StaticTypeMap::new())
+            .call_once::<T, _>(|| {
+                unsafe { T::init() };
+            });
 
-                Type::from_name(&T::name()).expect(&format!(
-                    "Type for {} not initialized, despite calling T::init()",
-                    T::name()
-                ))
-            })
-        }
+        unsafe { Type::from_name(&T::name()).expect("Type not initialized") }
     }
 
     fn as_inner(&self) -> &dyn CommonTypeInfo {
@@ -235,9 +258,9 @@ impl Type {
             Type::Function(i) => i,
 
             Type::Struct(i) => i,
-            Type::Enum(i) => i,
             Type::TupleStruct(i) => i,
             Type::UnitStruct(i) => i,
+            Type::Enum(i) => i,
         }
     }
 }
@@ -323,6 +346,16 @@ pub struct ArrayInfo {
     length: usize,
 }
 
+impl ArrayInfo {
+    pub fn element(&self) -> Type {
+        (self.element)()
+    }
+
+    pub fn length(&self) -> usize {
+        self.length
+    }
+}
+
 impl CommonTypeInfo for ArrayInfo {
     fn name(&self) -> String {
         (self.vtable.name)()
@@ -341,6 +374,12 @@ impl CommonTypeInfo for ArrayInfo {
 pub struct SliceInfo {
     vtable: TypeVTable,
     element: fn() -> Type,
+}
+
+impl SliceInfo {
+    pub fn element(&self) -> Type {
+        (self.element)()
+    }
 }
 
 impl CommonTypeInfo for SliceInfo {
@@ -364,6 +403,16 @@ pub struct PointerInfo {
     mutability: bool,
 }
 
+impl PointerInfo {
+    pub fn element(&self) -> Type {
+        (self.element)()
+    }
+
+    pub fn mutability(&self) -> bool {
+        self.mutability
+    }
+}
+
 impl CommonTypeInfo for PointerInfo {
     fn name(&self) -> String {
         (self.vtable.name)()
@@ -385,6 +434,16 @@ pub struct ReferenceInfo {
     mutability: bool,
 }
 
+impl ReferenceInfo {
+    pub fn element(&self) -> Type {
+        (self.element)()
+    }
+
+    pub fn mutability(&self) -> bool {
+        self.mutability
+    }
+}
+
 impl CommonTypeInfo for ReferenceInfo {
     fn name(&self) -> String {
         (self.vtable.name)()
@@ -404,6 +463,16 @@ pub struct FunctionInfo {
     vtable: TypeVTable,
     args: fn() -> Vec<Type>,
     ret: fn() -> Type,
+}
+
+impl FunctionInfo {
+    pub fn arg_tys(&self) -> Vec<Type> {
+        (self.args)()
+    }
+
+    pub fn ret_ty(&self) -> Type {
+        (self.ret)()
+    }
 }
 
 impl CommonTypeInfo for FunctionInfo {
@@ -447,35 +516,15 @@ impl CommonTypeInfo for StructInfo {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct EnumInfo {
-    vtable: TypeVTable,
-    variants: fn() -> Vec<Variant>,
-}
-
-impl EnumInfo {
-    pub fn variants(&self) -> Vec<Variant> {
-        (self.variants)()
-    }
-}
-
-impl CommonTypeInfo for EnumInfo {
-    fn name(&self) -> String {
-        (self.vtable.name)()
-    }
-
-    fn assoc_fns(&self) -> Vec<AssocFn> {
-        (self.vtable.assoc_fns)()
-    }
-
-    fn assoc_consts(&self) -> Vec<AssocConst> {
-        (self.vtable.assoc_consts)()
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
 pub struct TupleStructInfo {
     vtable: TypeVTable,
     fields: fn() -> Vec<Field>,
+}
+
+impl TupleStructInfo {
+    pub fn fields(&self) -> Vec<Field> {
+        (self.fields)()
+    }
 }
 
 impl CommonTypeInfo for TupleStructInfo {
@@ -498,6 +547,32 @@ pub struct UnitStructInfo {
 }
 
 impl CommonTypeInfo for UnitStructInfo {
+    fn name(&self) -> String {
+        (self.vtable.name)()
+    }
+
+    fn assoc_fns(&self) -> Vec<AssocFn> {
+        (self.vtable.assoc_fns)()
+    }
+
+    fn assoc_consts(&self) -> Vec<AssocConst> {
+        (self.vtable.assoc_consts)()
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct EnumInfo {
+    vtable: TypeVTable,
+    variants: fn() -> Vec<Variant>,
+}
+
+impl EnumInfo {
+    pub fn variants(&self) -> Vec<Variant> {
+        (self.variants)()
+    }
+}
+
+impl CommonTypeInfo for EnumInfo {
     fn name(&self) -> String {
         (self.vtable.name)()
     }

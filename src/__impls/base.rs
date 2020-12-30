@@ -2,19 +2,30 @@ use crate::__helpers::*;
 use crate::reflect::*;
 use crate::{AssocConst, AssocFn, Field, Type};
 
-use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
+use rebound_proc::{reflect_prims, extern_assoc_consts, extern_assoc_fns};
 
 // TODO: Add impls for all these
 
 // Integers
-impl Reflected for u8 {
-    fn name() -> String {
-        "u8".into()
-    }
+reflect_prims! {
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
 
-    unsafe fn init() {
-        Type::new_prim::<u8>()
-    }
+    f32,
+    f64,
+
+    char,
+    bool,
 }
 
 impl ReflectedImpl<0> for u8 {
@@ -118,147 +129,9 @@ impl ReflectedImpl<0> for u8 {
     }
 }
 
-impl Reflected for u16 {
-    fn name() -> String {
-        "u16".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<u16>()
-    }
-}
-
-impl Reflected for u32 {
-    fn name() -> String {
-        "u32".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<u32>()
-    }
-}
-
-impl Reflected for u64 {
-    fn name() -> String {
-        "u64".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<u64>()
-    }
-}
-
-impl Reflected for u128 {
-    fn name() -> String {
-        "u128".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<u128>()
-    }
-}
-
-impl Reflected for usize {
-    fn name() -> String {
-        "usize".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<usize>()
-    }
-}
-
-impl Reflected for i8 {
-    fn name() -> String {
-        "i8".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<i8>()
-    }
-}
-
-impl Reflected for i16 {
-    fn name() -> String {
-        "i16".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<i16>()
-    }
-}
-
-impl Reflected for i32 {
-    fn name() -> String {
-        "i32".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<i32>()
-    }
-}
-
-impl Reflected for i64 {
-    fn name() -> String {
-        "i64".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<i64>()
-    }
-}
-
-impl Reflected for i128 {
-    fn name() -> String {
-        "i128".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<i128>()
-    }
-}
-
-impl Reflected for isize {
-    fn name() -> String {
-        "isize".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<isize>()
-    }
-}
-
 // Floats
-impl Reflected for f32 {
-    fn name() -> String {
-        "f32".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<f32>()
-    }
-}
-
-impl Reflected for f64 {
-    fn name() -> String {
-        "f64".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<f64>()
-    }
-}
 
 // Other raw types
-impl Reflected for bool {
-    fn name() -> String {
-        "bool".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<bool>()
-    }
-}
 
 impl ReflectedImpl<0> for bool {
     fn assoc_fns() -> Vec<AssocFn> {
@@ -270,16 +143,6 @@ impl ReflectedImpl<0> for bool {
 
     fn assoc_consts() -> Vec<AssocConst> {
         vec![]
-    }
-}
-
-impl Reflected for char {
-    fn name() -> String {
-        "char".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<char>()
     }
 }
 
@@ -338,8 +201,20 @@ impl ReflectedImpl<0> for char {
 }
 
 impl Reflected for str {
+    type Meta = usize;
+
     fn name() -> String {
         "str".into()
+    }
+
+    fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
+        unsafe {
+            core::str::from_utf8_unchecked(core::slice::from_raw_parts(ptr as *const u8, meta)) as *const str as _
+        }
+    }
+
+    fn disassemble(&self) -> (Self::Meta, *mut ()) {
+        self.as_bytes().disassemble()
     }
 
     unsafe fn init() {
@@ -402,6 +277,14 @@ impl Reflected for () {
         "()".into()
     }
 
+    fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr as _
+    }
+
+    fn disassemble(&self) -> (Self::Meta, *mut ()) {
+        ((), self as *const Self as _)
+    }
+
     unsafe fn init() {
         Type::new_tuple::<()>()
     }
@@ -420,6 +303,14 @@ where
 {
     fn name() -> String {
         format!("({},)", T0::name())
+    }
+
+    fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr as _
+    }
+
+    fn disassemble(&self) -> (Self::Meta, *mut ()) {
+        ((), self as *const Self as _)
     }
 
     unsafe fn init() {
@@ -451,6 +342,14 @@ where
 {
     fn name() -> String {
         format!("({}, {})", T0::name(), T1::name())
+    }
+
+    fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr as _
+    }
+
+    fn disassemble(&self) -> (Self::Meta, *mut ()) {
+        ((), self as *const Self as _)
     }
 
     unsafe fn init() {
@@ -493,6 +392,14 @@ where
 {
     fn name() -> String {
         format!("({}, {}, {})", T0::name(), T1::name(), T2::name())
+    }
+
+    fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr as _
+    }
+
+    fn disassemble(&self) -> (Self::Meta, *mut ()) {
+        ((), self as *const Self as _)
     }
 
     unsafe fn init() {
@@ -541,6 +448,14 @@ impl<T: Reflected, const N: usize> Reflected for [T; N] {
         format!("[{}; {}]", T::name(), N)
     }
 
+    fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr as _
+    }
+
+    fn disassemble(&self) -> (Self::Meta, *mut ()) {
+        ((), self as *const Self as _)
+    }
+
     unsafe fn init() {
         Type::new_array::<[T; N]>()
     }
@@ -557,8 +472,20 @@ impl<T: Reflected, const N: usize> ReflectedArray for [T; N] {
 }
 
 impl<T: Reflected> Reflected for [T] {
+    type Meta = usize;
+
     fn name() -> String {
         format!("[{}]", T::name())
+    }
+
+    fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
+        unsafe {
+            core::slice::from_raw_parts_mut(ptr as *mut T, meta) as _
+        }
+    }
+
+    fn disassemble(&self) -> (Self::Meta, *mut ()) {
+        (self.len(), self.as_ptr() as _)
     }
 
     unsafe fn init() {
@@ -734,8 +661,18 @@ impl ReflectedImpl<8> for [u8] {
 
 // Pointers
 impl<T: ?Sized + Reflected> Reflected for *const T {
+    type Meta = T::Meta;
+
     fn name() -> String {
         format!("*const {}", T::name())
+    }
+
+    fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
+        &mut T::assemble(meta, unsafe { *(ptr as *mut *mut ()) }) as *mut *mut T as _
+    }
+
+    fn disassemble(&self) -> (Self::Meta, *mut ()) {
+        (T::disassemble(unsafe { &**self }).0, self as *const *const T as _)
     }
 
     unsafe fn init() {
@@ -805,8 +742,18 @@ impl<T: Reflected + 'static> ReflectedImpl<2> for *const T {
 }
 
 impl<T: ?Sized + Reflected> Reflected for *mut T {
+    type Meta = T::Meta;
+
     fn name() -> String {
         format!("*mut {}", T::name())
+    }
+
+    fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
+        &mut T::assemble(meta, unsafe { *(ptr as *mut *mut ()) }) as _
+    }
+
+    fn disassemble(&self) -> (Self::Meta, *mut ()) {
+        (T::disassemble(unsafe { &mut **self }).0, self as *const *mut T as _)
     }
 
     unsafe fn init() {
@@ -826,8 +773,18 @@ impl<T: ?Sized + Reflected> ReflectedPointer for *mut T {
 
 // References
 impl<T: ?Sized + Reflected> Reflected for &T {
+    type Meta = T::Meta;
+
     fn name() -> String {
         format!("&{}", T::name())
+    }
+
+    fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
+        &mut T::assemble(meta, unsafe { *(ptr as *const *mut ()) }) as *mut *mut T as _
+    }
+
+    fn disassemble(&self) -> (Self::Meta, *mut ()) {
+        (T::disassemble(&**self).0, self as *const &T as _)
     }
 
     unsafe fn init() {
@@ -846,8 +803,18 @@ impl<T: ?Sized + Reflected> ReflectedReference for &T {
 }
 
 impl<T: ?Sized + Reflected> Reflected for &mut T {
+    type Meta = T::Meta;
+
     fn name() -> String {
         format!("&mut {}", T::name())
+    }
+
+    fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
+        &mut T::assemble(meta, unsafe { *(ptr as *mut *mut ()) }) as *mut *mut T as _
+    }
+
+    fn disassemble(&self) -> (Self::Meta, *mut ()) {
+        (T::disassemble(*self).0, self as *const &mut T as _)
     }
 
     unsafe fn init() {
@@ -871,6 +838,14 @@ impl<T: Reflected> Reflected for fn() -> T {
         format!("fn() -> {}", T::name())
     }
 
+    fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr as _
+    }
+
+    fn disassemble(&self) -> (Self::Meta, *mut ()) {
+        ((), self as *const Self as _)
+    }
+
     unsafe fn init() {
         Type::new_fn::<fn() -> T>()
     }
@@ -889,6 +864,14 @@ impl<T: Reflected> ReflectedFunction for fn() -> T {
 impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T {
     fn name() -> String {
         format!("fn({}) -> {}", A0::name(), T::name())
+    }
+
+    fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr as _
+    }
+
+    fn disassemble(&self) -> (Self::Meta, *mut ()) {
+        ((), self as *const Self as _)
     }
 
     unsafe fn init() {
@@ -910,6 +893,14 @@ impl<T: Reflected, A0: Reflected> ReflectedFunction for fn(A0) -> T {
 impl Reflected for ! {
     fn name() -> String {
         "!".into()
+    }
+
+    fn assemble(_: Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr as _
+    }
+
+    fn disassemble(&self) -> (Self::Meta, *mut ()) {
+        ((), self as *const Self as _)
     }
 
     unsafe fn init() {
