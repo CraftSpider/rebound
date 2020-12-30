@@ -1,4 +1,3 @@
-
 use rebound::Type;
 
 #[test]

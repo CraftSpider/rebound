@@ -238,8 +238,7 @@ impl Type {
     /// Get a Type instance from any reflected type, instantiating it if necessary.
     pub fn from<T: ?Sized + Reflected>() -> Type {
         static INIT: SyncOnceCell<StaticTypeMap<()>> = SyncOnceCell::new();
-        INIT
-            .get_or_init(|| StaticTypeMap::new())
+        INIT.get_or_init(|| StaticTypeMap::new())
             .call_once::<T, _>(|| {
                 unsafe { T::init() };
             });

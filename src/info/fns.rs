@@ -90,7 +90,11 @@ impl AssocFn {
         &self.kind
     }
 
-    pub fn call<'a>(&self, this: Option<Value<'a>>, args: Vec<Value<'a>>) -> Result<Value<'a>, Error> {
+    pub fn call<'a>(
+        &self,
+        this: Option<Value<'a>>,
+        args: Vec<Value<'a>>,
+    ) -> Result<Value<'a>, Error> {
         // Check the validity of `this`
         match self.kind {
             FnKind::Dynamic { self_ty, .. } => match &this {

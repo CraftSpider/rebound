@@ -2,17 +2,17 @@
 
 use crate::{Error, Reflected, Type};
 
+use core::fmt;
 use core::marker::PhantomData;
 use core::ptr;
-use core::fmt;
 
 #[derive(Debug)]
 enum ValueKind {
-    Owned { drop: fn(*mut(), *mut ()) },
+    Owned { drop: fn(*mut (), *mut ()) },
     Borrowed,
 }
 
-fn drop_impl<T: ?Sized + Reflected>(meta: *mut(), ptr: *mut()) {
+fn drop_impl<T: ?Sized + Reflected>(meta: *mut (), ptr: *mut ()) {
     unsafe {
         let meta = Box::from_raw(meta.cast::<T::Meta>());
         Box::from_raw(T::assemble(*meta, ptr));
@@ -151,7 +151,10 @@ impl<'a> Value<'a> {
         if Type::from::<T>() != self.ty() {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         } else {
-            let ptr = T::assemble(unsafe { *Box::from_raw(self.meta.cast::<T::Meta>()) }, self.ptr);
+            let ptr = T::assemble(
+                unsafe { *Box::from_raw(self.meta.cast::<T::Meta>()) },
+                self.ptr,
+            );
             unsafe { Ok(&*ptr) }
         }
     }
@@ -199,7 +202,10 @@ impl<'a> Value<'a> {
         if Type::from::<T>() != self.ty() {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         } else {
-            let ptr = T::assemble(unsafe { *Box::from_raw(self.meta.cast::<T::Meta>()) }, self.ptr);
+            let ptr = T::assemble(
+                unsafe { *Box::from_raw(self.meta.cast::<T::Meta>()) },
+                self.ptr,
+            );
             unsafe { Ok(&mut *ptr) }
         }
     }

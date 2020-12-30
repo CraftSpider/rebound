@@ -2,7 +2,7 @@ use crate::__helpers::*;
 use crate::reflect::*;
 use crate::{AssocConst, AssocFn, Field, Type};
 
-use rebound_proc::{reflect_prims, extern_assoc_consts, extern_assoc_fns};
+use rebound_proc::{extern_assoc_consts, extern_assoc_fns, reflect_prims};
 
 // TODO: Add impls for all these
 
@@ -209,7 +209,8 @@ impl Reflected for str {
 
     fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
         unsafe {
-            core::str::from_utf8_unchecked(core::slice::from_raw_parts(ptr as *const u8, meta)) as *const str as _
+            core::str::from_utf8_unchecked(core::slice::from_raw_parts(ptr as *const u8, meta))
+                as *const str as _
         }
     }
 
@@ -479,9 +480,7 @@ impl<T: Reflected> Reflected for [T] {
     }
 
     fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
-        unsafe {
-            core::slice::from_raw_parts_mut(ptr as *mut T, meta) as _
-        }
+        unsafe { core::slice::from_raw_parts_mut(ptr as *mut T, meta) as _ }
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -672,7 +671,10 @@ impl<T: ?Sized + Reflected> Reflected for *const T {
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        (T::disassemble(unsafe { &**self }).0, self as *const *const T as _)
+        (
+            T::disassemble(unsafe { &**self }).0,
+            self as *const *const T as _,
+        )
     }
 
     unsafe fn init() {
@@ -753,7 +755,10 @@ impl<T: ?Sized + Reflected> Reflected for *mut T {
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        (T::disassemble(unsafe { &mut **self }).0, self as *const *mut T as _)
+        (
+            T::disassemble(unsafe { &mut **self }).0,
+            self as *const *mut T as _,
+        )
     }
 
     unsafe fn init() {
