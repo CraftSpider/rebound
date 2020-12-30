@@ -24,7 +24,7 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: Rune miri
+      - name: Run miri
         uses: actions-rs/cargo@v1
         with:
           command: miri
