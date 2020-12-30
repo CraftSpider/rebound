@@ -94,8 +94,8 @@ impl<T: ?Sized + Reflected> Ref for T {
 impl<T: ?Sized + Reflected> Ref for &T {
     fn as_ref<'a>(val: &'a Value) -> Value<'a> {
         unsafe {
-            let ptr = &*<&T>::assemble(*val.raw_meta().cast(), val.raw_ptr().cast());
-            std::mem::transmute(Value::from_ref(ptr))
+            let ptr = *<&T>::assemble(*val.raw_meta().cast(), val.raw_ptr().cast());
+            std::mem::transmute(Value::from(ptr.clone()))
         }
     }
 
@@ -105,17 +105,14 @@ impl<T: ?Sized + Reflected> Ref for &T {
 }
 
 impl<T: ?Sized + Reflected> Ref for &mut T {
-    fn as_ref<'a>(val: &'a Value) -> Value<'a> {
-        unsafe {
-            let ptr = &*<&T>::assemble(*val.raw_meta().cast(), val.raw_ptr().cast());
-            std::mem::transmute(Value::from_ref(ptr))
-        }
+    fn as_ref<'a>(_: &'a Value) -> Value<'a> {
+        panic!("Can't immutably borrow a mutable reference")
     }
 
     fn as_mut<'a>(val: &'a mut Value) -> Value<'a> {
         unsafe {
-            let ptr = &*<&mut T>::assemble(*val.raw_meta().cast(), val.raw_ptr().cast());
-            std::mem::transmute(Value::from_ref(ptr))
+            let ptr = *<&mut T>::assemble(*val.raw_meta().cast(), val.raw_ptr().cast());
+            std::mem::transmute(Value::from(ptr.clone()))
         }
     }
 }
