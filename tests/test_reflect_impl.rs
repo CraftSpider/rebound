@@ -44,7 +44,7 @@ fn test_const() {
     assert_eq!(foo.assoc_ty(), Type::from::<Foo>());
     assert_eq!(foo.ty(), Type::from::<Foo>());
 
-    let val = foo.get();
+    let val = foo.get().unwrap();
     assert_eq!(val.borrow::<Foo>().a, -1);
 }
 

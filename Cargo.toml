@@ -3,6 +3,7 @@ name = "rebound"
 version = "0.1.0"
 description = "Full runtime reflection for Rust, with lifetime safety"
 keywords = ["reflection", "reflect", "no_std"]
+categories = ["memory-management"]
 repository = "https://github.com/CraftSpider/rebound"
 documentation = "https://docs.rs/rebound"
 authors = ["Rune Tynan <runetynan@gmail.com>"]

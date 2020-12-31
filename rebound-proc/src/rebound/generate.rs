@@ -15,7 +15,7 @@ pub fn generate_assoc_fn(
     self_ty: &syn::Type,
     sig: &syn::Signature,
 ) -> Result<TokenStream> {
-    if sig.generics.params.len() > 0 {
+    if !sig.generics.params.is_empty() {
         return Err(
             "Rebound does not support generic functions, this may work in a future version"
                 .to_string(),
@@ -43,7 +43,7 @@ pub fn generate_assoc_fn(
         syn::ReturnType::Type(_, ty) => quote!(#ty),
     };
 
-    if inputs.len() > 0 && matches!(inputs[0], syn::FnArg::Receiver(..)) {
+    if !inputs.is_empty() && matches!(inputs[0], syn::FnArg::Receiver(..)) {
         let receiver = if let syn::FnArg::Receiver(arg) = &inputs[0] {
             if arg.reference.is_some() {
                 let mutability = &arg.mutability;
@@ -381,7 +381,7 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
                 .to_string(),
         );
     }
-    if item.generics.params.len() > 0 {
+    if !item.generics.params.is_empty() {
         return Err(
             "Rebound does not yet support generic impls, this may work in a future version"
                 .to_string(),

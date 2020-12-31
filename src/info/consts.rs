@@ -1,9 +1,11 @@
-use crate::{Type, Value};
+use crate::{Error, Type, Value};
 
 use core::fmt;
 
-pub(crate) type GetConstHelper = Box<dyn Fn() -> Value<'static>>;
+type GetConstHelper = Box<dyn Fn() -> Value<'static>>;
 
+/// Info about a constant on a [`Type`]. Allows getting the Value of this constant, assuming the
+/// reflection was configured to allow it.
 pub struct AssocConst {
     ptr: GetConstHelper,
     name: &'static str,
@@ -12,6 +14,11 @@ pub struct AssocConst {
 }
 
 impl AssocConst {
+    /// Internal Function, creates a new constant
+    ///
+    /// # Safety
+    ///
+    /// Should only be called within a `ReflectedImpl`'s `assoc_consts` implementation
     pub unsafe fn new(
         ptr: GetConstHelper,
         name: &'static str,
@@ -26,20 +33,24 @@ impl AssocConst {
         }
     }
 
+    /// Get the name of this constant in code
     pub fn name(&self) -> &'static str {
         self.name
     }
 
+    /// Get the Type this constant was defined on
     pub fn assoc_ty(&self) -> Type {
         self.assoc_ty
     }
 
+    /// Get the Type of the data in this constant
     pub fn ty(&self) -> Type {
         self.ty
     }
 
-    pub fn get(&self) -> Value<'static> {
-        (self.ptr)()
+    /// Get the value of this constant, if the operation is supported.
+    pub fn get(&self) -> Result<Value<'static>, Error> {
+        Ok((self.ptr)())
     }
 }
 

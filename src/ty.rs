@@ -3,7 +3,7 @@
 use crate::info::*;
 use crate::reflect::*;
 use crate::utils::StaticTypeMap;
-use crate::Value;
+use crate::{Error, Value};
 
 use core::fmt;
 use core::hash::{Hash, Hasher};
@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::lazy::SyncOnceCell;
 use std::sync::RwLock;
 
+/// Implement CommonTypeInfo for a given struct
 macro impl_common($ty:ty) {
     impl CommonTypeInfo for $ty {
         fn name(&self) -> String {
@@ -25,11 +26,11 @@ macro impl_common($ty:ty) {
             (self.vtable.assoc_consts)()
         }
 
-        fn as_ref<'a>(&self, val: &'a Value) -> Value<'a> {
+        fn as_ref<'a>(&self, val: &'a Value) -> Result<Value<'a>, Error> {
             (self.vtable.as_ref)(val)
         }
 
-        fn as_mut<'a>(&self, val: &'a mut Value) -> Value<'a> {
+        fn as_mut<'a>(&self, val: &'a mut Value) -> Result<Value<'a>, Error> {
             (self.vtable.as_mut)(val)
         }
     }
@@ -49,10 +50,10 @@ pub trait CommonTypeInfo {
     // fn impled_traits(&self) -> Vec<TraitInfo>;
 
     /// Convert a Value of this type to a reference to that value, if it's not already a reference
-    fn as_ref<'a>(&self, val: &'a Value) -> Value<'a>;
+    fn as_ref<'a>(&self, val: &'a Value) -> Result<Value<'a>, Error>;
     /// Convert a Value of this type to a mutable reference to that value, if it's not already a
     /// reference
-    fn as_mut<'a>(&self, val: &'a mut Value) -> Value<'a>;
+    fn as_mut<'a>(&self, val: &'a mut Value) -> Result<Value<'a>, Error>;
 }
 
 /// Common VTable used by all types
@@ -62,8 +63,8 @@ struct TypeVTable {
     assoc_fns: fn() -> Vec<AssocFn>,
     assoc_consts: fn() -> Vec<AssocConst>,
 
-    as_ref: for<'a> fn(&'a Value) -> Value<'a>,
-    as_mut: for<'a> fn(&'a mut Value) -> Value<'a>,
+    as_ref: for<'a> fn(&'a Value) -> Result<Value<'a>, Error>,
+    as_mut: for<'a> fn(&'a mut Value) -> Result<Value<'a>, Error>,
 }
 
 impl fmt::Debug for TypeVTable {
@@ -77,8 +78,8 @@ impl fmt::Debug for TypeVTable {
 }
 
 trait Ref: Reflected {
-    fn as_ref<'a>(val: &'a Value) -> Value<'a>;
-    fn as_mut<'a>(val: &'a mut Value) -> Value<'a>;
+    fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error>;
+    fn mut_val<'a>(val: &'a mut Value) -> Result<Value<'a>, Error>;
 }
 
 // SAFETY: Value cannot be safely constructed with a lifetime that outlives the contained object.
@@ -86,35 +87,43 @@ trait Ref: Reflected {
 //         The transmute just conveys this to the rust compiler, converting the lifetime.
 
 impl<T: ?Sized + Reflected> Ref for T {
-    default fn as_ref<'a>(val: &'a Value) -> Value<'a> {
-        unsafe { core::mem::transmute::<Value, Value>(Value::from(val.borrow::<Self>())) }
+    default fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error> {
+        unsafe {
+            Ok(core::mem::transmute::<Value, Value>(Value::from(
+                val.borrow::<Self>(),
+            )))
+        }
     }
 
-    default fn as_mut<'a>(val: &'a mut Value) -> Value<'a> {
-        unsafe { core::mem::transmute::<Value, Value>(Value::from(val.borrow_mut::<Self>())) }
+    default fn mut_val<'a>(val: &'a mut Value) -> Result<Value<'a>, Error> {
+        unsafe {
+            Ok(core::mem::transmute::<Value, Value>(Value::from(
+                val.borrow_mut::<Self>(),
+            )))
+        }
     }
 }
 
 impl<T: ?Sized + Reflected> Ref for &T {
-    fn as_ref<'a>(val: &'a Value) -> Value<'a> {
+    fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error> {
         unsafe {
-            let ptr = *<&T>::assemble(*val.raw_meta().cast(), val.raw_ptr().cast());
-            core::mem::transmute::<Value, Value>(Value::from(ptr))
+            let ptr = *<&T>::assemble((), val.raw_ptr().cast());
+            Ok(core::mem::transmute::<Value, Value>(Value::from(ptr)))
         }
     }
 
-    fn as_mut<'a>(_: &'a mut Value) -> Value<'a> {
-        panic!("Can't mutably borrow an immutable reference")
+    fn mut_val<'a>(_: &'a mut Value) -> Result<Value<'a>, Error> {
+        Err(Error::CantReborrow)
     }
 }
 
 impl<T: ?Sized + Reflected> Ref for &mut T {
-    fn as_ref<'a>(_: &'a Value) -> Value<'a> {
-        panic!("Can't immutably borrow a mutable reference")
+    fn ref_val<'a>(_: &'a Value) -> Result<Value<'a>, Error> {
+        Err(Error::CantReborrow)
     }
 
-    fn as_mut<'a>(_: &'a mut Value) -> Value<'a> {
-        panic!("Can't reborrow a mutable reference")
+    fn mut_val<'a>(_: &'a mut Value) -> Result<Value<'a>, Error> {
+        Err(Error::CantReborrow)
     }
 }
 
@@ -125,8 +134,8 @@ impl TypeVTable {
             assoc_fns: T::assoc_fns,
             assoc_consts: T::assoc_consts,
 
-            as_ref: <T as Ref>::as_ref,
-            as_mut: <T as Ref>::as_mut,
+            as_ref: <T as Ref>::ref_val,
+            as_mut: <T as Ref>::mut_val,
         }
     }
 }
@@ -264,6 +273,10 @@ impl Type {
     }
 
     /// Internal function used by generated code to initialize a Type for structs
+    ///
+    /// # Safety
+    ///
+    /// Should only be called inside a [`Reflected`] type's `init` impl
     pub unsafe fn new_struct<T: ?Sized + ReflectedStruct>() {
         let ty = Type::Struct(StructInfo {
             vtable: TypeVTable::new::<T>(),
@@ -274,6 +287,10 @@ impl Type {
     }
 
     /// Internal function used by generated code to initialize a Type for tuple structs
+    ///
+    /// # Safety
+    ///
+    /// Should only be called inside a [`Reflected`] type's `init` impl
     pub unsafe fn new_tuple_struct<T: ReflectedTupleStruct>() {
         let ty = Type::TupleStruct(TupleStructInfo {
             vtable: TypeVTable::new::<T>(),
@@ -284,6 +301,10 @@ impl Type {
     }
 
     /// Internal function used by generated code to initialize a Type for unit structs
+    ///
+    /// # Safety
+    ///
+    /// Should only be called inside a [`Reflected`] type's `init` impl
     pub unsafe fn new_unit_struct<T: ReflectedUnitStruct>() {
         let ty = Type::UnitStruct(UnitStructInfo {
             vtable: TypeVTable::new::<T>(),
@@ -293,6 +314,10 @@ impl Type {
     }
 
     /// Internal function used by generated code to initialize a Type for enums
+    ///
+    /// # Safety
+    ///
+    /// Should only be called inside a [`Reflected`] type's `init` impl
     pub unsafe fn new_enum<T: ReflectedEnum>() {
         let ty = Type::Enum(EnumInfo {
             vtable: TypeVTable::new::<T>(),
@@ -303,6 +328,10 @@ impl Type {
     }
 
     /// Internal function used by generated code to initialize a Type for unions
+    ///
+    /// # Safety
+    ///
+    /// Should only be called inside a [`Reflected`] type's `init` impl
     pub unsafe fn new_union<T: ReflectedUnion>() {
         let ty = Type::Union(UnionInfo {
             vtable: TypeVTable::new::<T>(),
@@ -334,16 +363,15 @@ impl Type {
             .read()
             .expect("Couldn't get read lock on Reflection mapping")
             .get(name)
-            .map(|t| *t)
+            .copied()
     }
 
     /// Get a Type instance from any reflected type, instantiating it if necessary.
     pub fn from<T: ?Sized + Reflected>() -> Type {
         static INIT: SyncOnceCell<StaticTypeMap<()>> = SyncOnceCell::new();
-        INIT.get_or_init(|| StaticTypeMap::new())
-            .call_once::<T, _>(|| {
-                unsafe { T::init() };
-            });
+        INIT.get_or_init(StaticTypeMap::new).call_once::<T, _>(|| {
+            unsafe { T::init() };
+        });
 
         unsafe { Type::from_name(&T::name()).expect("Type not initialized") }
     }
@@ -370,7 +398,7 @@ impl Type {
 impl PartialEq for Type {
     fn eq(&self, other: &Type) -> bool {
         // This is safe because Type creation is based on the name, overlaps will cause warnings
-        return self.name() == other.name();
+        self.name() == other.name()
     }
 }
 
@@ -395,15 +423,16 @@ impl CommonTypeInfo for Type {
         self.as_inner().assoc_consts()
     }
 
-    fn as_ref<'a>(&self, val: &'a Value) -> Value<'a> {
+    fn as_ref<'a>(&self, val: &'a Value) -> Result<Value<'a>, Error> {
         self.as_inner().as_ref(val)
     }
 
-    fn as_mut<'a>(&self, val: &'a mut Value) -> Value<'a> {
+    fn as_mut<'a>(&self, val: &'a mut Value) -> Result<Value<'a>, Error> {
         self.as_inner().as_mut(val)
     }
 }
 
+/// Type information about a primitive reflected type
 #[derive(Debug, Copy, Clone)]
 pub struct PrimitiveInfo {
     vtable: TypeVTable,
@@ -411,6 +440,7 @@ pub struct PrimitiveInfo {
 
 impl_common!(PrimitiveInfo);
 
+/// Type information about a reflected tuple
 #[derive(Debug, Copy, Clone)]
 pub struct TupleInfo {
     vtable: TypeVTable,
@@ -418,6 +448,7 @@ pub struct TupleInfo {
 }
 
 impl TupleInfo {
+    /// Get all the [`Fields`](Field) of this Tuple
     pub fn fields(&self) -> Vec<Field> {
         (self.fields)()
     }
@@ -425,6 +456,7 @@ impl TupleInfo {
 
 impl_common!(TupleInfo);
 
+/// Type information about a reflected array
 #[derive(Debug, Copy, Clone)]
 pub struct ArrayInfo {
     vtable: TypeVTable,
@@ -433,10 +465,12 @@ pub struct ArrayInfo {
 }
 
 impl ArrayInfo {
+    /// Get the element [`Type`] of this Array
     pub fn element(&self) -> Type {
         (self.element)()
     }
 
+    /// Get the length of this Array
     pub fn length(&self) -> usize {
         self.length
     }
@@ -444,6 +478,7 @@ impl ArrayInfo {
 
 impl_common!(ArrayInfo);
 
+/// Type information about a reflected slice
 #[derive(Debug, Copy, Clone)]
 pub struct SliceInfo {
     vtable: TypeVTable,
@@ -451,6 +486,7 @@ pub struct SliceInfo {
 }
 
 impl SliceInfo {
+    /// Get the element [`Type`] of this Slice
     pub fn element(&self) -> Type {
         (self.element)()
     }
@@ -458,6 +494,7 @@ impl SliceInfo {
 
 impl_common!(SliceInfo);
 
+/// Type information about a reflected pointer
 #[derive(Debug, Copy, Clone)]
 pub struct PointerInfo {
     vtable: TypeVTable,
@@ -466,10 +503,12 @@ pub struct PointerInfo {
 }
 
 impl PointerInfo {
+    /// Get the element [`Type`] of this Pointer
     pub fn element(&self) -> Type {
         (self.element)()
     }
 
+    /// Check whether this pointer is mutable
     pub fn mutability(&self) -> bool {
         self.mutability
     }
@@ -477,6 +516,7 @@ impl PointerInfo {
 
 impl_common!(PointerInfo);
 
+/// Type information about a reflected reference
 #[derive(Debug, Copy, Clone)]
 pub struct ReferenceInfo {
     vtable: TypeVTable,
@@ -485,10 +525,12 @@ pub struct ReferenceInfo {
 }
 
 impl ReferenceInfo {
+    /// Get the element [`Type`] of this Reference
     pub fn element(&self) -> Type {
         (self.element)()
     }
 
+    /// Check whether this reference is mutable
     pub fn mutability(&self) -> bool {
         self.mutability
     }
@@ -496,6 +538,7 @@ impl ReferenceInfo {
 
 impl_common!(ReferenceInfo);
 
+/// Type information about a reflected function pointer
 #[derive(Debug, Copy, Clone)]
 pub struct FunctionInfo {
     vtable: TypeVTable,
@@ -504,10 +547,12 @@ pub struct FunctionInfo {
 }
 
 impl FunctionInfo {
+    /// Get the argument [`Types`](Type) of this Function
     pub fn arg_tys(&self) -> Vec<Type> {
         (self.args)()
     }
 
+    /// Get the return [`Type`] of this Function
     pub fn ret_ty(&self) -> Type {
         (self.ret)()
     }
@@ -515,6 +560,7 @@ impl FunctionInfo {
 
 impl_common!(FunctionInfo);
 
+/// Type information about a reflected struct
 #[derive(Debug, Copy, Clone)]
 pub struct StructInfo {
     vtable: TypeVTable,
@@ -522,6 +568,7 @@ pub struct StructInfo {
 }
 
 impl StructInfo {
+    /// Get all the [`Fields`](Field) of this Struct
     pub fn fields(&self) -> Vec<Field> {
         (self.fields)()
     }
@@ -529,6 +576,7 @@ impl StructInfo {
 
 impl_common!(StructInfo);
 
+/// Type information about a reflected tuple-struct
 #[derive(Debug, Copy, Clone)]
 pub struct TupleStructInfo {
     vtable: TypeVTable,
@@ -536,6 +584,7 @@ pub struct TupleStructInfo {
 }
 
 impl TupleStructInfo {
+    /// Get all the [`Fields`](Field) of this Tuple Struct
     pub fn fields(&self) -> Vec<Field> {
         (self.fields)()
     }
@@ -543,6 +592,7 @@ impl TupleStructInfo {
 
 impl_common!(TupleStructInfo);
 
+/// Type information about a reflected unit struct
 #[derive(Debug, Copy, Clone)]
 pub struct UnitStructInfo {
     vtable: TypeVTable,
@@ -550,6 +600,7 @@ pub struct UnitStructInfo {
 
 impl_common!(UnitStructInfo);
 
+/// Type information about a reflected enum
 #[derive(Debug, Copy, Clone)]
 pub struct EnumInfo {
     vtable: TypeVTable,
@@ -557,6 +608,7 @@ pub struct EnumInfo {
 }
 
 impl EnumInfo {
+    /// Get all the [`Variants`](Variant) of this Enum
     pub fn variants(&self) -> Vec<Variant> {
         (self.variants)()
     }
@@ -564,6 +616,7 @@ impl EnumInfo {
 
 impl_common!(EnumInfo);
 
+/// Type information about a reflected union
 #[derive(Debug, Copy, Clone)]
 pub struct UnionInfo {
     vtable: TypeVTable,
@@ -571,6 +624,7 @@ pub struct UnionInfo {
 }
 
 impl UnionInfo {
+    /// Get all the [`Fields`](Field) of this Union
     pub fn fields(&self) -> Vec<UnionField> {
         (self.fields)()
     }

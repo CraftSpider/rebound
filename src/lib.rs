@@ -1,6 +1,5 @@
 //! A crate aiming to implement 'full' reflection in Rust.
 
-// TODO: Remove specialization / hope it gets completed
 #![allow(incomplete_features)]
 #![feature(
     specialization,
@@ -34,7 +33,7 @@ pub mod utils;
 pub use crate::reflect::Reflected;
 pub use error::Error;
 pub use info::{AssocConst, AssocFn, Field, FieldKind, UnionField, Variant};
-pub use tr::Trait;
+// pub use tr::Trait;
 pub use ty::Type;
 pub use value::Value;
 

@@ -217,7 +217,7 @@ pub fn ty_id(ty: &syn::Type) -> Result<String, String> {
                 .collect::<Result<Vec<_>, String>>()?
                 .join(", ")
         )),
-        syn::Type::Path(ty) => Ok(format!("{}", ty.to_token_stream().to_string())),
+        syn::Type::Path(ty) => Ok(ty.to_token_stream().to_string()),
         _ => Err("Unrecognized / unsupported type for impl block".to_string()),
     }
 }

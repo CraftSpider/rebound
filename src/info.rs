@@ -1,3 +1,7 @@
+//! Implementations of the various items that Types may possess. These items tend to support
+//! the kind of operations that can be performed on that item during compile time, such as
+//! calling a function or retrieving the value of a field.
+
 use crate::Value;
 
 mod consts;
@@ -12,5 +16,5 @@ pub use fns::AssocFn;
 pub use union_fields::UnionField;
 pub use variants::{StructVariant, TupleVariant, UnitVariant, Variant};
 
-pub(crate) type AccessHelper = Box<dyn for<'a> Fn(&'a Value<'a>) -> Value<'a>>;
-pub(crate) type SetHelper = Box<dyn Fn(&mut Value, Value<'static>)>;
+type AccessHelper = Box<dyn for<'a> Fn(&'a Value<'a>) -> Value<'a>>;
+type SetHelper = Box<dyn Fn(&mut Value, Value<'static>)>;

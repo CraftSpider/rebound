@@ -1,3 +1,8 @@
+//! Common macros used to generate closures with variable number if internal arguments.
+//!
+//! In the process of being phased out in favor of implementations directly in `rebound_proc`.
+
+/// Generate an accessor for a value on a type
 pub macro __make_ref_accessor($ty:ty, $($item:tt)+) {
     Box::new(|this| {
         let inner = this.borrow::<$ty>();
@@ -8,6 +13,7 @@ pub macro __make_ref_accessor($ty:ty, $($item:tt)+) {
     })
 }
 
+/// Generate a setter for a value on a type
 pub macro __make_setter($ty:ty, $($item:tt)+) {
     Box::new(|this, value| {
         let inner = this.borrow_mut::<$ty>();

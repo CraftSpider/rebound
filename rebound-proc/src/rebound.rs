@@ -57,7 +57,7 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
     for i in args.values {
         match i {
             syn::NestedMeta::Meta(meta) => match meta {
-                syn::Meta::List(..) => return Err(format!("Found unexpected list element")),
+                syn::Meta::List(..) => return Err("Found unexpected list element".to_string()),
                 syn::Meta::NameValue(nv) => {
                     let str = path_to_string(&nv.path);
 
@@ -87,7 +87,7 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
                     }
                 }
             },
-            syn::NestedMeta::Lit(..) => return Err(format!("Found unexpected literal argument")),
+            syn::NestedMeta::Lit(..) => return Err("Found unexpected literal argument".to_string()),
         }
     }
 
@@ -156,11 +156,13 @@ impl syn::parse::Parse for Items {
 }
 
 pub fn extern_items(input: TokenStream) -> TokenStream {
-    let mut config = Config::default();
-    config.crate_name = syn::Ident::new("crate", Span::call_site());
-    config.name_replace = Some(("rebound::__impls::".into(), "".into()));
-    config.no_get = true;
-    config.no_set = true;
+    let config = Config {
+        crate_name: syn::Ident::new("crate", Span::call_site()),
+        name_replace: Some(("rebound::__impls::".into(), "".into())),
+        no_get: true,
+        no_set: true,
+        ..Default::default()
+    };
 
     let item = syn::parse2(input)
         .map_err(|err| err.to_string())
@@ -221,8 +223,10 @@ impl syn::parse::Parse for AssocFnSigs {
 }
 
 pub fn extern_assoc_fns(input: TokenStream) -> TokenStream {
-    let mut config = Config::default();
-    config.crate_name = syn::Ident::new("crate", Span::call_site());
+    let config = Config {
+        crate_name: syn::Ident::new("crate", Span::call_site()),
+        ..Default::default()
+    };
 
     let input: AssocFnSigs = syn::parse2(input).expect("Couldn't parse assocfn def");
 
@@ -275,8 +279,10 @@ impl syn::parse::Parse for AssocConstSigs {
 }
 
 pub fn extern_assoc_consts(input: TokenStream) -> TokenStream {
-    let mut config = Config::default();
-    config.crate_name = syn::Ident::new("crate", Span::call_site());
+    let config = Config {
+        crate_name: syn::Ident::new("crate", Span::call_site()),
+        ..Default::default()
+    };
 
     let input: AssocConstSigs = syn::parse2(input).expect("Couldn't parse assocconst def");
 

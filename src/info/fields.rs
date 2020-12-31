@@ -3,24 +3,38 @@ use crate::{Error, Type, Value, Variant};
 
 use core::fmt;
 
+/// Info about different kinds of [`Fields`](Field)
 #[derive(Debug)]
 pub enum FieldKind {
+    /// A tuple field, accessed by numeric index
     Tuple {
+        /// The index of this field
         idx: usize,
     },
+    /// A named field, accessed by textual name
     Named {
+        /// The name of this field
         name: &'static str,
     },
+    /// An enum tuple field, accessed by variant and numeric index
     EnumTuple {
+        /// The index of this field
         idx: usize,
+        /// The variant of this field
         assoc_var: Variant,
     },
+    /// An enum named field, accessed by variant and textual name
     EnumNamed {
+        /// The name of this field
         name: &'static str,
+        /// The variant of this field
         assoc_var: Variant,
     },
 }
 
+/// Info about a field on a [`Type`], either named or unnamed. Allows getting a reference to or
+/// setting the content of this field on a [`Value`], assuming the reflection was configured to
+/// allow it.
 pub struct Field {
     get_ptr: Option<AccessHelper>,
     set_ptr: Option<SetHelper>,
@@ -30,6 +44,11 @@ pub struct Field {
 }
 
 impl Field {
+    /// Internal Function, creates a new named field
+    ///
+    /// # Safety
+    ///
+    /// Should only be called within a Reflected item's `fields` implementation
     pub unsafe fn new_named(
         get_ptr: Option<AccessHelper>,
         set_ptr: Option<SetHelper>,
@@ -46,6 +65,11 @@ impl Field {
         }
     }
 
+    /// Internal Function, creates a new unnamed field
+    ///
+    /// # Safety
+    ///f
+    /// Should only be called within a Reflected item's `fields` implementation
     pub unsafe fn new_tuple(
         get_ptr: Option<AccessHelper>,
         set_ptr: Option<SetHelper>,
@@ -62,6 +86,11 @@ impl Field {
         }
     }
 
+    /// Internal Function, creates a new named field for a variant
+    ///
+    /// # Safety
+    ///
+    /// Should only be called within a Reflected item's `fields` implementation
     pub unsafe fn new_enum_named(
         get_ptr: Option<AccessHelper>,
         set_ptr: Option<SetHelper>,
@@ -79,6 +108,11 @@ impl Field {
         }
     }
 
+    /// Internal Function, creates a new unnamed field for a variant
+    ///
+    /// # Safety
+    ///
+    /// Should only be called within a Reflected item's `fields` implementation
     pub unsafe fn new_enum_tuple(
         get_ptr: Option<AccessHelper>,
         set_ptr: Option<SetHelper>,
@@ -96,41 +130,51 @@ impl Field {
         }
     }
 
+    /// Get the Type this field is defined on
     pub fn assoc_ty(&self) -> Type {
         self.assoc_ty
     }
 
+    /// Get the Type of the data in this field
     pub fn ty(&self) -> Type {
         self.field_ty
     }
 
+    /// Get the kind of this field, which contains name or index information
     pub fn kind(&self) -> &FieldKind {
         &self.kind
     }
 
+    // TODO: `get_ref`/`set_ref`: check variant as well as ty
+
+    /// Get a reference to the data contained within this Field on a [`Value`], assuming the Value
+    /// is of the correct type and the operation is supported.
     pub fn get_ref<'a>(&self, this: &'a Value<'a>) -> Result<Value<'a>, Error> {
-        if let Some(get_ptr) = &self.get_ptr {
-            if this.ty() != self.assoc_ty() {
-                Err(Error::wrong_type(this.ty(), self.assoc_ty))
-            } else {
-                Ok((get_ptr)(this))
-            }
-        } else {
-            Err(Error::UnsupportedOperation)
-        }
+        self.get_ptr
+            .as_ref()
+            .map_or(Err(Error::UnsupportedOperation), |get_ptr| {
+                if this.ty() == self.assoc_ty() {
+                    Ok((get_ptr)(this))
+                } else {
+                    Err(Error::wrong_type(this.ty(), self.assoc_ty))
+                }
+            })
     }
 
+    /// Set the data contained within this Field on a [`Value`], assuming the Values of both `this`
+    /// and `other` are of the correct type and the operation is supported.
+    #[allow(clippy::suspicious_operation_groupings)]
     pub fn set(&self, this: &mut Value, other: Value<'static>) -> Result<(), Error> {
-        if let Some(set_ptr) = &self.set_ptr {
-            if this.ty() != self.assoc_ty() || other.ty() != self.ty() {
-                Err(Error::wrong_type(this.ty(), self.assoc_ty))
-            } else {
-                (set_ptr)(this, other);
-                Ok(())
-            }
-        } else {
-            Err(Error::UnsupportedOperation)
-        }
+        self.set_ptr
+            .as_ref()
+            .map_or(Err(Error::UnsupportedOperation), |set_ptr| {
+                if this.ty() == self.assoc_ty() && other.ty() == self.ty() {
+                    (set_ptr)(this, other);
+                    Ok(())
+                } else {
+                    Err(Error::wrong_type(this.ty(), self.assoc_ty))
+                }
+            })
     }
 }
 

@@ -1,13 +1,19 @@
 use crate::{Field, Type};
 
+/// Info about a variant on an enum [`Type`]. Allows accessing the name and fields of the given
+/// variant.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Variant {
+    /// A unit variant containing no fields
     Unit(UnitVariant),
+    /// A tuple variant, containing unnamed fields
     Tuple(TupleVariant),
+    /// A struct variant, containing named fields
     Struct(StructVariant),
 }
 
 impl Variant {
+    /// Get the name of the current variant
     pub fn name(&self) -> &str {
         match self {
             Variant::Unit(var) => var.name(),
@@ -15,8 +21,18 @@ impl Variant {
             Variant::Struct(var) => var.name(),
         }
     }
+
+    /// Get the Type this variant is defined on
+    pub fn assoc_ty(&self) -> Type {
+        match self {
+            Variant::Unit(var) => var.assoc_ty(),
+            Variant::Tuple(var) => var.assoc_ty(),
+            Variant::Struct(var) => var.assoc_ty(),
+        }
+    }
 }
 
+/// Info specific to a Unit variant
 #[derive(Debug, Copy, Clone)]
 pub struct UnitVariant {
     name: &'static str,
@@ -24,14 +40,21 @@ pub struct UnitVariant {
 }
 
 impl UnitVariant {
+    /// Internal Function, used to create a new unit variant.
+    ///
+    /// # Safety
+    ///
+    /// Should only be called within a `ReflectedEnum`'s `variants` implementation
     pub unsafe fn new(name: &'static str, assoc_ty: Type) -> UnitVariant {
         UnitVariant { name, assoc_ty }
     }
 
+    /// Get the name of this variant
     pub fn name(&self) -> &str {
         self.name
     }
 
+    /// Get the Type this variant is defined on
     pub fn assoc_ty(&self) -> Type {
         self.assoc_ty
     }
@@ -43,6 +66,7 @@ impl PartialEq for UnitVariant {
     }
 }
 
+/// Info specific to a Tuple variant
 #[derive(Debug, Copy, Clone)]
 pub struct TupleVariant {
     name: &'static str,
@@ -51,6 +75,11 @@ pub struct TupleVariant {
 }
 
 impl TupleVariant {
+    /// Internal Function, used to create a new tuple variant.
+    ///
+    /// # Safety
+    ///
+    /// Should only be called within a `ReflectedEnum`'s `variants` implementation
     pub unsafe fn new(
         name: &'static str,
         assoc_ty: Type,
@@ -63,14 +92,17 @@ impl TupleVariant {
         }
     }
 
+    /// Get the name of this variant
     pub fn name(&self) -> &str {
         self.name
     }
 
+    /// Get the Type this variant is defined on
     pub fn assoc_ty(&self) -> Type {
         self.assoc_ty
     }
 
+    /// Get the unnamed fields of this variant
     pub fn fields(&self) -> Vec<Field> {
         (self.fields)()
     }
@@ -82,6 +114,7 @@ impl PartialEq for TupleVariant {
     }
 }
 
+/// Info specific to a Struct variant
 #[derive(Debug, Copy, Clone)]
 pub struct StructVariant {
     name: &'static str,
@@ -90,6 +123,11 @@ pub struct StructVariant {
 }
 
 impl StructVariant {
+    /// Internal Function, used to create a new struct variant.
+    ///
+    /// # Safety
+    ///
+    /// Should only be called within a `ReflectedEnum`'s `variants` implementation
     pub unsafe fn new(
         name: &'static str,
         assoc_ty: Type,
@@ -102,14 +140,17 @@ impl StructVariant {
         }
     }
 
+    /// Get the name of this variant
     pub fn name(&self) -> &str {
         self.name
     }
 
+    /// Get the Type this variant is defined on
     pub fn assoc_ty(&self) -> Type {
         self.assoc_ty
     }
 
+    /// Get the named fields of this variant
     pub fn fields(&self) -> Vec<Field> {
         (self.fields)()
     }

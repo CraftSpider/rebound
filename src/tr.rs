@@ -1,3 +1,7 @@
+//! Runtime information about a Trait
+
+#![allow(dead_code, unused)]
+
 use crate::info::*;
 
 use std::collections::HashMap;
@@ -7,7 +11,7 @@ use std::sync::RwLock;
 static REFLECTED_TRAITS: SyncOnceCell<RwLock<HashMap<String, Box<Trait>>>> = SyncOnceCell::new();
 
 #[derive(Debug)]
-pub struct Trait {
+struct Trait {
     name: fn() -> String,
     bounds: fn() -> Vec<Trait>,
     methods: fn() -> Vec<AssocFn>,

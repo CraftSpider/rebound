@@ -1,10 +1,11 @@
 use crate::{Error, Type, Value};
 
+use core::cmp::Ordering;
 use core::fmt;
 
 // TODO: AssocFn with non-'static return types? Hard to make work with 'a lifetimes.
-pub(crate) type CallStaticHelper = for<'a> fn(Vec<Value<'a>>) -> Value<'a>;
-pub(crate) type CallDynamicHelper = for<'a> fn(Value<'a>, Vec<Value<'a>>) -> Value<'a>;
+type CallStaticHelper = for<'a> fn(Vec<Value<'a>>) -> Value<'a>;
+type CallDynamicHelper = for<'a> fn(Value<'a>, Vec<Value<'a>>) -> Value<'a>;
 
 pub enum FnKind {
     Static {
@@ -27,6 +28,8 @@ impl fmt::Debug for FnKind {
     }
 }
 
+/// Info about an associated function on a [`Type`], either dynamic or static. Allows calling the
+/// function, assuming reflection was configured to allow it.
 #[derive(Debug)]
 pub struct AssocFn {
     name: &'static str,
@@ -37,6 +40,11 @@ pub struct AssocFn {
 }
 
 impl AssocFn {
+    /// Internal Function, creates a new static function reference
+    ///
+    /// # Safety
+    ///
+    /// Should only be called within a `ReflectedImpl`'s `assoc_fns` implementation
     pub unsafe fn new_static(
         call: CallStaticHelper,
         name: &'static str,
@@ -53,6 +61,11 @@ impl AssocFn {
         }
     }
 
+    /// Internal Function, creates a new dynamic function reference
+    ///
+    /// # Safety
+    ///
+    /// Should only be called within a `ReflectedImpl`'s `assoc_fns` implementation
     pub unsafe fn new_dynamic(
         call: CallDynamicHelper,
         name: &'static str,
@@ -70,26 +83,36 @@ impl AssocFn {
         }
     }
 
+    /// Get the name of this function in code
     pub fn name(&self) -> &'static str {
         self.name
     }
 
+    /// Get the Type this function was defined on
     pub fn assoc_ty(&self) -> Type {
         self.assoc_ty
     }
 
+    /// Get the Types of the arguments to this function
     pub fn arg_tys(&self) -> &Vec<Type> {
         &self.args
     }
 
+    /// Get the return Type of this function
     pub fn ret_ty(&self) -> Type {
         self.ret
     }
 
+    /// Get the kind of this function, which contains specific information
     pub fn kind(&self) -> &FnKind {
         &self.kind
     }
 
+    /// Attempt to call this function with the provided receiver and arguments.
+    ///
+    /// The receiver should only be provided if this is a dynamic function, the number of
+    /// arguments must exactly match the number required to call the function, and reflection
+    /// must be configured to support calling this function.
     pub fn call<'a>(
         &self,
         this: Option<Value<'a>>,
@@ -113,10 +136,10 @@ impl AssocFn {
         }
 
         // Check the validity of `args`
-        if args.len() > self.args.len() {
-            return Err(Error::TooManyArgs);
-        } else if args.len() < self.args.len() {
-            return Err(Error::TooFewArgs);
+        match args.len().cmp(&self.args.len()) {
+            Ordering::Greater => return Err(Error::TooManyArgs),
+            Ordering::Less => return Err(Error::TooFewArgs),
+            Ordering::Equal => (),
         }
 
         for (idx, val) in args.iter().enumerate() {

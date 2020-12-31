@@ -1,20 +1,27 @@
+//! Some helpful utilities for working with reflected Types in various situations
+
 use crate::Reflected;
 
 use std::collections::HashMap;
 use std::lazy::SyncOnceCell;
 use std::sync::RwLock;
 
+/// A helper for making `static` variables in a generic which are unique per type used in the
+/// generic.
 pub struct StaticTypeMap<T: 'static> {
     map: RwLock<HashMap<String, &'static SyncOnceCell<T>>>,
 }
 
 impl<T: 'static> StaticTypeMap<T> {
+    /// Initialize a new `StaticTypeMap`
     pub fn new() -> StaticTypeMap<T> {
         StaticTypeMap {
             map: RwLock::new(HashMap::new()),
         }
     }
 
+    /// Get or init the value related to a specific type in a thread-safe manner. The closure passed
+    /// to this function will be run at most once per Ty over the life of the program.
     pub fn call_once<Ty, F>(&'static self, f: F) -> &'static T
     where
         Ty: ?Sized + Reflected,

@@ -37,6 +37,7 @@ pub struct Value<'a> {
     kind: ValueKind,
 }
 
+#[allow(clippy::should_implement_trait)]
 impl<'a> Value<'a> {
     /// Create a new owned Value from a pointer, with a lifetime no greater than that of the
     /// provided type.
@@ -74,6 +75,13 @@ impl<'a> Value<'a> {
         }
     }
 
+    /// Get a pointer to the raw backing metadata of this Value
+    ///
+    /// # Safety
+    ///
+    /// Similar to [`pointer::as_ref`], the pointer returned by this function may outlive the
+    /// borrowed Value, it is the user's responsibility to not use it past the lifetime of this
+    /// Value.
     pub unsafe fn raw_meta(&self) -> *mut () {
         self.meta
     }
@@ -108,16 +116,16 @@ impl<'a> Value<'a> {
     /// out of this value in a way which gives it a lifetime longer than its original.
     pub unsafe fn try_cast<T: Reflected>(mut self) -> Result<T, (Self, Error)> {
         if let ValueKind::Owned { .. } = &self.kind {
-            if Type::from::<T>() != self.ty {
-                let ty = self.ty;
-                Err((self, Error::wrong_type(Type::from::<T>(), ty)))
-            } else {
+            if Type::from::<T>() == self.ty {
                 let old_ptr = self.ptr;
                 self.ptr = ptr::null_mut();
                 Ok(*Box::from_raw(old_ptr as *mut T))
+            } else {
+                let ty = self.ty;
+                Err((self, Error::wrong_type(Type::from::<T>(), ty)))
             }
         } else {
-            Err((self, Error::InvalidValue))
+            Err((self, Error::BorrowedValue))
         }
     }
 
@@ -129,7 +137,7 @@ impl<'a> Value<'a> {
     /// See [`Value::try_cast`]
     pub unsafe fn cast<T: Reflected>(self) -> T {
         self.try_cast()
-            .expect(&format!("Couldn't cast Value into type {}", T::name()))
+            .unwrap_or_else(|_| panic!("Couldn't cast Value into type {}", T::name()))
     }
 
     // Should the returned references live for 'a? No. Why?
@@ -153,11 +161,11 @@ impl<'a> Value<'a> {
     /// let i = int.try_borrow::<&str>();
     /// ```
     pub fn try_borrow<T: ?Sized + Reflected>(&self) -> Result<&T, Error> {
-        if Type::from::<T>() != self.ty() {
-            Err(Error::wrong_type(Type::from::<T>(), self.ty()))
-        } else {
+        if Type::from::<T>() == self.ty() {
             let ptr = T::assemble(unsafe { *self.meta.cast::<T::Meta>() }, self.ptr);
             unsafe { Ok(&*ptr) }
+        } else {
+            Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         }
     }
 
@@ -177,7 +185,7 @@ impl<'a> Value<'a> {
     /// ```
     pub fn borrow<T: ?Sized + Reflected>(&self) -> &T {
         self.try_borrow()
-            .expect(&format!("Couldn't borrow Value as type {}", T::name()))
+            .unwrap_or_else(|_| panic!("Couldn't borrow Value as type {}", T::name()))
     }
 
     /// Attempt to mutably borrow the T contained by this Value in a fallible manner.
@@ -201,11 +209,11 @@ impl<'a> Value<'a> {
     ///
     /// ```
     pub fn try_borrow_mut<T: ?Sized + Reflected>(&mut self) -> Result<&mut T, Error> {
-        if Type::from::<T>() != self.ty() {
-            Err(Error::wrong_type(Type::from::<T>(), self.ty()))
-        } else {
+        if Type::from::<T>() == self.ty() {
             let ptr = T::assemble(unsafe { *self.meta.cast::<T::Meta>() }, self.ptr);
             unsafe { Ok(&mut *ptr) }
+        } else {
+            Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         }
     }
 
@@ -222,17 +230,21 @@ impl<'a> Value<'a> {
     /// let s = str.borrow_mut::<&i32>();
     /// ```
     pub fn borrow_mut<T: ?Sized + Reflected>(&mut self) -> &mut T {
-        self.try_borrow_mut().expect(&format!(
-            "Couldn't mutably borrow Value as type {}",
-            T::name()
-        ))
+        self.try_borrow_mut()
+            .unwrap_or_else(|_| panic!("Couldn't mutably borrow Value as type {}", T::name()))
     }
 
-    pub fn as_ref(&self) -> Value {
+    /// If this Value is not a reference Type, get a Value containing an immutable reference to
+    /// the data contained within this Value. A convenience function for operations that expect a
+    /// reference to data you own.
+    pub fn as_ref(&self) -> Result<Value, Error> {
         self.ty.as_ref(self)
     }
 
-    pub fn as_mut(&mut self) -> Value {
+    /// If this Value is not a reference Type, get a Value containing a mutable reference to the
+    /// data contained within this Value. A convenience function for operations that expect a
+    /// mutable reference to data you own.
+    pub fn as_mut(&mut self) -> Result<Value, Error> {
         let ty = self.ty;
         ty.as_mut(self)
     }
