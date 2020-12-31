@@ -210,6 +210,8 @@ pub fn generate_enum_field(
             let inner = this.borrow_mut::<#name>();
             if let #pat_name::#var_name #field_access = inner {
                 *field = value.cast();
+            } else {
+                unreachable!()
             }
         })))
     } else {

@@ -24,6 +24,11 @@ jobs:
           command: fmt
           args: --all -- --check
 
+      - name: Run clippy
+        uses: actions-rs/cargo@v1
+        with:
+          commandC: clippy
+
       - name: Run miri
         uses: actions-rs/cargo@v1
         with:

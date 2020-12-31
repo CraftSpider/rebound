@@ -186,7 +186,7 @@ impl Type {
         let name = ty.name();
 
         if map.contains_key(&name) {
-            eprintln!("Type {} already registered", name);
+            panic!("Type {} already registered", name);
         }
 
         map.insert(name, ty);
