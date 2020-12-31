@@ -1,11 +1,11 @@
 error[E0499]: cannot borrow `v` as mutable more than once at a time
-  --> $DIR/bad_as_mut.rs:8:5
+  --> $DIR/bad_as_mut.rs:9:5
    |
-6  |     let v2 = v.as_mut();
+6  |     let v2 = v.as_mut()
    |              - first mutable borrow occurs here
-7  |
-8  |     v.borrow_mut::<i32>();
+...
+9  |     v.borrow_mut::<i32>();
    |     ^ second mutable borrow occurs here
-9  |
-10 |     println!("{:p}", v2);
+10 |
+11 |     println!("{:p}", v2);
    |                      -- first borrow later used here

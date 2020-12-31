@@ -3,7 +3,8 @@ use rebound::Value;
 
 fn main() {
     let mut v = Value::from(1);
-    let v2 = v.as_ref();
+    let v2 = v.as_ref()
+        .unwrap();
 
     v.borrow_mut::<i32>();
 
