@@ -1,6 +1,6 @@
 [package]
 name = "rebound-proc"
-version = "0.1.0"
+version = "0.2.0"
 description = "Proc macros associated with the rebound crate"
 keywords = ["reflection", "reflect", "proc-macro"]
 repository = "https://github.com/CraftSpider/rebound"
