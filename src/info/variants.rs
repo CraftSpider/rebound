@@ -6,7 +6,7 @@ type IsVarHelper = fn(&Value) -> bool;
 
 /// Info about a variant on an enum [`Type`]. Allows accessing the name and fields of the given
 /// variant.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Variant {
     /// A unit variant containing no fields
     Unit(UnitVariant),
@@ -45,6 +45,7 @@ impl Variant {
 }
 
 /// Info specific to a Unit variant
+#[derive(Clone)]
 pub struct UnitVariant {
     name: &'static str,
     assoc_ty: Type,
@@ -101,6 +102,7 @@ impl fmt::Debug for UnitVariant {
 }
 
 /// Info specific to a Tuple variant
+#[derive(Clone)]
 pub struct TupleVariant {
     name: &'static str,
     assoc_ty: Type,
@@ -169,6 +171,7 @@ impl fmt::Debug for TupleVariant {
 }
 
 /// Info specific to a Struct variant
+#[derive(Clone)]
 pub struct StructVariant {
     name: &'static str,
     assoc_ty: Type,

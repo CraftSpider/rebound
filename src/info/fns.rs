@@ -1,6 +1,5 @@
 use crate::{Error, Type, Value};
 
-use core::cmp::Ordering;
 use core::fmt;
 
 type CallStaticHelper = for<'a> fn(Vec<Value<'a>>) -> Value<'a>;
@@ -135,10 +134,8 @@ impl AssocFn {
         }
 
         // Check the validity of `args`
-        match args.len().cmp(&self.args.len()) {
-            Ordering::Greater => return Err(Error::TooManyArgs),
-            Ordering::Less => return Err(Error::TooFewArgs),
-            Ordering::Equal => (),
+        if args.len() != self.args.len() {
+            return Err(Error::wrong_args_num(args.len(), self.args.len()))
         }
 
         for (idx, val) in args.iter().enumerate() {

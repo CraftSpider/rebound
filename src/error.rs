@@ -1,6 +1,6 @@
 //! Error utilities for rebound
 
-use crate::Type;
+use crate::{Type, Variant};
 
 use crate::ty::CommonTypeInfo;
 use core::fmt;
@@ -27,13 +27,14 @@ pub enum Error {
     /// function doesn't expect one
     IsStatic,
 
-    /// Attempted to call an [`AssocFn`](crate::AssocFn) with more arguments than expected by the
-    /// referenced function.
-    TooManyArgs,
-
-    /// Attempted to call an [`AssocFn`](crate::AssocFn) with fewer arguments than expected by the
-    /// referenced function
-    TooFewArgs,
+    /// Attempted to call an [`AssocFn`](crate::AssocFn) with different number of arguments than
+    /// expected by the referenced function.
+    WrongArgsNum {
+        /// The number of args passed
+        wrong_num: usize,
+        /// The number of args expected
+        right_num: usize,
+    },
 
     /// Attempted to perform an operation on a [`Value`](crate::Value) that requires the Value to be
     /// Owned, but it was Borrowed.
@@ -48,7 +49,10 @@ pub enum Error {
     CantReborrow,
 
     /// Attempted to perform an operation on an Enum with a Value of the wrong Variant
-    WrongVariant,
+    WrongVariant {
+        wrong_var: Variant,
+        right_var: Variant,
+    },
 }
 
 impl Error {
@@ -58,9 +62,22 @@ impl Error {
             right_ty: right,
         }
     }
+
+    pub(crate) fn wrong_args_num(wrong: usize, right: usize) -> Error {
+        Error::WrongArgsNum {
+            wrong_num: wrong,
+            right_num: right,
+        }
+    }
+
+    pub(crate) fn wrong_variant(wrong: &Variant, right: &Variant) -> Error {
+        Error::WrongVariant {
+            wrong_var: wrong.clone(),
+            right_var: right.clone(),
+        }
+    }
 }
 
-// TODO: Improve error display
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -70,7 +87,38 @@ impl fmt::Display for Error {
                 right_ty.name(),
                 wrong_ty.name()
             ),
-            _ => write!(f, "Reflected Error: {:?}", self),
+            Error::IsDynamic => write!(
+                f,
+                "Reflection Error: Attempted to call a dynamic function without a receiver to bind"
+            ),
+            Error::IsStatic => write!(
+                f,
+                "Reflection Error: Attempted to call a static function with a receiver instance"
+            ),
+            Error::WrongArgsNum { wrong_num, right_num } => write!(
+                f,
+                "Reflection Error: Expected {} arguments, got {}",
+                wrong_num,
+                right_num,
+            ),
+            Error::BorrowedValue => write!(
+                f,
+                "Reflection Error: This operation requires an Owned Value, but the provided Value was Borrowed"
+            ),
+            Error::UnsupportedOperation => write!(
+                f,
+                "Reflection Error: This operation is not supported by this object. Likely, the #[rebound] macro for this object had a `no_*` attribute"
+            ),
+            Error::CantReborrow => write!(
+                f,
+                "Reflection Error: Attempted to get a mutable reference to an existing reference, or any reference to an existing mutable reference"
+            ),
+            Error::WrongVariant { wrong_var, right_var } => write!(
+                f,
+                "Reflection Error: Expected enum variant \"{}\", got variant \"{}\"",
+                wrong_var.name(),
+                right_var.name()
+            ),
         }
     }
 }

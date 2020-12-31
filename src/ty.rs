@@ -343,6 +343,33 @@ impl Type {
             Type::Union(i) => i,
         }
     }
+
+    #[track_caller]
+    pub fn unwrap_struct(&self) -> &StructInfo {
+        if let Type::Struct(info) = self {
+            info
+        } else {
+            panic!("Attempted to unwrap non-struct Type as struct")
+        }
+    }
+
+    #[track_caller]
+    pub fn unwrap_enum(&self) -> &EnumInfo {
+        if let Type::Enum(info) = self {
+            info
+        } else {
+            panic!("Attempted to unwrap non-enum Type as enum")
+        }
+    }
+
+    #[track_caller]
+    pub fn unwrap_union(&self) -> &UnionInfo {
+        if let Type::Union(info) = self {
+            info
+        } else {
+            panic!("Attempted to unwrap non-union Type as union")
+        }
+    }
 }
 
 impl PartialEq for Type {
@@ -561,6 +588,15 @@ impl EnumInfo {
     /// Get all the [`Variants`](Variant) of this Enum
     pub fn variants(&self) -> Vec<Variant> {
         (self.variants)()
+    }
+
+    pub fn variant_of(&self, val: &Value) -> Result<Variant, Error> {
+        for i in self.variants() {
+            if i.is_variant(val)? {
+                return Ok(i)
+            }
+        }
+        unreachable!("An instance of an enum should always be one of its variants")
     }
 
     /// Check whether a [`Value`] is of a specific [`Variant`], if it's of this type
