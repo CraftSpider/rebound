@@ -20,7 +20,7 @@ std = []
 never-type = []
 
 [dependencies]
-rebound-proc = { version = "0.1.0", path = "./rebound-proc" }
+rebound-proc = { version = "0.2.0", path = "./rebound-proc" }
 paste = "1.0"
 
 [dev-dependencies]
