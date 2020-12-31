@@ -152,7 +152,9 @@ impl Field {
             .as_ref()
             .map_or(Err(Error::UnsupportedOperation), |get_ptr| {
                 if this.ty() == self.assoc_ty() {
-                    if let FieldKind::EnumTuple { assoc_var, .. } | FieldKind::EnumNamed { assoc_var, .. } = self.kind() {
+                    if let FieldKind::EnumTuple { assoc_var, .. }
+                    | FieldKind::EnumNamed { assoc_var, .. } = self.kind()
+                    {
                         if !assoc_var.is_variant(this).unwrap() {
                             Err(Error::WrongVariant)
                         } else {
@@ -175,7 +177,9 @@ impl Field {
             .as_ref()
             .map_or(Err(Error::UnsupportedOperation), |set_ptr| {
                 if this.ty() == self.assoc_ty() && other.ty() == self.ty() {
-                    if let FieldKind::EnumTuple { assoc_var, .. } | FieldKind::EnumNamed { assoc_var, .. } = self.kind() {
+                    if let FieldKind::EnumTuple { assoc_var, .. }
+                    | FieldKind::EnumNamed { assoc_var, .. } = self.kind()
+                    {
                         if !assoc_var.is_variant(this).unwrap() {
                             Err(Error::WrongVariant)
                         } else {

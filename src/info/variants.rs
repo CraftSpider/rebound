@@ -1,4 +1,4 @@
-use crate::{Field, Type, Error, Value};
+use crate::{Error, Field, Type, Value};
 
 use core::fmt;
 
@@ -58,7 +58,11 @@ impl UnitVariant {
     ///
     /// Should only be called within a `ReflectedEnum`'s `variants` implementation
     pub unsafe fn new(name: &'static str, assoc_ty: Type, is_var: IsVarHelper) -> UnitVariant {
-        UnitVariant { name, assoc_ty, is_var }
+        UnitVariant {
+            name,
+            assoc_ty,
+            is_var,
+        }
     }
 
     /// Get the name of this variant
@@ -114,7 +118,7 @@ impl TupleVariant {
         name: &'static str,
         assoc_ty: Type,
         fields: fn() -> Vec<Field>,
-        is_var: IsVarHelper
+        is_var: IsVarHelper,
     ) -> TupleVariant {
         TupleVariant {
             name,

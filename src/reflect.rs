@@ -1,7 +1,7 @@
 //! Reflection related traits
 
-use crate::{AssocConst, AssocFn, Field, Type, Variant, Value, Error};
 use crate::info::UnionField;
+use crate::{AssocConst, AssocFn, Error, Field, Type, Value, Variant};
 
 use rebound_proc::impl_find;
 
