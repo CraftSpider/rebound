@@ -66,8 +66,7 @@ fn test_new() {
 #[test]
 fn test_get_a() {
     let foo = Value::from(Foo::new());
-    // TODO: Value::as_ref to do this operation easily
-    let foo_ref = Value::from(foo.borrow::<Foo>());
+    let foo_ref = foo.as_ref().unwrap();
 
     let get_a = &Type::from::<Foo>().assoc_fns()[1];
 
@@ -81,8 +80,7 @@ fn test_get_a() {
 #[test]
 fn test_do_thing() {
     let mut foo = Value::from(Foo::new());
-    // TODO: Value::as_mut to do this operation easily
-    let foo_mut_ref = Value::from(foo.borrow_mut::<Foo>());
+    let foo_mut_ref = foo.as_mut().unwrap();
 
     let do_thing = &Type::from::<Foo>().assoc_fns()[2];
 

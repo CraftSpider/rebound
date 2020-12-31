@@ -4,8 +4,6 @@ use crate::{AssocConst, AssocFn, Field, Type};
 
 use rebound_proc::{extern_assoc_consts, extern_assoc_fns, reflect_prims};
 
-// TODO: Add impls for all these
-
 // Integers
 reflect_prims! {
     u8,

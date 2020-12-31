@@ -126,6 +126,25 @@ pub enum Type {
     Union(UnionInfo),
 }
 
+/// Generate unwrap functions for each of the variants of ty
+macro_rules! ty_unwraps {
+    ($($var:ident),+) => {
+        paste::paste! {
+            $(
+                #[doc = "Get this Type as a [`" $var "Info`], panicking on failure."]
+                #[track_caller]
+                pub fn [<unwrap_ $var:snake>](&self) -> & [<$var Info>] {
+                    if let Type::$var(info) = self {
+                        info
+                    } else {
+                        panic!(concat!("Attempted to unwrap non-", stringify!($var:lower), " Type as ", stringify!($var:lower)))
+                    }
+                }
+            )*
+        }
+    }
+}
+
 impl Type {
     fn add_ty(ty: Type) {
         let mut map = REFLECTED_TYS
@@ -344,32 +363,20 @@ impl Type {
         }
     }
 
-    #[track_caller]
-    pub fn unwrap_struct(&self) -> &StructInfo {
-        if let Type::Struct(info) = self {
-            info
-        } else {
-            panic!("Attempted to unwrap non-struct Type as struct")
-        }
-    }
-
-    #[track_caller]
-    pub fn unwrap_enum(&self) -> &EnumInfo {
-        if let Type::Enum(info) = self {
-            info
-        } else {
-            panic!("Attempted to unwrap non-enum Type as enum")
-        }
-    }
-
-    #[track_caller]
-    pub fn unwrap_union(&self) -> &UnionInfo {
-        if let Type::Union(info) = self {
-            info
-        } else {
-            panic!("Attempted to unwrap non-union Type as union")
-        }
-    }
+    ty_unwraps!(
+        Primitive,
+        Tuple,
+        Array,
+        Slice,
+        Pointer,
+        Reference,
+        Function,
+        Struct,
+        TupleStruct,
+        UnitStruct,
+        Enum,
+        Union
+    );
 }
 
 impl PartialEq for Type {

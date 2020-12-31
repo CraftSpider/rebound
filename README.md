@@ -27,7 +27,7 @@ Rebound currently provides these features:
   - Unions
   - All three kinds of generics
   - Impl Blocks
-- Support for these things is being worked on
+- Support for these things is being worked on / considered
   - Traits
   - Top-level Functions
   - Statics

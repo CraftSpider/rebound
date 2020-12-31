@@ -1,5 +1,3 @@
-// TODO: Add impls for everything
-
 mod alloc;
 mod char;
 mod iter;
