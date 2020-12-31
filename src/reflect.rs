@@ -36,7 +36,12 @@ pub trait Reflected {
 
     /// Internal Function used to create a pointer to this type from Metadata and a type-erased
     /// pointer.
-    fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self;
+    ///
+    /// # Safety
+    ///
+    /// This function may perform raw pointer dereferences, or other unsafe operations, at will.
+    /// The passed meta and ptr *must* be valid pointers that originated as the type to assemble.
+    unsafe fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self;
 
     /// Internal Function used to get the metadata and a type-erased pointer for an instance of
     /// this Type.

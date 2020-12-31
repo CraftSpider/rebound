@@ -207,11 +207,9 @@ impl Reflected for str {
         "str".into()
     }
 
-    fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        unsafe {
-            core::str::from_utf8_unchecked(core::slice::from_raw_parts(ptr as *const u8, *meta))
-                as *const str as _
-        }
+    unsafe fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+        core::str::from_utf8_unchecked(core::slice::from_raw_parts(ptr as *const u8, *meta))
+            as *const str as _
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -278,8 +276,8 @@ impl Reflected for () {
         "()".into()
     }
 
-    fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr as _
+    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr.cast()
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -306,8 +304,8 @@ where
         format!("({},)", T0::name())
     }
 
-    fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr as _
+    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr.cast()
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -345,8 +343,8 @@ where
         format!("({}, {})", T0::name(), T1::name())
     }
 
-    fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr as _
+    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr.cast()
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -395,8 +393,8 @@ where
         format!("({}, {}, {})", T0::name(), T1::name(), T2::name())
     }
 
-    fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr as _
+    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr.cast()
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -449,8 +447,8 @@ impl<T: Reflected, const N: usize> Reflected for [T; N] {
         format!("[{}; {}]", T::name(), N)
     }
 
-    fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr as _
+    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr.cast()
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -479,8 +477,8 @@ impl<T: Reflected> Reflected for [T] {
         format!("[{}]", T::name())
     }
 
-    fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        unsafe { core::slice::from_raw_parts_mut(ptr as *mut T, *meta) as _ }
+    unsafe fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+        core::slice::from_raw_parts_mut(ptr as *mut T, *meta) as *mut Self
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -663,8 +661,8 @@ impl<T: ?Sized + Reflected> Reflected for *const T {
         format!("*const {}", T::name())
     }
 
-    fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr as _
+    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr.cast()
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -742,8 +740,8 @@ impl<T: ?Sized + Reflected> Reflected for *mut T {
         format!("*mut {}", T::name())
     }
 
-    fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr as _
+    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr.cast()
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -771,8 +769,8 @@ impl<T: ?Sized + Reflected> Reflected for &T {
         format!("&{}", T::name())
     }
 
-    fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr as _
+    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr.cast()
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -799,8 +797,8 @@ impl<T: ?Sized + Reflected> Reflected for &mut T {
         format!("&mut {}", T::name())
     }
 
-    fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr as _
+    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr.cast()
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -828,8 +826,8 @@ impl<T: Reflected> Reflected for fn() -> T {
         format!("fn() -> {}", T::name())
     }
 
-    fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr as _
+    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr.cast()
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -856,8 +854,8 @@ impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T {
         format!("fn({}) -> {}", A0::name(), T::name())
     }
 
-    fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr as _
+    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr.cast()
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {
@@ -885,8 +883,8 @@ impl Reflected for ! {
         "!".into()
     }
 
-    fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr as _
+    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+        ptr.cast()
     }
 
     fn disassemble(&self) -> (Self::Meta, *mut ()) {

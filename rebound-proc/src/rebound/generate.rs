@@ -370,7 +370,7 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
                 #qual_name
             }
 
-            fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+            unsafe fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
                 ptr as _
             }
 
@@ -544,7 +544,7 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
                 #qual_name
             }
 
-            fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+            unsafe fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
                 ptr as _
             }
 
@@ -581,7 +581,7 @@ pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<Toke
                 #qual_name
             }
 
-            fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
+            unsafe fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
                 ptr as _
             }
 

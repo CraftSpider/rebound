@@ -162,8 +162,10 @@ impl<'a> Value<'a> {
     /// ```
     pub fn try_borrow<T: ?Sized + Reflected>(&self) -> Result<&T, Error> {
         if Type::from::<T>() == self.ty() {
-            let ptr = T::assemble(self.meta.cast::<T::Meta>(), self.ptr);
-            unsafe { Ok(&*ptr) }
+            unsafe {
+                let ptr = T::assemble(self.meta.cast::<T::Meta>(), self.ptr);
+                Ok(&*ptr)
+            }
         } else {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         }
@@ -210,8 +212,10 @@ impl<'a> Value<'a> {
     /// ```
     pub fn try_borrow_mut<T: ?Sized + Reflected>(&mut self) -> Result<&mut T, Error> {
         if Type::from::<T>() == self.ty() {
-            let ptr = T::assemble(self.meta.cast::<T::Meta>(), self.ptr);
-            unsafe { Ok(&mut *ptr) }
+            unsafe {
+                let ptr = T::assemble(self.meta.cast::<T::Meta>(), self.ptr);
+                Ok(&mut *ptr)
+            }
         } else {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         }
