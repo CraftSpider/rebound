@@ -1,4 +1,8 @@
-use crate::{Field, Type};
+use crate::{Field, Type, Error, Value};
+
+use core::fmt;
+
+type IsVarHelper = fn(&Value) -> bool;
 
 /// Info about a variant on an enum [`Type`]. Allows accessing the name and fields of the given
 /// variant.
@@ -30,13 +34,22 @@ impl Variant {
             Variant::Struct(var) => var.assoc_ty(),
         }
     }
+
+    pub fn is_variant(&self, val: &Value) -> Result<bool, Error> {
+        match self {
+            Variant::Unit(var) => var.is_variant(val),
+            Variant::Tuple(var) => var.is_variant(val),
+            Variant::Struct(var) => var.is_variant(val),
+        }
+    }
 }
 
 /// Info specific to a Unit variant
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct UnitVariant {
     name: &'static str,
     assoc_ty: Type,
+    is_var: IsVarHelper,
 }
 
 impl UnitVariant {
@@ -45,8 +58,8 @@ impl UnitVariant {
     /// # Safety
     ///
     /// Should only be called within a `ReflectedEnum`'s `variants` implementation
-    pub unsafe fn new(name: &'static str, assoc_ty: Type) -> UnitVariant {
-        UnitVariant { name, assoc_ty }
+    pub unsafe fn new(name: &'static str, assoc_ty: Type, is_var: IsVarHelper) -> UnitVariant {
+        UnitVariant { name, assoc_ty, is_var }
     }
 
     /// Get the name of this variant
@@ -58,6 +71,14 @@ impl UnitVariant {
     pub fn assoc_ty(&self) -> Type {
         self.assoc_ty
     }
+
+    pub fn is_variant(&self, val: &Value) -> Result<bool, Error> {
+        if val.ty() == self.assoc_ty() {
+            Ok((self.is_var)(val))
+        } else {
+            Err(Error::wrong_type(val.ty(), self.assoc_ty()))
+        }
+    }
 }
 
 impl PartialEq for UnitVariant {
@@ -66,12 +87,23 @@ impl PartialEq for UnitVariant {
     }
 }
 
+impl fmt::Debug for UnitVariant {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "UnitVariant {{ name: {:?}, assoc_ty: {:?}, is_var: {:p} }}",
+            self.name, self.assoc_ty, self.is_var as *const ()
+        )
+    }
+}
+
 /// Info specific to a Tuple variant
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct TupleVariant {
     name: &'static str,
     assoc_ty: Type,
     fields: fn() -> Vec<Field>,
+    is_var: IsVarHelper,
 }
 
 impl TupleVariant {
@@ -84,11 +116,13 @@ impl TupleVariant {
         name: &'static str,
         assoc_ty: Type,
         fields: fn() -> Vec<Field>,
+        is_var: IsVarHelper
     ) -> TupleVariant {
         TupleVariant {
             name,
             assoc_ty,
             fields,
+            is_var,
         }
     }
 
@@ -106,6 +140,14 @@ impl TupleVariant {
     pub fn fields(&self) -> Vec<Field> {
         (self.fields)()
     }
+
+    pub fn is_variant(&self, val: &Value) -> Result<bool, Error> {
+        if val.ty() == self.assoc_ty() {
+            Ok((self.is_var)(val))
+        } else {
+            Err(Error::wrong_type(val.ty(), self.assoc_ty()))
+        }
+    }
 }
 
 impl PartialEq for TupleVariant {
@@ -114,12 +156,23 @@ impl PartialEq for TupleVariant {
     }
 }
 
+impl fmt::Debug for TupleVariant {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "TupleVariant {{ name: {:?}, assoc_ty: {:?}, fields: {:?}, is_var: {:p} }}",
+            self.name, self.assoc_ty, self.fields, self.is_var as *const ()
+        )
+    }
+}
+
 /// Info specific to a Struct variant
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct StructVariant {
     name: &'static str,
     assoc_ty: Type,
     fields: fn() -> Vec<Field>,
+    is_var: IsVarHelper,
 }
 
 impl StructVariant {
@@ -132,11 +185,13 @@ impl StructVariant {
         name: &'static str,
         assoc_ty: Type,
         fields: fn() -> Vec<Field>,
+        is_var: IsVarHelper,
     ) -> StructVariant {
         StructVariant {
             name,
             assoc_ty,
             fields,
+            is_var,
         }
     }
 
@@ -154,10 +209,28 @@ impl StructVariant {
     pub fn fields(&self) -> Vec<Field> {
         (self.fields)()
     }
+
+    pub fn is_variant(&self, val: &Value) -> Result<bool, Error> {
+        if val.ty() == self.assoc_ty() {
+            Ok((self.is_var)(val))
+        } else {
+            Err(Error::wrong_type(val.ty(), self.assoc_ty()))
+        }
+    }
 }
 
 impl PartialEq for StructVariant {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name && self.assoc_ty == other.assoc_ty
+    }
+}
+
+impl fmt::Debug for StructVariant {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "StructVariant {{ name: {:?}, assoc_ty: {:?}, fields: {:?}, is_var: {:p} }}",
+            self.name, self.assoc_ty, self.fields, self.is_var as *const ()
+        )
     }
 }

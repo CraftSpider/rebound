@@ -1,8 +1,8 @@
 //! Reflection related traits
 
-use crate::{AssocConst, AssocFn, Field, Type, Variant};
-
+use crate::{AssocConst, AssocFn, Field, Type, Variant, Value, Error};
 use crate::info::UnionField;
+
 use rebound_proc::impl_find;
 
 /// A trait representing any reflected [`Type`]. Supports operations common to all Types,
@@ -137,5 +137,56 @@ impl<T: ?Sized + Reflected, const N: u8> ReflectedImpl<N> for T {
     }
     default fn assoc_consts() -> Vec<AssocConst> {
         vec![]
+    }
+}
+
+// Crate-private auto impls
+pub(crate) trait Ref: Reflected {
+    fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error>;
+    fn mut_val<'a>(val: &'a mut Value) -> Result<Value<'a>, Error>;
+}
+
+// SAFETY: Value cannot be safely constructed with a lifetime that outlives the contained object.
+//         As such, we know getting a ref to the internal object will always be valid.
+//         The transmute just conveys this to the rust compiler, converting the lifetime.
+
+impl<T: ?Sized + Reflected> Ref for T {
+    default fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error> {
+        unsafe {
+            Ok(core::mem::transmute::<Value, Value>(Value::from(
+                val.borrow::<Self>(),
+            )))
+        }
+    }
+
+    default fn mut_val<'a>(val: &'a mut Value) -> Result<Value<'a>, Error> {
+        unsafe {
+            Ok(core::mem::transmute::<Value, Value>(Value::from(
+                val.borrow_mut::<Self>(),
+            )))
+        }
+    }
+}
+
+impl<T: ?Sized + Reflected> Ref for &T {
+    fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error> {
+        unsafe {
+            let ptr = *<&T>::assemble((), val.raw_ptr().cast());
+            Ok(core::mem::transmute::<Value, Value>(Value::from(ptr)))
+        }
+    }
+
+    fn mut_val<'a>(_: &'a mut Value) -> Result<Value<'a>, Error> {
+        Err(Error::CantReborrow)
+    }
+}
+
+impl<T: ?Sized + Reflected> Ref for &mut T {
+    fn ref_val<'a>(_: &'a Value) -> Result<Value<'a>, Error> {
+        Err(Error::CantReborrow)
+    }
+
+    fn mut_val<'a>(_: &'a mut Value) -> Result<Value<'a>, Error> {
+        Err(Error::CantReborrow)
     }
 }

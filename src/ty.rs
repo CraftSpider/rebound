@@ -77,56 +77,6 @@ impl fmt::Debug for TypeVTable {
     }
 }
 
-trait Ref: Reflected {
-    fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error>;
-    fn mut_val<'a>(val: &'a mut Value) -> Result<Value<'a>, Error>;
-}
-
-// SAFETY: Value cannot be safely constructed with a lifetime that outlives the contained object.
-//         As such, we know getting a ref to the internal object will always be valid.
-//         The transmute just conveys this to the rust compiler, converting the lifetime.
-
-impl<T: ?Sized + Reflected> Ref for T {
-    default fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error> {
-        unsafe {
-            Ok(core::mem::transmute::<Value, Value>(Value::from(
-                val.borrow::<Self>(),
-            )))
-        }
-    }
-
-    default fn mut_val<'a>(val: &'a mut Value) -> Result<Value<'a>, Error> {
-        unsafe {
-            Ok(core::mem::transmute::<Value, Value>(Value::from(
-                val.borrow_mut::<Self>(),
-            )))
-        }
-    }
-}
-
-impl<T: ?Sized + Reflected> Ref for &T {
-    fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error> {
-        unsafe {
-            let ptr = *<&T>::assemble((), val.raw_ptr().cast());
-            Ok(core::mem::transmute::<Value, Value>(Value::from(ptr)))
-        }
-    }
-
-    fn mut_val<'a>(_: &'a mut Value) -> Result<Value<'a>, Error> {
-        Err(Error::CantReborrow)
-    }
-}
-
-impl<T: ?Sized + Reflected> Ref for &mut T {
-    fn ref_val<'a>(_: &'a Value) -> Result<Value<'a>, Error> {
-        Err(Error::CantReborrow)
-    }
-
-    fn mut_val<'a>(_: &'a mut Value) -> Result<Value<'a>, Error> {
-        Err(Error::CantReborrow)
-    }
-}
-
 impl TypeVTable {
     fn new<T: ?Sized + Reflected>() -> TypeVTable {
         TypeVTable {
@@ -611,6 +561,15 @@ impl EnumInfo {
     /// Get all the [`Variants`](Variant) of this Enum
     pub fn variants(&self) -> Vec<Variant> {
         (self.variants)()
+    }
+
+    /// Check whether a [`Value`] is of a specific [`Variant`], if it's of this type
+    pub fn is_variant(&self, val: &Value, var: &Variant) -> Result<bool, Error> {
+        if var.assoc_ty() == Type::Enum(*self) {
+            var.is_variant(val)
+        } else {
+            Err(Error::wrong_type(var.assoc_ty(), Type::Enum(*self)))
+        }
     }
 }
 

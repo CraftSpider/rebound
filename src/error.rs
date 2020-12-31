@@ -46,6 +46,9 @@ pub enum Error {
     /// Attempted to call as_ref/as_mut on a reference, which can't be reborrowed as the desired
     /// reference type.
     CantReborrow,
+
+    /// Attempted to perform an operation on an Enum with a Value of the wrong Variant
+    WrongVariant,
 }
 
 impl Error {

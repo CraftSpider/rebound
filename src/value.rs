@@ -102,18 +102,18 @@ impl<'a> Value<'a> {
         self.ty
     }
 
-    // FIXME: Still unsound, we can transmute a Foo<'a> to a Foo<'static> through this.
-    //        If only I could constrain the output to the struct `'a`
     /// Attempt to move the contained T out of this Value in a fallible manner.
     ///
-    /// - This will fail if the Value is Borrowed with an [`Error::InvalidValue`]
+    /// # Errors
+    ///
+    /// - This will fail if the Value is Borrowed with an [`Error::BorrowedValue`]
     /// - This will fail if the T isn't the same as the type of this value with [`Error::WrongType`]
     ///
     /// # Safety
     ///
     /// If this Value contains data which may not live forever, there is no way to ensure that the
-    /// provided T does not outlive `'a`. As such, it is the user's responsibility to not move data
-    /// out of this value in a way which gives it a lifetime longer than its original.
+    /// provided T does *not* outlive `'a`. As such, it is the user's responsibility to not move
+    /// data out of this value in a way which gives it a lifetime longer than its original.
     pub unsafe fn try_cast<T: Reflected>(mut self) -> Result<T, (Self, Error)> {
         if let ValueKind::Owned { .. } = &self.kind {
             if Type::from::<T>() == self.ty {

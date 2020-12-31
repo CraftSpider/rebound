@@ -145,8 +145,6 @@ impl Field {
         &self.kind
     }
 
-    // TODO: `get_ref`/`set_ref`: check variant as well as ty
-
     /// Get a reference to the data contained within this Field on a [`Value`], assuming the Value
     /// is of the correct type and the operation is supported.
     pub fn get_ref<'a>(&self, this: &'a Value<'a>) -> Result<Value<'a>, Error> {
@@ -154,7 +152,15 @@ impl Field {
             .as_ref()
             .map_or(Err(Error::UnsupportedOperation), |get_ptr| {
                 if this.ty() == self.assoc_ty() {
-                    Ok((get_ptr)(this))
+                    if let FieldKind::EnumTuple { assoc_var, .. } | FieldKind::EnumNamed { assoc_var, .. } = self.kind() {
+                        if !assoc_var.is_variant(this).unwrap() {
+                            Err(Error::WrongVariant)
+                        } else {
+                            Ok((get_ptr)(this))
+                        }
+                    } else {
+                        Ok((get_ptr)(this))
+                    }
                 } else {
                     Err(Error::wrong_type(this.ty(), self.assoc_ty))
                 }
@@ -169,8 +175,17 @@ impl Field {
             .as_ref()
             .map_or(Err(Error::UnsupportedOperation), |set_ptr| {
                 if this.ty() == self.assoc_ty() && other.ty() == self.ty() {
-                    (set_ptr)(this, other);
-                    Ok(())
+                    if let FieldKind::EnumTuple { assoc_var, .. } | FieldKind::EnumNamed { assoc_var, .. } = self.kind() {
+                        if !assoc_var.is_variant(this).unwrap() {
+                            Err(Error::WrongVariant)
+                        } else {
+                            (set_ptr)(this, other);
+                            Ok(())
+                        }
+                    } else {
+                        (set_ptr)(this, other);
+                        Ok(())
+                    }
                 } else {
                     Err(Error::wrong_type(this.ty(), self.assoc_ty))
                 }

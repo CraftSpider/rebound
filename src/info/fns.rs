@@ -3,7 +3,6 @@ use crate::{Error, Type, Value};
 use core::cmp::Ordering;
 use core::fmt;
 
-// TODO: AssocFn with non-'static return types? Hard to make work with 'a lifetimes.
 type CallStaticHelper = for<'a> fn(Vec<Value<'a>>) -> Value<'a>;
 type CallDynamicHelper = for<'a> fn(Value<'a>, Vec<Value<'a>>) -> Value<'a>;
 

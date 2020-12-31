@@ -301,7 +301,14 @@ pub fn generate_variant(
                 #crate_name::Variant::Struct(#crate_name::info::StructVariant::new(
                     stringify!(#var_name),
                     #crate_name::Type::from::<#name>(),
-                    || { vec![ #(#fields),* ] }
+                    || { vec![ #(#fields),* ] },
+                    |val| {
+                        if let #pat_name::#var_name { .. } = val.borrow() {
+                            true
+                        } else {
+                            false
+                        }
+                    }
                 ))
             ))
         }
@@ -317,7 +324,14 @@ pub fn generate_variant(
                 #crate_name::Variant::Tuple(#crate_name::info::TupleVariant::new(
                     stringify!(#var_name),
                     #crate_name::Type::from::<#name>(),
-                    || { vec![ #(#fields),* ] }
+                    || { vec![ #(#fields),* ] },
+                    |val| {
+                        if let #pat_name::#var_name(..) = val.borrow() {
+                            true
+                        } else {
+                            false
+                        }
+                    }
                 ))
             ))
         }
@@ -325,6 +339,13 @@ pub fn generate_variant(
             #crate_name::Variant::Unit(#crate_name::info::UnitVariant::new(
                 stringify!(#var_name),
                 #crate_name::Type::from::<#name>(),
+                |val| {
+                    if let #pat_name::#var_name = val.borrow() {
+                        true
+                    } else {
+                        false
+                    }
+                },
             ))
         )),
     }
