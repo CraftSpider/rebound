@@ -37,7 +37,7 @@ pub fn reflect_prims(input: TokenStream) -> TokenStream {
                     stringify!(#i).into()
                 }
 
-                fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
+                fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
                     ptr as _
                 }
 

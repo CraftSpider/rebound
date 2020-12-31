@@ -12,7 +12,7 @@ impl<T: ?Sized + Reflected> Reflected for ManuallyDrop<T> {
         format!("core::mem::ManuallyDrop<{}>", T::name())
     }
 
-    fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self {
+    fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
         T::assemble(meta, ptr) as *mut ManuallyDrop<T>
     }
 

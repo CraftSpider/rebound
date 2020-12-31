@@ -15,8 +15,8 @@ enum ValueKind {
 
 fn drop_impl<T: ?Sized + Reflected>(meta: *mut (), ptr: *mut ()) {
     unsafe {
-        let meta = Box::from_raw(meta.cast::<T::Meta>());
-        Box::from_raw(T::assemble(*meta, ptr));
+        let mut meta = *Box::from_raw(meta.cast::<T::Meta>());
+        Box::from_raw(T::assemble(&mut meta, ptr));
     }
 }
 
@@ -162,7 +162,7 @@ impl<'a> Value<'a> {
     /// ```
     pub fn try_borrow<T: ?Sized + Reflected>(&self) -> Result<&T, Error> {
         if Type::from::<T>() == self.ty() {
-            let ptr = T::assemble(unsafe { *self.meta.cast::<T::Meta>() }, self.ptr);
+            let ptr = T::assemble(self.meta.cast::<T::Meta>(), self.ptr);
             unsafe { Ok(&*ptr) }
         } else {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
@@ -210,7 +210,7 @@ impl<'a> Value<'a> {
     /// ```
     pub fn try_borrow_mut<T: ?Sized + Reflected>(&mut self) -> Result<&mut T, Error> {
         if Type::from::<T>() == self.ty() {
-            let ptr = T::assemble(unsafe { *self.meta.cast::<T::Meta>() }, self.ptr);
+            let ptr = T::assemble(self.meta.cast::<T::Meta>(), self.ptr);
             unsafe { Ok(&mut *ptr) }
         } else {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))

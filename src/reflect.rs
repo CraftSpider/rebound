@@ -36,7 +36,7 @@ pub trait Reflected {
 
     /// Internal Function used to create a pointer to this type from Metadata and a type-erased
     /// pointer.
-    fn assemble(meta: Self::Meta, ptr: *mut ()) -> *mut Self;
+    fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self;
 
     /// Internal Function used to get the metadata and a type-erased pointer for an instance of
     /// this Type.
@@ -171,7 +171,7 @@ impl<T: ?Sized + Reflected> Ref for T {
 impl<T: ?Sized + Reflected> Ref for &T {
     fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error> {
         unsafe {
-            let ptr = *<&T>::assemble((), val.raw_ptr().cast());
+            let ptr = *<&T>::assemble(&mut (), val.raw_ptr().cast());
             Ok(core::mem::transmute::<Value, Value>(Value::from(ptr)))
         }
     }
