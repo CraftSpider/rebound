@@ -27,7 +27,7 @@ fn test_enum_ty() {
 #[test]
 fn test_variant_unit() {
     if let Type::Enum(info) = Type::from::<Foo>() {
-        let unit_var = info.variants()[0];
+        let unit_var = &info.variants()[0];
         if let Variant::Unit(var) = unit_var {
             assert_eq!(var.name(), "Unit");
             assert_eq!(var.assoc_ty(), Type::from::<Foo>());
@@ -38,7 +38,7 @@ fn test_variant_unit() {
 #[test]
 fn test_variant_tuple() {
     if let Type::Enum(info) = Type::from::<Foo>() {
-        let tuple_var = info.variants()[1];
+        let tuple_var = &info.variants()[1];
         if let Variant::Tuple(var) = tuple_var {
             assert_eq!(var.name(), "Tuple");
             assert_eq!(var.fields().len(), 2);
@@ -50,7 +50,7 @@ fn test_variant_tuple() {
 #[test]
 fn test_field_tuple() {
     if let Type::Enum(info) = Type::from::<Foo>() {
-        if let Variant::Tuple(var) = info.variants()[1] {
+        if let Variant::Tuple(var) = &info.variants()[1] {
             let field_1 = &var.fields()[0];
             if let FieldKind::EnumTuple { idx, assoc_var } = field_1.kind() {
                 assert_eq!(*idx, 0);
@@ -77,7 +77,7 @@ fn test_field_tuple() {
 #[test]
 fn test_field_struct() {
     if let Type::Enum(info) = Type::from::<Foo>() {
-        if let Variant::Struct(var) = info.variants()[2] {
+        if let Variant::Struct(var) = &info.variants()[2] {
             let field_1 = &var.fields()[0];
             if let FieldKind::EnumNamed { name, assoc_var } = field_1.kind() {
                 assert_eq!(*name, "bar");
@@ -94,7 +94,7 @@ fn test_field_struct() {
 #[test]
 fn test_variant_struct() {
     if let Type::Enum(info) = Type::from::<Foo>() {
-        let tuple_var = info.variants()[2];
+        let tuple_var = &info.variants()[2];
         if let Variant::Tuple(var) = tuple_var {
             assert_eq!(var.name(), "Struct");
             assert_eq!(var.fields().len(), 1);

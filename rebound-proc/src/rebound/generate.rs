@@ -225,7 +225,7 @@ pub fn generate_enum_field(
             #name_arg,
             #crate_name::Type::from::<#name>(),
             if let #crate_name::Type::Enum(info) = #crate_name::Type::from::<#name>() {
-                *info.variants().iter().filter(|var| var.name() == stringify!(#var_name)).collect::<Vec<_>>()[0]
+                info.variants().into_iter().filter(|var| var.name() == stringify!(#var_name)).nth(0).unwrap()
             } else {
                 unreachable!()
             },
