@@ -16,7 +16,7 @@ jobs:
         with:
           toolchain: nightly
           override: true
-          components: rustfmt, miri
+          components: rustfmt, clippy, miri
 
       - name: Run rustfmt
         uses: actions-rs/cargo@v1
