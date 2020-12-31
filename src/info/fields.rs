@@ -156,8 +156,7 @@ impl Field {
                     | FieldKind::EnumNamed { assoc_var, .. } = self.kind()
                     {
                         if !assoc_var.is_variant(this).unwrap() {
-                            let var = this.ty().unwrap_enum().variant_of(this)
-                                .unwrap();
+                            let var = this.ty().unwrap_enum().variant_of(this).unwrap();
                             Err(Error::wrong_variant(&var, assoc_var))
                         } else {
                             Ok((get_ptr)(this))
@@ -183,8 +182,7 @@ impl Field {
                     | FieldKind::EnumNamed { assoc_var, .. } = self.kind()
                     {
                         if !assoc_var.is_variant(this).unwrap() {
-                            let var = this.ty().unwrap_enum().variant_of(this)
-                                .unwrap();
+                            let var = this.ty().unwrap_enum().variant_of(this).unwrap();
                             Err(Error::wrong_variant(&var, assoc_var))
                         } else {
                             (set_ptr)(this, other);

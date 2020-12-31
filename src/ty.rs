@@ -593,7 +593,7 @@ impl EnumInfo {
     pub fn variant_of(&self, val: &Value) -> Result<Variant, Error> {
         for i in self.variants() {
             if i.is_variant(val)? {
-                return Ok(i)
+                return Ok(i);
             }
         }
         unreachable!("An instance of an enum should always be one of its variants")

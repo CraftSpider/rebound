@@ -135,7 +135,7 @@ impl AssocFn {
 
         // Check the validity of `args`
         if args.len() != self.args.len() {
-            return Err(Error::wrong_args_num(args.len(), self.args.len()))
+            return Err(Error::wrong_args_num(args.len(), self.args.len()));
         }
 
         for (idx, val) in args.iter().enumerate() {
