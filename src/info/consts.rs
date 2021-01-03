@@ -2,7 +2,7 @@ use crate::{Error, Type, Value};
 
 use core::fmt;
 
-type GetConstHelper = Box<dyn Fn() -> Value<'static>>;
+type GetConstHelper = Box<fn() -> Value<'static>>;
 
 /// Info about a constant on a [`Type`]. Allows getting the Value of this constant, assuming the
 /// reflection was configured to allow it.

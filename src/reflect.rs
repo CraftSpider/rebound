@@ -3,7 +3,9 @@
 use crate::info::UnionField;
 use crate::{AssocConst, AssocFn, Error, Field, Type, Value, Variant};
 
+use crate::utils::StaticTypeMap;
 use rebound_proc::impl_find;
+use std::lazy::SyncOnceCell;
 
 /// A trait representing any reflected [`Type`]. Supports operations common to all Types,
 /// such as retrieving its qualified name or impl information.
@@ -17,21 +19,29 @@ pub trait Reflected {
 
     /// Get all the associated functions for this Type that rebound is aware of
     // TODO: These should cache results, if possible
-    fn assoc_fns() -> Vec<AssocFn> {
-        let mut sum = Vec::new();
+    fn assoc_fns() -> &'static Vec<AssocFn> {
+        static ASSOC_FNS: SyncOnceCell<StaticTypeMap<Vec<AssocFn>>> = SyncOnceCell::new();
 
-        impl_find!(assoc_fns);
-
-        sum
+        ASSOC_FNS
+            .get_or_init(StaticTypeMap::new)
+            .call_once::<Self, _>(|| {
+                let mut sum = Vec::new();
+                impl_find!(assoc_fns);
+                sum
+            })
     }
 
     /// Get all the associated constants for this Type that rebound is aware of
-    fn assoc_consts() -> Vec<AssocConst> {
-        let mut sum = Vec::new();
+    fn assoc_consts() -> &'static Vec<AssocConst> {
+        static ASSOC_CONSTS: SyncOnceCell<StaticTypeMap<Vec<AssocConst>>> = SyncOnceCell::new();
 
-        impl_find!(assoc_consts);
-
-        sum
+        ASSOC_CONSTS
+            .get_or_init(StaticTypeMap::new)
+            .call_once::<Self, _>(|| {
+                let mut sum = Vec::new();
+                impl_find!(assoc_consts);
+                sum
+            })
     }
 
     /// Internal Function used to create a pointer to this type from Metadata and a type-erased

@@ -209,7 +209,7 @@ pub fn generate_enum_field(
         quote!(Some(Box::new(|this, value| {
             let inner = this.borrow_mut::<#name>();
             if let #pat_name::#var_name #field_access = inner {
-                *field = value.cast();
+                *field = value.cast::<#field_ty>();
             } else {
                 unreachable!()
             }
@@ -262,7 +262,7 @@ pub fn generate_union_field(
     let setter = if !no_set {
         quote!(Some(Box::new(|this, value| {
             let inner = this.borrow_mut::<#name>();
-            unsafe { inner.#field_name = value.cast() };
+            unsafe { inner.#field_name = value.cast::<#field_ty>() };
         })))
     } else {
         quote!(None)
@@ -303,7 +303,7 @@ pub fn generate_variant(
                     #crate_name::Type::from::<#name>(),
                     || { vec![ #(#fields),* ] },
                     |val| {
-                        if let #pat_name::#var_name { .. } = val.borrow() {
+                        if let #pat_name::#var_name { .. } = val.borrow::<#name>() {
                             true
                         } else {
                             false
@@ -326,7 +326,7 @@ pub fn generate_variant(
                     #crate_name::Type::from::<#name>(),
                     || { vec![ #(#fields),* ] },
                     |val| {
-                        if let #pat_name::#var_name(..) = val.borrow() {
+                        if let #pat_name::#var_name(..) = val.borrow::<#name>() {
                             true
                         } else {
                             false
@@ -340,7 +340,7 @@ pub fn generate_variant(
                 stringify!(#var_name),
                 #crate_name::Type::from::<#name>(),
                 |val| {
-                    if let #pat_name::#var_name = val.borrow() {
+                    if let #pat_name::#var_name = val.borrow::<#name>() {
                         true
                     } else {
                         false

@@ -18,11 +18,11 @@ macro impl_common($ty:ty) {
             (self.vtable.name)()
         }
 
-        fn assoc_fns(&self) -> Vec<AssocFn> {
+        fn assoc_fns(&self) -> &'static Vec<AssocFn> {
             (self.vtable.assoc_fns)()
         }
 
-        fn assoc_consts(&self) -> Vec<AssocConst> {
+        fn assoc_consts(&self) -> &'static Vec<AssocConst> {
             (self.vtable.assoc_consts)()
         }
 
@@ -44,9 +44,9 @@ pub trait CommonTypeInfo {
     /// Get this type's name
     fn name(&self) -> String;
     /// Get the known associated functions of this type
-    fn assoc_fns(&self) -> Vec<AssocFn>;
+    fn assoc_fns(&self) -> &'static Vec<AssocFn>;
     /// Get the known associated constants of this type
-    fn assoc_consts(&self) -> Vec<AssocConst>;
+    fn assoc_consts(&self) -> &'static Vec<AssocConst>;
     // fn impled_traits(&self) -> Vec<TraitInfo>;
 
     /// Convert a Value of this type to a reference to that value, if it's not already a reference
@@ -60,8 +60,8 @@ pub trait CommonTypeInfo {
 #[derive(Copy, Clone)]
 struct TypeVTable {
     name: fn() -> String,
-    assoc_fns: fn() -> Vec<AssocFn>,
-    assoc_consts: fn() -> Vec<AssocConst>,
+    assoc_fns: fn() -> &'static Vec<AssocFn>,
+    assoc_consts: fn() -> &'static Vec<AssocConst>,
 
     as_ref: for<'a> fn(&'a Value) -> Result<Value<'a>, Error>,
     as_mut: for<'a> fn(&'a mut Value) -> Result<Value<'a>, Error>,
@@ -399,11 +399,11 @@ impl CommonTypeInfo for Type {
         self.as_inner().name()
     }
 
-    fn assoc_fns(&self) -> Vec<AssocFn> {
+    fn assoc_fns(&self) -> &'static Vec<AssocFn> {
         self.as_inner().assoc_fns()
     }
 
-    fn assoc_consts(&self) -> Vec<AssocConst> {
+    fn assoc_consts(&self) -> &'static Vec<AssocConst> {
         self.as_inner().assoc_consts()
     }
 
