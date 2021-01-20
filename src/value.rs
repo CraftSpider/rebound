@@ -11,6 +11,7 @@ use core::ptr;
 enum ValueKind {
     Owned { drop: fn(*mut (), *mut ()) },
     Borrowed,
+    Moved,
 }
 
 fn drop_impl<T: ?Sized + Reflected>(meta: *mut (), ptr: *mut ()) {
@@ -117,9 +118,8 @@ impl<'a> Value<'a> {
     pub unsafe fn try_cast<T: Reflected>(mut self) -> Result<T, (Self, Error)> {
         if let ValueKind::Owned { .. } = &self.kind {
             if Type::from::<T>() == self.ty {
-                let old_ptr = self.ptr;
-                self.ptr = ptr::null_mut();
-                Ok(*Box::from_raw(old_ptr as *mut T))
+                self.kind = ValueKind::Moved;
+                Ok(*Box::from_raw(self.ptr as *mut T))
             } else {
                 let ty = self.ty;
                 Err((self, Error::wrong_type(Type::from::<T>(), ty)))
@@ -280,9 +280,7 @@ impl<'a, T: Reflected + 'a> From<T> for Value<'a> {
 impl<'a> Drop for Value<'a> {
     fn drop(&mut self) {
         if let ValueKind::Owned { drop } = &self.kind {
-            if !self.ptr.is_null() {
-                drop(self.meta, self.ptr);
-            }
+            drop(self.meta, self.ptr);
         }
     }
 }

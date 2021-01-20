@@ -35,6 +35,7 @@ impl Variant {
         }
     }
 
+    /// Check whether a given [`Value`] is this variant
     pub fn is_variant(&self, val: &Value) -> Result<bool, Error> {
         match self {
             Variant::Unit(var) => var.is_variant(val),
@@ -76,6 +77,7 @@ impl UnitVariant {
         self.assoc_ty
     }
 
+    /// Check whether a given [`Value`] is this variant
     pub fn is_variant(&self, val: &Value) -> Result<bool, Error> {
         if val.ty() == self.assoc_ty() {
             Ok((self.is_var)(val))
@@ -145,6 +147,7 @@ impl TupleVariant {
         (self.fields)()
     }
 
+    /// Check whether a given [`Value`] is this variant
     pub fn is_variant(&self, val: &Value) -> Result<bool, Error> {
         if val.ty() == self.assoc_ty() {
             Ok((self.is_var)(val))
@@ -214,6 +217,7 @@ impl StructVariant {
         (self.fields)()
     }
 
+    /// Check whether a given [`Value`] is this variant
     pub fn is_variant(&self, val: &Value) -> Result<bool, Error> {
         if val.ty() == self.assoc_ty() {
             Ok((self.is_var)(val))

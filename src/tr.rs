@@ -12,9 +12,9 @@ static REFLECTED_TRAITS: SyncOnceCell<RwLock<HashMap<String, Box<Trait>>>> = Syn
 
 #[derive(Debug)]
 struct Trait {
-    name: fn() -> String,
+    name: String,
     bounds: fn() -> Vec<Trait>,
-    methods: fn() -> Vec<AssocFn>,
+    methods: fn() -> Vec</*TraitFn*/ ()>,
 }
 
 impl Trait {
@@ -26,29 +26,30 @@ impl Trait {
 
         let name = tr.name();
 
-        if map.contains_key(&name) {
+        if map.contains_key(name) {
             panic!("Trait {} already registered", name);
         }
 
-        map.insert(name, Box::new(tr));
+        map.insert(name.clone(), Box::new(tr));
     }
 
     pub unsafe fn new_trait(
-        name: fn() -> String,
+        name: String,
         bounds: fn() -> Vec<Trait>,
-        methods: fn() -> Vec<AssocFn>,
-    ) {
+        methods: fn() -> Vec</*TraitFn*/ ()>,
+    ) -> Trait {
         let tr = Trait {
             name,
             bounds,
             methods,
         };
 
-        Trait::add_trait(tr);
+        // Trait::add_trait(tr);
+        tr
     }
 
-    pub fn name(&self) -> String {
-        (self.name)()
+    pub fn name(&self) -> &String {
+        &self.name
     }
 
     pub fn bounds(&self) -> Vec<Trait> {
@@ -58,3 +59,37 @@ impl Trait {
 
 // TODO: How are traits reflected? This is needed to support cloning Values, as well as
 //       things like formatting. Can't assume things will be `dyn`able
+
+inventory::collect!(Trait);
+
+// #[rebound]
+trait Foo: Sized {
+    type Assoc: Sized;
+
+    fn a();
+    fn b(&self);
+
+    fn c() {}
+    fn d(&self) {}
+}
+
+// inventory::submit! {
+//     Trait::new_trait(
+//         format!("{}::{}", module_path!(), stringify!(Foo)),
+//         || {
+//             vec![
+//                 Trait::from_name("Sized"),
+//             ]
+//         },
+//         || {
+//             // a, b, c, d
+//             todo!()
+//         }
+//     )
+// }
+
+trait Bar<T> {
+    fn foo() -> T {
+        todo!()
+    }
+}

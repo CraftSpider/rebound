@@ -50,7 +50,9 @@ pub enum Error {
 
     /// Attempted to perform an operation on an Enum with a Value of the wrong Variant
     WrongVariant {
+        /// The enum variant provided
         wrong_var: Variant,
+        /// The enum variant expected
         right_var: Variant,
     },
 }
