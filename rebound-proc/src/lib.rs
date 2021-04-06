@@ -1,4 +1,5 @@
 #![feature(once_cell, proc_macro_diagnostic)]
+#![feature(str_split_once)]
 
 use core::ops::Range;
 
@@ -33,16 +34,10 @@ pub fn reflect_prims(input: TokenStream) -> TokenStream {
     for i in info {
         out.append_all(quote!(
             impl Reflected for #i {
+                type Key = #i;
+
                 fn name() -> String {
                     stringify!(#i).into()
-                }
-
-                unsafe fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-                    ptr.cast()
-                }
-
-                fn disassemble(&self) -> (Self::Meta, *mut ()) {
-                    ((), self as *const Self as _)
                 }
 
                 unsafe fn init() {

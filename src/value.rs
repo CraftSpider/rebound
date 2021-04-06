@@ -16,8 +16,8 @@ enum ValueKind {
 
 fn drop_impl<T: ?Sized + Reflected>(meta: *mut (), ptr: *mut ()) {
     unsafe {
-        let mut meta = *Box::from_raw(meta.cast::<T::Meta>());
-        Box::from_raw(T::assemble(&mut meta, ptr));
+        let meta = *Box::from_raw(meta.cast::<<T as ptr::Pointee>::Metadata>());
+        Box::from_raw(ptr::from_raw_parts_mut::<T>(ptr, meta));
     }
 }
 
@@ -48,8 +48,8 @@ impl<'a> Value<'a> {
     /// Similar to [`Box::from_raw`], this function may result in a double-free if called more than
     /// once with the same pointer.
     pub unsafe fn from_ptr_owned<T: ?Sized + Reflected + 'a>(val: *mut T) -> Value<'a> {
-        let meta = Box::into_raw(Box::new(T::disassemble(&*val).0)).cast();
-        let ptr = val.cast();
+        let (ptr, meta) = val.to_raw_parts();
+        let meta = Box::into_raw(Box::new(meta)).cast();
 
         Value {
             meta,
@@ -65,7 +65,7 @@ impl<'a> Value<'a> {
     /// Create a new borrowed Value from a reference, with a lifetime no greater than that of the
     /// provided reference.
     pub fn from_ref<T: ?Sized + Reflected>(val: &T) -> Value {
-        let (_, ptr) = T::disassemble(val);
+        let (ptr, _) = (val as *const T as *mut T).to_raw_parts();
 
         Value {
             meta: ptr::null_mut(),
@@ -163,7 +163,7 @@ impl<'a> Value<'a> {
     pub fn try_borrow<T: ?Sized + Reflected>(&self) -> Result<&T, Error> {
         if Type::from::<T>() == self.ty() {
             unsafe {
-                let ptr = T::assemble(self.meta.cast::<T::Meta>(), self.ptr);
+                let ptr = ptr::from_raw_parts_mut(self.ptr, *self.meta.cast());
                 Ok(&*ptr)
             }
         } else {
@@ -213,7 +213,7 @@ impl<'a> Value<'a> {
     pub fn try_borrow_mut<T: ?Sized + Reflected>(&mut self) -> Result<&mut T, Error> {
         if Type::from::<T>() == self.ty() {
             unsafe {
-                let ptr = T::assemble(self.meta.cast::<T::Meta>(), self.ptr);
+                let ptr = ptr::from_raw_parts_mut(self.ptr, *self.meta.cast());
                 Ok(&mut *ptr)
             }
         } else {
@@ -261,9 +261,9 @@ impl<'a> fmt::Pointer for Value<'a> {
 }
 
 impl<'a, T: Reflected + 'a> From<T> for Value<'a> {
-    fn from(val: T) -> Value<'a> {
-        let meta = Box::<T::Meta>::into_raw(Box::<T::Meta>::new(val.disassemble().0)).cast();
-        let ptr = Box::<T>::into_raw(Box::<T>::new(val)).cast();
+    default fn from(val: T) -> Value<'a> {
+        let (ptr, meta) = Box::into_raw(Box::new(val)).to_raw_parts();
+        let meta = Box::into_raw(Box::<<T as ptr::Pointee>::Metadata>::new(meta)).cast();
 
         Value {
             meta,

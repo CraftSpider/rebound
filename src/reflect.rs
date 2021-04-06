@@ -5,21 +5,20 @@ use crate::{AssocConst, AssocFn, Error, Field, Type, Value, Variant};
 
 use crate::utils::StaticTypeMap;
 use rebound_proc::impl_find;
+use core::ptr;
 use std::lazy::SyncOnceCell;
 
 /// A trait representing any reflected [`Type`]. Supports operations common to all Types,
 /// such as retrieving its qualified name or impl information.
 pub trait Reflected {
-    /// The type of any meta-information required to get back a pointer to this type,
-    /// if it is unsized
-    type Meta: Copy = ();
+    /// The static key type used for the backing TypeId of a Type
+    type Key: ?Sized + 'static;
 
     /// Get the qualified name of this Type
     fn name() -> String;
 
     /// Get all the associated functions for this Type that rebound is aware of
-    // TODO: These should cache results, if possible
-    fn assoc_fns() -> &'static Vec<AssocFn> {
+    fn assoc_fns() -> &'static [AssocFn] {
         static ASSOC_FNS: SyncOnceCell<StaticTypeMap<Vec<AssocFn>>> = SyncOnceCell::new();
 
         ASSOC_FNS
@@ -32,7 +31,7 @@ pub trait Reflected {
     }
 
     /// Get all the associated constants for this Type that rebound is aware of
-    fn assoc_consts() -> &'static Vec<AssocConst> {
+    fn assoc_consts() -> &'static [AssocConst] {
         static ASSOC_CONSTS: SyncOnceCell<StaticTypeMap<Vec<AssocConst>>> = SyncOnceCell::new();
 
         ASSOC_CONSTS
@@ -43,19 +42,6 @@ pub trait Reflected {
                 sum
             })
     }
-
-    /// Internal Function used to create a pointer to this type from Metadata and a type-erased
-    /// pointer.
-    ///
-    /// # Safety
-    ///
-    /// This function may perform raw pointer dereferences, or other unsafe operations, at will.
-    /// The passed meta and ptr *must* be valid pointers that originated as the type to assemble.
-    unsafe fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self;
-
-    /// Internal Function used to get the metadata and a type-erased pointer for an instance of
-    /// this Type.
-    fn disassemble(&self) -> (Self::Meta, *mut ());
 
     /// Internal Function used to initialize this Type, making it accessible by name and ready
     /// for use in reflection.
@@ -186,8 +172,10 @@ impl<T: ?Sized + Reflected> Ref for T {
 impl<T: ?Sized + Reflected> Ref for &T {
     fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error> {
         unsafe {
-            let ptr = *<&T>::assemble(&mut (), val.raw_ptr().cast());
-            Ok(core::mem::transmute::<Value, Value>(Value::from(ptr)))
+            let new_ref = ptr::from_raw_parts::<T>(val.raw_ptr().cast(), *val.raw_meta().cast())
+                .as_ref()
+                .unwrap();
+            Ok(core::mem::transmute::<Value, Value>(Value::from(new_ref)))
         }
     }
 

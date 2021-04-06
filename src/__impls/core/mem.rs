@@ -6,18 +6,10 @@ use core::mem::*;
 // TODO: Support custom unsized impls in extern_items!
 
 impl<T: ?Sized + Reflected> Reflected for ManuallyDrop<T> {
-    type Meta = T::Meta;
+    type Key = ManuallyDrop<T::Key>;
 
     fn name() -> String {
         format!("core::mem::ManuallyDrop<{}>", T::name())
-    }
-
-    unsafe fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        T::assemble(meta, ptr) as *mut ManuallyDrop<T>
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        T::disassemble(self as &T)
     }
 
     unsafe fn init() {

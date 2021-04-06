@@ -44,11 +44,11 @@ impl Default for Config {
     }
 }
 
-// TODO: Support name_replace
 fn parse_attrs(attrs: TokenStream) -> Result<Config> {
     let args: AttrInput = syn::parse2(attrs).map_err(|err| err.to_string())?;
 
     let mut crate_name = None;
+    let mut name_replace = None;
     let mut debug_out = false;
 
     let mut no_get = false;
@@ -63,6 +63,12 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
 
                     if str == "crate_name" {
                         crate_name = Some(lit_as_str(&nv.lit)?);
+                    } else if str == "name_replace" {
+                        let str = lit_as_str(&nv.lit)?;
+                        let (pat, replace) = str.split_once("/").ok_or_else(|| {
+                            "name_replace should be a / delimited pair of patterns".to_string()
+                        })?;
+                        name_replace = Some((pat.to_owned(), replace.to_owned()));
                     } else {
                         return Err(format!(
                             "Found unexpected name/value pair {}",
@@ -99,7 +105,7 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
     Ok(Config {
         crate_name,
         debug_out,
-        name_replace: None,
+        name_replace,
         no_get,
         no_set,
     })

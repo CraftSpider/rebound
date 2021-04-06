@@ -7,6 +7,7 @@ use crate::{Error, Value};
 
 use core::fmt;
 use core::hash::{Hash, Hasher};
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::lazy::SyncOnceCell;
 use std::sync::RwLock;
@@ -18,11 +19,11 @@ macro impl_common($ty:ty) {
             (self.vtable.name)()
         }
 
-        fn assoc_fns(&self) -> &'static Vec<AssocFn> {
+        fn assoc_fns(&self) -> &'static [AssocFn] {
             (self.vtable.assoc_fns)()
         }
 
-        fn assoc_consts(&self) -> &'static Vec<AssocConst> {
+        fn assoc_consts(&self) -> &'static [AssocConst] {
             (self.vtable.assoc_consts)()
         }
 
@@ -37,16 +38,16 @@ macro impl_common($ty:ty) {
 }
 
 // SAFETY: *do not touch these if you don't know what you're doing*
-static REFLECTED_TYS: SyncOnceCell<RwLock<HashMap<String, Type>>> = SyncOnceCell::new();
+static REFLECTED_TYS: SyncOnceCell<RwLock<HashMap<TypeId, Type>>> = SyncOnceCell::new();
 
 /// Common information / operations between all types
 pub trait CommonTypeInfo {
     /// Get this type's name
     fn name(&self) -> String;
     /// Get the known associated functions of this type
-    fn assoc_fns(&self) -> &'static Vec<AssocFn>;
+    fn assoc_fns(&self) -> &'static [AssocFn];
     /// Get the known associated constants of this type
-    fn assoc_consts(&self) -> &'static Vec<AssocConst>;
+    fn assoc_consts(&self) -> &'static [AssocConst];
     // fn impled_traits(&self) -> Vec<TraitInfo>;
 
     /// Convert a Value of this type to a reference to that value, if it's not already a reference
@@ -60,8 +61,8 @@ pub trait CommonTypeInfo {
 #[derive(Copy, Clone)]
 struct TypeVTable {
     name: fn() -> String,
-    assoc_fns: fn() -> &'static Vec<AssocFn>,
-    assoc_consts: fn() -> &'static Vec<AssocConst>,
+    assoc_fns: fn() -> &'static [AssocFn],
+    assoc_consts: fn() -> &'static [AssocConst],
 
     as_ref: for<'a> fn(&'a Value) -> Result<Value<'a>, Error>,
     as_mut: for<'a> fn(&'a mut Value) -> Result<Value<'a>, Error>,
@@ -95,8 +96,9 @@ impl TypeVTable {
 /// that the type implement the [`Reflected`] trait, though most types are also expected to
 /// implement another trait related to information they possess not shared by other type kinds.
 ///
-/// This is not, and cannot, be backed by [`core::any::TypeId`], because that is only valid on
-/// `'static` types, while this works with dynamic lifetimes.
+/// This is backed by [`core::any::TypeId`], through the usage of a `Key` associated type on all
+/// Reflected items, which represents a `'static` version of that item, even if the item isn't
+/// always static. This works because lifetimes are erased for Type instances anyways.
 #[derive(Debug, Copy, Clone)]
 pub enum Type {
     /// A primitive simple type, such as `u8` or `str`
@@ -146,19 +148,19 @@ macro_rules! ty_unwraps {
 }
 
 impl Type {
-    fn add_ty(ty: Type) {
+    fn add_ty<T: ?Sized + Reflected>(ty: Type) {
         let mut map = REFLECTED_TYS
             .get_or_init(|| RwLock::new(HashMap::new()))
             .write()
             .expect("REFLECTED_TYS not initialized correctly");
 
-        let name = ty.name();
+        let type_id = TypeId::of::<T::Key>();
 
-        if map.contains_key(&name) {
-            panic!("Type {} already registered", name);
+        if map.contains_key(&type_id) {
+            panic!("Type {} already registered", ty.name());
         }
 
-        map.insert(name, ty);
+        map.insert(type_id, ty);
     }
 
     /// Internal function used by generated code to initialize a Type for primitives
@@ -168,7 +170,7 @@ impl Type {
             vtable: TypeVTable::new::<T>(),
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for tuples
@@ -179,7 +181,7 @@ impl Type {
             fields: T::fields,
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for arrays
@@ -191,7 +193,7 @@ impl Type {
             length: T::length(),
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for slices
@@ -202,7 +204,7 @@ impl Type {
             element: T::element,
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for pointers
@@ -214,7 +216,7 @@ impl Type {
             mutability: T::mutability(),
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for references
@@ -226,7 +228,7 @@ impl Type {
             mutability: T::mutability(),
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for function pointers
@@ -238,7 +240,7 @@ impl Type {
             ret: T::ret,
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for structs
@@ -252,7 +254,7 @@ impl Type {
             fields: T::fields,
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for tuple structs
@@ -266,7 +268,7 @@ impl Type {
             fields: T::fields,
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for unit structs
@@ -279,7 +281,7 @@ impl Type {
             vtable: TypeVTable::new::<T>(),
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for enums
@@ -293,7 +295,7 @@ impl Type {
             variants: T::variants,
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for unions
@@ -307,12 +309,13 @@ impl Type {
             fields: T::fields,
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Get a Type instance by name, assuming it has been instantiated beforehand.
     /// The name provided is expected to be of a certain normalized form, which may not
-    /// be fully stable between versions. Prefer [`Type::from`] if possible.
+    /// be fully stable between versions. This function is also fairly slow.
+    /// Prefer [`Type::from`] or [`Type::from_id`] if possible.
     ///
     /// Current Requirements:
     /// - All struct names should be fully qualified, so for example the Type for Type would be
@@ -327,11 +330,27 @@ impl Type {
     /// This function is in no way memory unsafe, however, the format used for type names is an
     /// implementation detail, and thus may change even across patch versions.
     pub unsafe fn from_name(name: &str) -> Option<Type> {
+        let ref_tys = REFLECTED_TYS
+            .get_or_init(|| RwLock::new(HashMap::new()))
+            .read()
+            .unwrap();
+        for ty in ref_tys.values() {
+            if ty.name() == name {
+                return Some(*ty);
+            }
+        }
+
+        None
+    }
+
+    /// Get a Type instance by TypeId of its associated key, assuming it has been instantiated
+    /// beforehand.
+    pub fn from_id(ty_id: &TypeId) -> Option<Type> {
         REFLECTED_TYS
             .get_or_init(|| RwLock::new(HashMap::new()))
             .read()
             .expect("Couldn't get read lock on Reflection mapping")
-            .get(name)
+            .get(ty_id)
             .copied()
     }
 
@@ -342,7 +361,7 @@ impl Type {
             unsafe { T::init() };
         });
 
-        unsafe { Type::from_name(&T::name()).expect("Type not initialized") }
+        Type::from_id(&TypeId::of::<T::Key>()).expect("Type not initialized")
     }
 
     fn as_inner(&self) -> &dyn CommonTypeInfo {
@@ -399,11 +418,11 @@ impl CommonTypeInfo for Type {
         self.as_inner().name()
     }
 
-    fn assoc_fns(&self) -> &'static Vec<AssocFn> {
+    fn assoc_fns(&self) -> &'static [AssocFn] {
         self.as_inner().assoc_fns()
     }
 
-    fn assoc_consts(&self) -> &'static Vec<AssocConst> {
+    fn assoc_consts(&self) -> &'static [AssocConst] {
         self.as_inner().assoc_consts()
     }
 
@@ -597,6 +616,7 @@ impl EnumInfo {
         (self.variants)()
     }
 
+    /// Retrieve the [`Variant`] of a given [`Value`]
     pub fn variant_of(&self, val: &Value) -> Result<Variant, Error> {
         for i in self.variants() {
             if i.is_variant(val)? {

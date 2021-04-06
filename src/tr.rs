@@ -60,18 +60,18 @@ impl Trait {
 // TODO: How are traits reflected? This is needed to support cloning Values, as well as
 //       things like formatting. Can't assume things will be `dyn`able
 
-inventory::collect!(Trait);
+// inventory::collect!(Trait);
 
 // #[rebound]
-trait Foo: Sized {
-    type Assoc: Sized;
-
-    fn a();
-    fn b(&self);
-
-    fn c() {}
-    fn d(&self) {}
-}
+// trait Foo: Sized {
+//     type Assoc: Sized;
+//
+//     fn a();
+//     fn b(&self);
+//
+//     fn c() {}
+//     fn d(&self) {}
+// }
 
 // inventory::submit! {
 //     Trait::new_trait(
@@ -88,8 +88,8 @@ trait Foo: Sized {
 //     )
 // }
 
-trait Bar<T> {
-    fn foo() -> T {
-        todo!()
-    }
-}
+// trait Bar<T> {
+//     fn foo() -> T {
+//         !
+//     }
+// }
