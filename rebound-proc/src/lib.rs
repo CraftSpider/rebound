@@ -1,17 +1,14 @@
 #![feature(once_cell, proc_macro_diagnostic)]
-#![feature(str_split_once)]
-
-use core::ops::Range;
 
 use proc_macro::TokenStream;
-use quote::{quote, TokenStreamExt};
+use quote::quote;
 
 mod rebound;
 
 #[proc_macro]
 pub fn impl_find(input: TokenStream) -> TokenStream {
-    let name: syn::Ident = syn::parse(input).unwrap();
-    let range: Range<u8> = 0u8..255u8;
+    let name = syn::parse::<syn::Ident>(input).unwrap();
+    let range = 0u8..255u8;
 
     quote!(
         #(
@@ -19,35 +16,6 @@ pub fn impl_find(input: TokenStream) -> TokenStream {
         )*
     )
     .into()
-}
-
-#[proc_macro]
-pub fn reflect_prims(input: TokenStream) -> TokenStream {
-    let info = <fn(syn::parse::ParseStream) -> syn::Result<syn::punctuated::Punctuated<syn::Type, syn::Token![,]>> as syn::parse::Parser>::parse2(
-        syn::punctuated::Punctuated::<_, _>::parse_terminated,
-        input.into()
-    )
-        .unwrap();
-
-    let mut out = proc_macro2::TokenStream::new();
-
-    for i in info {
-        out.append_all(quote!(
-            impl Reflected for #i {
-                type Key = #i;
-
-                fn name() -> String {
-                    stringify!(#i).into()
-                }
-
-                unsafe fn init() {
-                    Type::new_prim::<#i>()
-                }
-            }
-        ))
-    }
-
-    out.into()
 }
 
 #[proc_macro]

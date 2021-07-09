@@ -6,13 +6,16 @@
     decl_macro,
     once_cell,
     never_type,
-    associated_type_defaults,
-    associated_type_bounds,
-    ptr_metadata
+    ptr_metadata,
 )]
 // Features used just to implement reflection for their stuff
 // TODO: Make individual cargo features to support these
-#![feature(allocator_api, ptr_internals, raw_vec_internals, int_error_matching)]
+#![feature(
+    associated_type_bounds,
+    allocator_api,
+    ptr_internals,
+    raw_vec_internals,
+)]
 
 mod __impls;
 
