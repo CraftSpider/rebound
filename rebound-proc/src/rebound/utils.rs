@@ -5,7 +5,6 @@ use std::iter::FromIterator;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::punctuated::Punctuated;
-use syn::spanned::Spanned;
 use syn::Lifetime;
 use syn::Token;
 

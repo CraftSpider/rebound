@@ -157,6 +157,7 @@ pub fn generate_struct_field(
 pub fn generate_enum_field(
     cfg: &Config,
     name: &TokenStream,
+    simple_name: &syn::Ident,
     var_name: &syn::Ident,
     idx: usize,
     field: &syn::Field,
@@ -186,7 +187,7 @@ pub fn generate_enum_field(
     let accessor = if !no_get {
         quote!(Some(Box::new(|this| {
             let inner = this.borrow::<#name>();
-            if let #name::#var_name #field_access = inner {
+            if let #simple_name::#var_name #field_access = inner {
                 let v = #crate_name::Value::from_ref(field);
                 // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
                 //         As such, we know that the lifetimes here should never be violated.
@@ -202,7 +203,7 @@ pub fn generate_enum_field(
     let setter = if !no_set {
         quote!(Some(Box::new(|this, value| {
             let inner = this.borrow_mut::<#name>();
-            if let #name::#var_name #field_access = inner {
+            if let #simple_name::#var_name #field_access = inner {
                 *field = value.cast::<#field_ty>();
             } else {
                 unreachable!()
@@ -276,6 +277,7 @@ pub fn generate_union_field(
 pub fn generate_variant(
     cfg: &Config,
     name: &TokenStream,
+    simple_name: &syn::Ident,
     variant: &syn::Variant,
 ) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
@@ -287,7 +289,7 @@ pub fn generate_variant(
                 .named
                 .iter()
                 .enumerate()
-                .map(|(idx, field)| generate_enum_field(cfg, name, var_name, idx, field))
+                .map(|(idx, field)| generate_enum_field(cfg, name, simple_name, var_name, idx, field))
                 .collect::<Result<Vec<_>>>()?;
 
             Ok(quote!(
@@ -296,7 +298,7 @@ pub fn generate_variant(
                     #crate_name::Type::from::<#name>(),
                     || { vec![ #(#fields),* ] },
                     |val| {
-                        if let #name::#var_name { .. } = val.borrow::<#name>() {
+                        if let #simple_name::#var_name { .. } = val.borrow::<#name>() {
                             true
                         } else {
                             false
@@ -310,7 +312,7 @@ pub fn generate_variant(
                 .unnamed
                 .iter()
                 .enumerate()
-                .map(|(idx, field)| generate_enum_field(cfg, name, var_name, idx, field))
+                .map(|(idx, field)| generate_enum_field(cfg, name, simple_name, var_name, idx, field))
                 .collect::<Result<Vec<_>>>()?;
 
             Ok(quote!(
@@ -353,7 +355,7 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
     let mut variant_impls = Vec::new();
 
     for i in &item.variants {
-        variant_impls.push(generate_variant(cfg, &name, i)?)
+        variant_impls.push(generate_variant(cfg, &name, &item.ident, i)?)
     }
 
     let reflected_impl = generate_reflected(

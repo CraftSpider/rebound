@@ -2,7 +2,25 @@ use crate::__helpers::*;
 use crate::reflect::*;
 use crate::{AssocConst, AssocFn, Field, Type};
 
-use rebound_proc::{extern_assoc_consts, extern_assoc_fns, reflect_prims};
+use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
+
+macro_rules! reflect_prims {
+    ($($ty:ty),+ $(,)?) => {
+        $(
+        impl Reflected for $ty {
+            type Key = $ty;
+
+            fn name() -> String {
+                stringify!($ty).into()
+            }
+
+            unsafe fn init() {
+                Type::new_prim::<$ty>()
+            }
+        }
+        )*
+    };
+}
 
 // Integers
 reflect_prims! {

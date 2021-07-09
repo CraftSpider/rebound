@@ -34,8 +34,8 @@ pub struct Value<'a> {
     meta: *mut (),
     ptr: *mut (),
     ty: Type,
-    _phantom: PhantomData<&'a ()>,
     kind: ValueKind,
+    _phantom: PhantomData<&'a ()>,
 }
 
 #[allow(clippy::should_implement_trait)]
@@ -55,10 +55,10 @@ impl<'a> Value<'a> {
             meta,
             ptr,
             ty: Type::from::<T>(),
-            _phantom: PhantomData,
             kind: ValueKind::Owned {
                 drop: drop_impl::<T>,
             },
+            _phantom: PhantomData,
         }
     }
 
@@ -71,8 +71,8 @@ impl<'a> Value<'a> {
             meta: ptr::null_mut(),
             ptr,
             ty: Type::from::<T>(),
-            _phantom: PhantomData,
             kind: ValueKind::Borrowed,
+            _phantom: PhantomData,
         }
     }
 
