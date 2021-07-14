@@ -185,7 +185,7 @@ pub fn generate_enum_field(
     };
 
     let accessor = if !no_get {
-        quote!(Some(Box::new(|this| {
+        quote!(Some(|this| {
             let inner = this.borrow::<#name>();
             if let #simple_name::#var_name #field_access = inner {
                 let v = #crate_name::Value::from_ref(field);
@@ -195,20 +195,20 @@ pub fn generate_enum_field(
             } else {
                 unreachable!()
             }
-        })))
+        }))
     } else {
         quote!(None)
     };
 
     let setter = if !no_set {
-        quote!(Some(Box::new(|this, value| {
+        quote!(Some(|this, value| {
             let inner = this.borrow_mut::<#name>();
             if let #simple_name::#var_name #field_access = inner {
                 *field = value.cast::<#field_ty>();
             } else {
                 unreachable!()
             }
-        })))
+        }))
     } else {
         quote!(None)
     };
@@ -243,22 +243,22 @@ pub fn generate_union_field(
     let field_name = field.ident.as_ref().unwrap();
 
     let accessor = if !no_get {
-        quote!(Some(Box::new(|this| {
+        quote!(Some(|this| {
             let inner = this.borrow::<#name>();
             let v = #crate_name::Value::from_ref(unsafe { &inner.#field_name });
             // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
             //         As such, we know that the lifetimes here should never be violated.
             core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v)
-        })))
+        }))
     } else {
         quote!(None)
     };
 
     let setter = if !no_set {
-        quote!(Some(Box::new(|this, value| {
+        quote!(Some(|this, value| {
             let inner = this.borrow_mut::<#name>();
             unsafe { inner.#field_name = value.cast::<#field_ty>() };
-        })))
+        }))
     } else {
         quote!(None)
     };
@@ -298,7 +298,7 @@ pub fn generate_variant(
                     #crate_name::Type::from::<#name>(),
                     || { vec![ #(#fields),* ] },
                     |val| {
-                        if let #simple_name::#var_name { .. } = val.borrow::<#name>() {
+                        if let #simple_name::#var_name { .. } = unsafe { val.borrow_unsafe::<#name>() } {
                             true
                         } else {
                             false
@@ -321,7 +321,7 @@ pub fn generate_variant(
                     #crate_name::Type::from::<#name>(),
                     || { vec![ #(#fields),* ] },
                     |val| {
-                        if let #name::#var_name(..) = val.borrow::<#name>() {
+                        if let #name::#var_name(..) = val.borrow_unsafe::<#name>() {
                             true
                         } else {
                             false
@@ -335,7 +335,7 @@ pub fn generate_variant(
                 stringify!(#var_name),
                 #crate_name::Type::from::<#name>(),
                 |val| {
-                    if let #name::#var_name = val.borrow::<#name>() {
+                    if let #name::#var_name = val.borrow_unsafe::<#name>() {
                         true
                     } else {
                         false
@@ -606,6 +606,9 @@ pub fn generate_reflected(
                 #crate_name::Type::#init_fn::<#name>();
             }
         }
+
+        // TODO: Sound bounds for types with lifetimes
+        unsafe impl #impl_bounds #crate_name::value::ValueBorrow<'_> for #name #where_bounds {}
     ))
 }
 

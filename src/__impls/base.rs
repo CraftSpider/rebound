@@ -3,6 +3,7 @@ use crate::reflect::*;
 use crate::{AssocConst, AssocFn, Field, Type};
 
 use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
+use crate::value::ValueBorrow;
 
 macro_rules! reflect_prims {
     ($($ty:ty),+ $(,)?) => {
@@ -18,6 +19,8 @@ macro_rules! reflect_prims {
                 Type::new_prim::<$ty>()
             }
         }
+
+        unsafe impl<'a> ValueBorrow<'a> for $ty {}
         )*
     };
 }
@@ -329,6 +332,12 @@ where
     }
 }
 
+unsafe impl<'a0, 'b, T0> ValueBorrow<'b> for (T0,)
+    where
+        'b: 'a0,
+        T0: ValueBorrow<'a0>,
+{}
+
 impl<T0, T1> Reflected for (T0, T1)
 where
     T0: Reflected,
@@ -373,6 +382,13 @@ where
         }
     }
 }
+
+unsafe impl<'a0, 'a1, 'b, T0, T1> ValueBorrow<'b> for (T0, T1)
+    where
+        'b: 'a0 + 'a1,
+        T0: ValueBorrow<'a0>,
+        T1: ValueBorrow<'a1>,
+{}
 
 impl<T0, T1, T2> Reflected for (T0, T1, T2)
 where
@@ -430,6 +446,14 @@ where
     }
 }
 
+unsafe impl<'a0, 'a1, 'a2, 'b, T0, T1, T2> ValueBorrow<'b> for (T0, T1, T2)
+    where
+        'b: 'a0 + 'a1 + 'a2,
+        T0: ValueBorrow<'a0>,
+        T1: ValueBorrow<'a1>,
+        T2: ValueBorrow<'a2>,
+{}
+
 // Arrays/Slices
 impl<T, const N: usize> Reflected for [T; N]
 where
@@ -486,6 +510,12 @@ where
         Type::from::<T>()
     }
 }
+
+unsafe impl<'a, 'b, T> ValueBorrow<'b> for [T]
+where
+    'b: 'a,
+    T: ValueBorrow<'a>,
+{}
 
 impl<T> ReflectedImpl<0> for [T]
 where
@@ -799,6 +829,12 @@ impl<T: ?Sized + Reflected> ReflectedReference for &T {
     }
 }
 
+unsafe impl<'a, 'b, T: ?Sized> ValueBorrow<'b> for &'b T
+    where
+        'b: 'a,
+        T: ValueBorrow<'a>,
+{}
+
 impl<T: ?Sized + Reflected> Reflected for &mut T {
     type Key = &'static mut T::Key;
 
@@ -820,6 +856,12 @@ impl<T: ?Sized + Reflected> ReflectedReference for &mut T {
         true
     }
 }
+
+unsafe impl<'a, 'b, T: ?Sized> ValueBorrow<'b> for &'b mut T
+    where
+        'b: 'a,
+        T: ValueBorrow<'a>,
+{}
 
 // Function pointers
 impl<T: Reflected> Reflected for fn() -> T {

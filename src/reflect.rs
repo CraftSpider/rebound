@@ -155,7 +155,7 @@ impl<T: ?Sized + Reflected> Ref for T {
     default fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error> {
         unsafe {
             Ok(core::mem::transmute::<Value, Value>(Value::from(
-                val.borrow::<Self>(),
+                val.borrow_unsafe::<Self>(),
             )))
         }
     }
@@ -163,7 +163,7 @@ impl<T: ?Sized + Reflected> Ref for T {
     default fn mut_val<'a>(val: &'a mut Value) -> Result<Value<'a>, Error> {
         unsafe {
             Ok(core::mem::transmute::<Value, Value>(Value::from(
-                val.borrow_mut::<Self>(),
+                val.borrow_unsafe_mut::<Self>(),
             )))
         }
     }
