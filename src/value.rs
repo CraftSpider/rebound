@@ -21,6 +21,8 @@ fn drop_impl<T: ?Sized + Reflected>(meta: *mut (), ptr: *mut ()) {
     }
 }
 
+pub unsafe trait ValueBorrow<'a> {}
+
 /// A Value represents a value with an erased type. It may be owned or borrowed.
 /// The Value will have at most the lifetime of the value it was created from.
 ///
@@ -145,6 +147,15 @@ impl<'a> Value<'a> {
     // the Value will destroy the contained data when it goes out of scope. This means a user
     // could safely borrow a value, and then have it become invalid.
 
+    pub unsafe fn try_borrow_unsafe<T: ?Sized + Reflected>(&self) -> Result<&T, Error> {
+        if Type::from::<T>() == self.ty() {
+            let ptr = ptr::from_raw_parts_mut(self.ptr, *self.meta.cast());
+            Ok(&*ptr)
+        } else {
+            Err(Error::wrong_type(Type::from::<T>(), self.ty()))
+        }
+    }
+
     /// Attempt to immutably borrow the T contained by this Value in a fallible manner.
     ///
     /// This will fail if the T isn't the same as the type of this value with [`Error::WrongType`]
@@ -160,15 +171,8 @@ impl<'a> Value<'a> {
     /// // Fails
     /// let i = int.try_borrow::<&str>();
     /// ```
-    pub fn try_borrow<T: ?Sized + Reflected>(&self) -> Result<&T, Error> {
-        if Type::from::<T>() == self.ty() {
-            unsafe {
-                let ptr = ptr::from_raw_parts_mut(self.ptr, *self.meta.cast());
-                Ok(&*ptr)
-            }
-        } else {
-            Err(Error::wrong_type(Type::from::<T>(), self.ty()))
-        }
+    pub fn try_borrow<'b, T: ?Sized + Reflected + ValueBorrow<'b>>(&'b self) -> Result<&'b T, Error> {
+        unsafe { self.try_borrow_unsafe() }
     }
 
     /// Attempt to immutably borrow the T contained in this value, panicking on failure. This will
@@ -185,9 +189,23 @@ impl<'a> Value<'a> {
     /// // Panics
     /// let b = bool.borrow::<char>();
     /// ```
-    pub fn borrow<T: ?Sized + Reflected>(&self) -> &T {
+    pub fn borrow<'b, T: ?Sized + Reflected + ValueBorrow<'b>>(&'b self) -> &'b T {
         self.try_borrow()
             .unwrap_or_else(|_| panic!("Couldn't borrow Value as type {}", T::name()))
+    }
+
+    pub unsafe fn borrow_unsafe<T: ?Sized + Reflected>(&self) -> &T {
+        self.try_borrow_unsafe()
+            .unwrap_or_else(|_| panic!("Couldn't borrow Value as type {}", T::name()))
+    }
+
+    pub unsafe fn try_borrow_unsafe_mut<T: ?Sized + Reflected>(&mut self) -> Result<&mut T, Error> {
+        if Type::from::<T>() == self.ty() {
+            let ptr = ptr::from_raw_parts_mut(self.ptr, *self.meta.cast());
+            Ok(&mut *ptr)
+        } else {
+            Err(Error::wrong_type(Type::from::<T>(), self.ty()))
+        }
     }
 
     /// Attempt to mutably borrow the T contained by this Value in a fallible manner.
@@ -210,15 +228,8 @@ impl<'a> Value<'a> {
     /// *c = 2;
     ///
     /// ```
-    pub fn try_borrow_mut<T: ?Sized + Reflected>(&mut self) -> Result<&mut T, Error> {
-        if Type::from::<T>() == self.ty() {
-            unsafe {
-                let ptr = ptr::from_raw_parts_mut(self.ptr, *self.meta.cast());
-                Ok(&mut *ptr)
-            }
-        } else {
-            Err(Error::wrong_type(Type::from::<T>(), self.ty()))
-        }
+    pub fn try_borrow_mut<'b, T: ?Sized + Reflected + ValueBorrow<'b>>(&'b mut self) -> Result<&'b mut T, Error> {
+        unsafe { self.try_borrow_unsafe_mut() }
     }
 
     /// Attempt to mutably borrow the T contained in this value, panicking on failure. This will
@@ -233,8 +244,13 @@ impl<'a> Value<'a> {
     /// // Fails
     /// let s = str.borrow_mut::<&i32>();
     /// ```
-    pub fn borrow_mut<T: ?Sized + Reflected>(&mut self) -> &mut T {
+    pub fn borrow_mut<'b, T: ?Sized + Reflected + ValueBorrow<'b>>(&'b mut self) -> &'b mut T {
         self.try_borrow_mut()
+            .unwrap_or_else(|_| panic!("Couldn't mutably borrow Value as type {}", T::name()))
+    }
+
+    pub unsafe fn borrow_unsafe_mut<T: ?Sized + Reflected>(&mut self) -> &mut T {
+        self.try_borrow_unsafe_mut()
             .unwrap_or_else(|_| panic!("Couldn't mutably borrow Value as type {}", T::name()))
     }
 
