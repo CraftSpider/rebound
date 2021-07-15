@@ -38,14 +38,12 @@ impl Trait {
         bounds: fn() -> Vec<Trait>,
         methods: fn() -> Vec</*TraitFn*/ ()>,
     ) -> Trait {
-        let tr = Trait {
+        Trait {
             name,
             bounds,
             methods,
-        };
-
+        }
         // Trait::add_trait(tr);
-        tr
     }
 
     pub fn name(&self) -> &String {

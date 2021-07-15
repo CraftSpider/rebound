@@ -11,7 +11,7 @@ fn main() {
     {
         let a = 1;
         let v = Value::from(&a);
-        invalid = unsafe { v.cast() };
+        invalid = v.cast();
     }
 
     // Wait, no!

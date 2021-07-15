@@ -5,8 +5,8 @@ use std::iter::FromIterator;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::punctuated::Punctuated;
-use syn::Lifetime;
-use syn::Token;
+use syn::spanned::Spanned;
+use syn::{Lifetime, Token};
 
 pub fn path_to_string(path: &syn::Path) -> String {
     path.segments
@@ -40,7 +40,7 @@ where
     quote!(#name::<#(#ty_generics,)*>)
 }
 
-pub fn item_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
+fn item_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
     build_name(name, generics, |param| match param {
         syn::GenericParam::Lifetime(..) => quote!('_),
         syn::GenericParam::Type(syn::TypeParam { ident, .. })
@@ -48,7 +48,7 @@ pub fn item_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
     })
 }
 
-pub fn item_static_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
+fn item_static_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
     build_name(name, generics, |param| match param {
         syn::GenericParam::Lifetime(..) => quote!('static),
         syn::GenericParam::Type(syn::TypeParam { ident, .. }) => quote!(#ident::Key),
@@ -56,7 +56,7 @@ pub fn item_static_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStr
     })
 }
 
-pub fn item_qual_name(cfg: &Config, name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
+fn item_qual_name(cfg: &Config, name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
     let ty_generics = generics
         .params
         .iter()
@@ -95,6 +95,67 @@ pub fn item_qual_name(cfg: &Config, name: &syn::Ident, generics: &syn::Generics)
     };
 
     quote!(format!(#fmt_str, #module_path, stringify!(#name), #(#ty_generics,)* ))
+}
+
+pub trait ItemName {
+    fn simple_name(&self) -> syn::Ident;
+    fn name(&self) -> TokenStream;
+    fn static_name(&self) -> TokenStream;
+    fn qual_name(&self, cfg: &Config) -> TokenStream;
+}
+
+impl ItemName for syn::ItemStruct {
+    fn simple_name(&self) -> syn::Ident {
+        self.ident.clone()
+    }
+
+    fn name(&self) -> TokenStream {
+        item_name(&self.ident, &self.generics)
+    }
+
+    fn static_name(&self) -> TokenStream {
+        item_static_name(&self.ident, &self.generics)
+    }
+
+    fn qual_name(&self, cfg: &Config) -> TokenStream {
+        item_qual_name(cfg, &self.ident, &self.generics)
+    }
+}
+
+impl ItemName for syn::ItemEnum {
+    fn simple_name(&self) -> syn::Ident {
+        self.ident.clone()
+    }
+
+    fn name(&self) -> TokenStream {
+        item_name(&self.ident, &self.generics)
+    }
+
+    fn static_name(&self) -> TokenStream {
+        item_static_name(&self.ident, &self.generics)
+    }
+
+    fn qual_name(&self, cfg: &Config) -> TokenStream {
+        item_qual_name(cfg, &self.ident, &self.generics)
+    }
+}
+
+impl ItemName for syn::ItemUnion {
+    fn simple_name(&self) -> syn::Ident {
+        self.ident.clone()
+    }
+
+    fn name(&self) -> TokenStream {
+        item_name(&self.ident, &self.generics)
+    }
+
+    fn static_name(&self) -> TokenStream {
+        item_static_name(&self.ident, &self.generics)
+    }
+
+    fn qual_name(&self, cfg: &Config) -> TokenStream {
+        item_qual_name(cfg, &self.ident, &self.generics)
+    }
 }
 
 pub fn sanitized_field_ty(ty: &syn::Type) -> TokenStream {
