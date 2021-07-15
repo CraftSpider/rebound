@@ -543,10 +543,7 @@ pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<Toke
     ))
 }
 
-pub fn generate_reflect_type(
-    cfg: &Config,
-    item: &Item,
-) -> Result<TokenStream> {
+pub fn generate_reflect_type(cfg: &Config, item: &Item) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
     let (reflect_impl_bounds, reflect_where_bounds) = item.reflect_bounds(cfg);
     let (out_impl_bounds, out_where_bounds) = item.outlives_bounds(cfg);
