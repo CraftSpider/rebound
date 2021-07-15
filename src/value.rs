@@ -67,10 +67,11 @@ impl<'a> Value<'a> {
     /// Create a new borrowed Value from a reference, with a lifetime no greater than that of the
     /// provided reference.
     pub fn from_ref<T: ?Sized + Reflected>(val: &T) -> Value {
-        let (ptr, _) = (val as *const T as *mut T).to_raw_parts();
+        let (ptr, meta) = (val as *const T as *mut T).to_raw_parts();
+        let meta = Box::into_raw(Box::new(meta)).cast();
 
         Value {
-            meta: ptr::null_mut(),
+            meta,
             ptr,
             ty: Type::from::<T>(),
             kind: ValueKind::Borrowed,
