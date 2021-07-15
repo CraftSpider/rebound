@@ -1,7 +1,3 @@
-//! This test should *not* pass, but does, due to limitations
-//! in expressing lifetimes. It is here so that the issue being
-//! fixed will not go unnoticed.
-
 use rebound::Value;
 
 fn do_stuff(_: &i32) {}
