@@ -58,7 +58,7 @@ pub fn generate_assoc_fn(
             #crate_name::AssocFn::new_dynamic(
                 #[allow(unused_mut, unused_variables)]
                 |this, mut args| {
-                    let v = #crate_name::Value::from( <#self_ty>::#fn_name(this.cast::<#receiver>(), #( args.remove(0).cast::<#args>(), )* ) );
+                    let v = #crate_name::Value::from( <#self_ty>::#fn_name(this.cast_unsafe::<#receiver>(), #( args.remove(0).cast_unsafe::<#args>(), )* ) );
                     // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
                     //         As such, we know that the lifetimes here should never be violated.
                     unsafe { core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v) }
@@ -75,7 +75,7 @@ pub fn generate_assoc_fn(
             #crate_name::AssocFn::new_static(
                 #[allow(unused_mut, unused_variables)]
                 |mut args| {
-                    let v = #crate_name::Value::from( <#self_ty>::#fn_name( #( args.remove(0).cast::<#args>(), )* ) );
+                    let v = #crate_name::Value::from( <#self_ty>::#fn_name( #( args.remove(0).cast_unsafe::<#args>(), )* ) );
                     // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
                     //         As such, we know that the lifetimes here should never be violated.
                     unsafe { core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v) }
@@ -204,7 +204,7 @@ pub fn generate_enum_field(
         quote!(Some(|this, value| {
             let inner = this.borrow_mut::<#name>();
             if let #simple_name::#var_name #field_access = inner {
-                *field = value.cast::<#field_ty>();
+                *field = value.cast_unsafe::<#field_ty>();
             } else {
                 unreachable!()
             }
@@ -276,10 +276,11 @@ pub fn generate_union_field(
 
 pub fn generate_variant(
     cfg: &Config,
-    name: &TokenStream,
-    simple_name: &syn::Ident,
+    item: &syn::ItemEnum,
     variant: &syn::Variant,
 ) -> Result<TokenStream> {
+    let name = item.name();
+    let simple_name = item.simple_name();
     let crate_name = &cfg.crate_name;
     let var_name = &variant.ident;
 
@@ -289,7 +290,7 @@ pub fn generate_variant(
                 .named
                 .iter()
                 .enumerate()
-                .map(|(idx, field)| generate_enum_field(cfg, name, simple_name, var_name, idx, field))
+                .map(|(idx, field)| generate_enum_field(cfg, &name, &simple_name, var_name, idx, field))
                 .collect::<Result<Vec<_>>>()?;
 
             Ok(quote!(
@@ -312,7 +313,7 @@ pub fn generate_variant(
                 .unnamed
                 .iter()
                 .enumerate()
-                .map(|(idx, field)| generate_enum_field(cfg, name, simple_name, var_name, idx, field))
+                .map(|(idx, field)| generate_enum_field(cfg, &name, &simple_name, var_name, idx, field))
                 .collect::<Result<Vec<_>>>()?;
 
             Ok(quote!(
@@ -349,21 +350,21 @@ pub fn generate_variant(
 pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
     let (impl_bounds, where_bounds) = impl_bounds(cfg, &item.generics);
-    let name = item_name(&item.ident, &item.generics);
-    let qual_name = item_qual_name(cfg, &item.ident, &item.generics);
+    let name = item.name();
+    let qual_name = item.qual_name(cfg);
 
     let mut variant_impls = Vec::new();
 
     for i in &item.variants {
-        variant_impls.push(generate_variant(cfg, &name, &item.ident, i)?)
+        variant_impls.push(generate_variant(cfg, &item, i)?)
     }
 
     let reflected_impl = generate_reflected(
         cfg,
         &impl_bounds,
         &where_bounds,
-        &name,
-        &item_static_name(&item.ident, &item.generics),
+        &item.name(),
+        &item.static_name(),
         &qual_name,
         syn::Ident::new("new_enum", Span::call_site()),
     )?;
@@ -464,8 +465,8 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
 pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
     let (impl_bounds, where_bounds) = impl_bounds(cfg, &item.generics);
-    let name = item_name(&item.ident, &item.generics);
-    let qual_name = item_qual_name(cfg, &item.ident, &item.generics);
+    let name = item.name();
+    let qual_name = item.qual_name(cfg);
 
     let new_fn;
     let struct_impl;
@@ -531,7 +532,7 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
         &impl_bounds,
         &where_bounds,
         &name,
-        &item_static_name(&item.ident, &item.generics),
+        &item.static_name(),
         &qual_name,
         new_fn,
     )?;
@@ -546,8 +547,8 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
 pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
     let (impl_bounds, where_bounds) = impl_bounds(cfg, &item.generics);
-    let name = item_name(&item.ident, &item.generics);
-    let qual_name = item_qual_name(cfg, &item.ident, &item.generics);
+    let name = item.name();
+    let qual_name = item.qual_name(cfg);
 
     let fields = item
         .fields
@@ -562,7 +563,7 @@ pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<Toke
         &impl_bounds,
         &where_bounds,
         &name,
-        &item_static_name(&item.ident, &item.generics),
+        &item.static_name(),
         &qual_name,
         syn::Ident::new("new_union", Span::call_site()),
     )?;
@@ -608,7 +609,7 @@ pub fn generate_reflected(
         }
 
         // TODO: Sound bounds for types with lifetimes
-        unsafe impl #impl_bounds #crate_name::value::ValueBorrow<'_> for #name #where_bounds {}
+        unsafe impl #impl_bounds #crate_name::value::NotOutlives<'_> for #name #where_bounds {}
     ))
 }
 

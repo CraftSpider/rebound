@@ -3,7 +3,7 @@ use crate::reflect::*;
 use crate::{AssocConst, AssocFn, Field, Type};
 
 use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
-use crate::value::ValueBorrow;
+use crate::value::NotOutlives;
 
 macro_rules! reflect_prims {
     ($($ty:ty),+ $(,)?) => {
@@ -20,7 +20,7 @@ macro_rules! reflect_prims {
             }
         }
 
-        unsafe impl<'a> ValueBorrow<'a> for $ty {}
+        unsafe impl<'a> NotOutlives<'a> for $ty {}
         )*
     };
 }
@@ -43,8 +43,9 @@ reflect_prims! {
     f32,
     f64,
 
-    char,
     bool,
+    char,
+    str,
 }
 
 impl ReflectedImpl<0> for u8 {
@@ -219,18 +220,6 @@ impl ReflectedImpl<0> for char {
     }
 }
 
-impl Reflected for str {
-    type Key = str;
-
-    fn name() -> String {
-        "str".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<str>()
-    }
-}
-
 impl ReflectedImpl<0> for str {
     fn assoc_fns() -> Vec<AssocFn> {
         use core::str::{
@@ -332,10 +321,10 @@ where
     }
 }
 
-unsafe impl<'a0, 'b, T0> ValueBorrow<'b> for (T0,)
+unsafe impl<'a0, 'b, T0> NotOutlives<'b> for (T0,)
     where
         'b: 'a0,
-        T0: ValueBorrow<'a0>,
+        T0: NotOutlives<'a0>,
 {}
 
 impl<T0, T1> Reflected for (T0, T1)
@@ -383,11 +372,11 @@ where
     }
 }
 
-unsafe impl<'a0, 'a1, 'b, T0, T1> ValueBorrow<'b> for (T0, T1)
+unsafe impl<'a0, 'a1, 'b, T0, T1> NotOutlives<'b> for (T0, T1)
     where
         'b: 'a0 + 'a1,
-        T0: ValueBorrow<'a0>,
-        T1: ValueBorrow<'a1>,
+        T0: NotOutlives<'a0>,
+        T1: NotOutlives<'a1>,
 {}
 
 impl<T0, T1, T2> Reflected for (T0, T1, T2)
@@ -446,12 +435,12 @@ where
     }
 }
 
-unsafe impl<'a0, 'a1, 'a2, 'b, T0, T1, T2> ValueBorrow<'b> for (T0, T1, T2)
+unsafe impl<'a0, 'a1, 'a2, 'b, T0, T1, T2> NotOutlives<'b> for (T0, T1, T2)
     where
         'b: 'a0 + 'a1 + 'a2,
-        T0: ValueBorrow<'a0>,
-        T1: ValueBorrow<'a1>,
-        T2: ValueBorrow<'a2>,
+        T0: NotOutlives<'a0>,
+        T1: NotOutlives<'a1>,
+        T2: NotOutlives<'a2>,
 {}
 
 // Arrays/Slices
@@ -485,6 +474,11 @@ where
     }
 }
 
+unsafe impl<'a, T, const N: usize> NotOutlives<'a> for [T; N]
+where
+    T: NotOutlives<'a>
+{}
+
 impl<T> Reflected for [T]
 where
     T: Reflected,
@@ -511,10 +505,10 @@ where
     }
 }
 
-unsafe impl<'a, 'b, T> ValueBorrow<'b> for [T]
+unsafe impl<'a, 'b, T> NotOutlives<'b> for [T]
 where
     'b: 'a,
-    T: ValueBorrow<'a>,
+    T: NotOutlives<'a>,
 {}
 
 impl<T> ReflectedImpl<0> for [T]
@@ -733,6 +727,11 @@ impl<T: ?Sized + Reflected> ReflectedPointer for *const T {
     }
 }
 
+unsafe impl<'a, T> NotOutlives<'a> for *const T
+where
+    T: NotOutlives<'a>
+{}
+
 impl<T: ?Sized + Reflected> ReflectedImpl<0> for *const T {
     fn assoc_fns() -> Vec<AssocFn> {
         extern_assoc_fns!(*const T @
@@ -806,6 +805,11 @@ impl<T: ?Sized + Reflected> ReflectedPointer for *mut T {
     }
 }
 
+unsafe impl<'a, T> NotOutlives<'a> for *mut T
+    where
+        T: NotOutlives<'a>
+{}
+
 // References
 impl<T: ?Sized + Reflected> Reflected for &T {
     type Key = &'static T::Key;
@@ -829,10 +833,10 @@ impl<T: ?Sized + Reflected> ReflectedReference for &T {
     }
 }
 
-unsafe impl<'a, 'b, T: ?Sized> ValueBorrow<'b> for &'b T
+unsafe impl<'a, 'b, T: ?Sized> NotOutlives<'b> for &'b T
     where
         'b: 'a,
-        T: ValueBorrow<'a>,
+        T: NotOutlives<'a>,
 {}
 
 impl<T: ?Sized + Reflected> Reflected for &mut T {
@@ -857,10 +861,10 @@ impl<T: ?Sized + Reflected> ReflectedReference for &mut T {
     }
 }
 
-unsafe impl<'a, 'b, T: ?Sized> ValueBorrow<'b> for &'b mut T
+unsafe impl<'a, 'b, T: ?Sized> NotOutlives<'b> for &'b mut T
     where
         'b: 'a,
-        T: ValueBorrow<'a>,
+        T: NotOutlives<'a>,
 {}
 
 // Function pointers

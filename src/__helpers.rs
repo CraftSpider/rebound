@@ -17,6 +17,6 @@ pub macro __make_ref_accessor($ty:ty, $($item:tt)+) {
 pub macro __make_setter($ty:ty, $($item:tt)+) {
     |this, value| {
         let inner = this.borrow_unsafe_mut::<$ty>();
-        inner.$($item)+ = value.cast();
+        inner.$($item)+ = value.cast_unsafe();
     }
 }

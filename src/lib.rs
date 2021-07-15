@@ -1,6 +1,9 @@
 //! A crate aiming to implement 'full' reflection in Rust.
 
-#![allow(incomplete_features)]
+#![allow(
+    incomplete_features,
+    clippy::nonstandard_macro_braces,
+)]
 #![feature(
     specialization,
     decl_macro,
