@@ -128,7 +128,7 @@ impl OutputHelpers for syn::Item {
             syn::Item::Struct(is) => is.reflect_bounds(cfg),
             syn::Item::Enum(ie) => ie.reflect_bounds(cfg),
             syn::Item::Union(iu) => iu.reflect_bounds(cfg),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -137,7 +137,7 @@ impl OutputHelpers for syn::Item {
             syn::Item::Struct(is) => is.outlives_bounds(cfg),
             syn::Item::Enum(ie) => ie.outlives_bounds(cfg),
             syn::Item::Union(iu) => iu.outlives_bounds(cfg),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -146,7 +146,7 @@ impl OutputHelpers for syn::Item {
             syn::Item::Struct(is) => is.new_fn_name(),
             syn::Item::Enum(ie) => ie.new_fn_name(),
             syn::Item::Union(iu) => iu.new_fn_name(),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -155,7 +155,7 @@ impl OutputHelpers for syn::Item {
             syn::Item::Struct(is) => is.name(cfg, ty),
             syn::Item::Enum(ie) => ie.name(cfg, ty),
             syn::Item::Union(iu) => iu.name(cfg, ty),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }
@@ -173,7 +173,7 @@ impl OutputHelpers for syn::ItemStruct {
         let name = match self.fields {
             syn::Fields::Named(_) => "new_struct",
             syn::Fields::Unnamed(_) => "new_tuple_struct",
-            syn::Fields::Unit => "new_unit_struct"
+            syn::Fields::Unit => "new_unit_struct",
         };
         syn::Ident::new(name, Span::call_site())
     }
@@ -183,10 +183,10 @@ impl OutputHelpers for syn::ItemStruct {
             NameTy::Ident => {
                 let ident = &self.ident;
                 quote!(#ident)
-            },
+            }
             NameTy::Path => item_name(&self.ident, &self.generics),
             NameTy::StaticPath => item_static_name(&self.ident, &self.generics),
-            NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics)
+            NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics),
         }
     }
 }
@@ -209,10 +209,10 @@ impl OutputHelpers for syn::ItemEnum {
             NameTy::Ident => {
                 let ident = &self.ident;
                 quote!(#ident)
-            },
+            }
             NameTy::Path => item_name(&self.ident, &self.generics),
             NameTy::StaticPath => item_static_name(&self.ident, &self.generics),
-            NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics)
+            NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics),
         }
     }
 }
@@ -235,10 +235,10 @@ impl OutputHelpers for syn::ItemUnion {
             NameTy::Ident => {
                 let ident = &self.ident;
                 quote!(#ident)
-            },
+            }
             NameTy::Path => item_name(&self.ident, &self.generics),
             NameTy::StaticPath => item_static_name(&self.ident, &self.generics),
-            NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics)
+            NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics),
         }
     }
 }
@@ -320,9 +320,12 @@ fn reflect_bound(cfg: &Config) -> syn::TypeParamBound {
         path: syn::Path {
             leading_colon: None,
             segments: Punctuated::from_iter(
-                vec![cfg.crate_name.clone(), syn::Ident::new("Reflected", Span::call_site())]
-                    .into_iter()
-                    .map(syn::PathSegment::from)
+                vec![
+                    cfg.crate_name.clone(),
+                    syn::Ident::new("Reflected", Span::call_site()),
+                ]
+                .into_iter()
+                .map(syn::PathSegment::from),
             ),
         },
     })
@@ -481,21 +484,23 @@ fn not_outlives_bound(cfg: &Config, lifetime: Lifetime) -> syn::TypeParamBound {
         lifetimes: None,
         path: syn::Path {
             leading_colon: None,
-            segments: Punctuated::from_iter(
-                vec![
-                    cfg.crate_name.clone().into(),
-                    syn::Ident::new("value", Span::call_site()).into(),
-                    syn::PathSegment {
-                        ident: syn::Ident::new("NotOutlives", Span::call_site()),
-                        arguments: syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
+            segments: Punctuated::from_iter(vec![
+                cfg.crate_name.clone().into(),
+                syn::Ident::new("value", Span::call_site()).into(),
+                syn::PathSegment {
+                    ident: syn::Ident::new("NotOutlives", Span::call_site()),
+                    arguments: syn::PathArguments::AngleBracketed(
+                        syn::AngleBracketedGenericArguments {
                             colon2_token: Some(syn::token::Colon2::default()),
                             lt_token: syn::token::Lt::default(),
-                            args: Punctuated::from_iter(vec![syn::GenericArgument::Lifetime(lifetime)].into_iter()),
+                            args: Punctuated::from_iter(
+                                vec![syn::GenericArgument::Lifetime(lifetime)].into_iter(),
+                            ),
                             gt_token: syn::token::Gt::default(),
-                        })
-                    }
-                ]
-            ),
+                        },
+                    ),
+                },
+            ]),
         },
     })
 }
@@ -568,7 +573,9 @@ fn outlives_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, Toke
                             .map_or(false, |ident| param.ident == *ident)
                         {
                             pred_ty.bounds.extend(param.bounds.iter().cloned());
-                            pred_ty.bounds.push(not_outlives_bound(cfg, new_lifetime.clone()));
+                            pred_ty
+                                .bounds
+                                .push(not_outlives_bound(cfg, new_lifetime.clone()));
                             return true;
                         }
                     }
@@ -628,11 +635,12 @@ fn outlives_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, Toke
             syn::GenericParam::Type(_) => 0,
             syn::GenericParam::Const(_) => 1,
         };
-        return i32::cmp(&left, &right)
+        return i32::cmp(&left, &right);
     });
     let impl_bounds: Punctuated<syn::GenericParam, Token![,]> = impl_bounds.into_iter().collect();
 
-    lifetimes.extend((0..count).map(|idx| syn::Lifetime::new(&format!("'a{}", idx), Span::call_site())));
+    lifetimes
+        .extend((0..count).map(|idx| syn::Lifetime::new(&format!("'a{}", idx), Span::call_site())));
     clauses.push(syn::WherePredicate::Lifetime(syn::PredicateLifetime {
         lifetime: base_lifetime,
         colon_token: syn::token::Colon::default(),
