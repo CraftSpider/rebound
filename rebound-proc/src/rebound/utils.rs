@@ -5,7 +5,7 @@ use std::iter::FromIterator;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::punctuated::Punctuated;
-use syn::spanned::Spanned;
+// use syn::spanned::Spanned;
 use syn::{Lifetime, Token};
 
 pub fn path_to_string(path: &syn::Path) -> String {
@@ -23,7 +23,7 @@ pub fn lit_as_str(lit: &syn::Lit) -> Result<String, String> {
     }
 }
 
-pub fn static_or_anon(life: &Lifetime) -> Lifetime {
+fn static_or_anon(life: &Lifetime) -> Lifetime {
     if life.ident == "static" {
         life.clone()
     } else {
@@ -97,64 +97,149 @@ fn item_qual_name(cfg: &Config, name: &syn::Ident, generics: &syn::Generics) -> 
     quote!(format!(#fmt_str, #module_path, stringify!(#name), #(#ty_generics,)* ))
 }
 
-pub trait ItemName {
-    fn simple_name(&self) -> syn::Ident;
-    fn name(&self) -> TokenStream;
-    fn static_name(&self) -> TokenStream;
-    fn qual_name(&self, cfg: &Config) -> TokenStream;
+#[derive(Copy, Clone)]
+pub enum NameTy {
+    /// This item's identifier
+    Ident,
+    /// This item's code path
+    Path,
+    /// This item's full path with static lifetimes
+    StaticPath,
+    /// This item's full rebound name path
+    ReboundName,
 }
 
-impl ItemName for syn::ItemStruct {
-    fn simple_name(&self) -> syn::Ident {
-        self.ident.clone()
+pub trait OutputHelpers {
+    /// Get the impl and where bounds to use for the `impl {Reflected, ReflectedX}` blocks
+    fn reflect_bounds(&self, cfg: &Config) -> (TokenStream, TokenStream);
+    /// Get the impl and where bounds to use for the `impl NotOutlives` block
+    fn outlives_bounds(&self, cfg: &Config) -> (TokenStream, TokenStream);
+
+    /// Get the fn name to use in the initialize implementation, generally an unsafe method
+    /// on `Type`
+    fn new_fn_name(&self) -> syn::Ident;
+    /// Get a name for this type. The ident, or some formatting of the path
+    fn name(&self, cfg: &Config, ty: NameTy) -> TokenStream;
+}
+
+impl OutputHelpers for syn::Item {
+    fn reflect_bounds(&self, cfg: &Config) -> (TokenStream, TokenStream) {
+        match self {
+            syn::Item::Struct(is) => is.reflect_bounds(cfg),
+            syn::Item::Enum(ie) => ie.reflect_bounds(cfg),
+            syn::Item::Union(iu) => iu.reflect_bounds(cfg),
+            _ => unreachable!()
+        }
     }
 
-    fn name(&self) -> TokenStream {
-        item_name(&self.ident, &self.generics)
+    fn outlives_bounds(&self, cfg: &Config) -> (TokenStream, TokenStream) {
+        match self {
+            syn::Item::Struct(is) => is.outlives_bounds(cfg),
+            syn::Item::Enum(ie) => ie.outlives_bounds(cfg),
+            syn::Item::Union(iu) => iu.outlives_bounds(cfg),
+            _ => unreachable!()
+        }
     }
 
-    fn static_name(&self) -> TokenStream {
-        item_static_name(&self.ident, &self.generics)
+    fn new_fn_name(&self) -> syn::Ident {
+        match self {
+            syn::Item::Struct(is) => is.new_fn_name(),
+            syn::Item::Enum(ie) => ie.new_fn_name(),
+            syn::Item::Union(iu) => iu.new_fn_name(),
+            _ => unreachable!()
+        }
     }
 
-    fn qual_name(&self, cfg: &Config) -> TokenStream {
-        item_qual_name(cfg, &self.ident, &self.generics)
+    fn name(&self, cfg: &Config, ty: NameTy) -> TokenStream {
+        match self {
+            syn::Item::Struct(is) => is.name(cfg, ty),
+            syn::Item::Enum(ie) => ie.name(cfg, ty),
+            syn::Item::Union(iu) => iu.name(cfg, ty),
+            _ => unreachable!()
+        }
     }
 }
 
-impl ItemName for syn::ItemEnum {
-    fn simple_name(&self) -> syn::Ident {
-        self.ident.clone()
+impl OutputHelpers for syn::ItemStruct {
+    fn reflect_bounds(&self, cfg: &Config) -> (TokenStream, TokenStream) {
+        reflect_bounds(cfg, &self.generics)
     }
 
-    fn name(&self) -> TokenStream {
-        item_name(&self.ident, &self.generics)
+    fn outlives_bounds(&self, cfg: &Config) -> (TokenStream, TokenStream) {
+        outlives_bounds(cfg, &self.generics)
     }
 
-    fn static_name(&self) -> TokenStream {
-        item_static_name(&self.ident, &self.generics)
+    fn new_fn_name(&self) -> syn::Ident {
+        let name = match self.fields {
+            syn::Fields::Named(_) => "new_struct",
+            syn::Fields::Unnamed(_) => "new_tuple_struct",
+            syn::Fields::Unit => "new_unit_struct"
+        };
+        syn::Ident::new(name, Span::call_site())
     }
 
-    fn qual_name(&self, cfg: &Config) -> TokenStream {
-        item_qual_name(cfg, &self.ident, &self.generics)
+    fn name(&self, cfg: &Config, ty: NameTy) -> TokenStream {
+        match ty {
+            NameTy::Ident => {
+                let ident = &self.ident;
+                quote!(#ident)
+            },
+            NameTy::Path => item_name(&self.ident, &self.generics),
+            NameTy::StaticPath => item_static_name(&self.ident, &self.generics),
+            NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics)
+        }
     }
 }
 
-impl ItemName for syn::ItemUnion {
-    fn simple_name(&self) -> syn::Ident {
-        self.ident.clone()
+impl OutputHelpers for syn::ItemEnum {
+    fn reflect_bounds(&self, cfg: &Config) -> (TokenStream, TokenStream) {
+        reflect_bounds(cfg, &self.generics)
     }
 
-    fn name(&self) -> TokenStream {
-        item_name(&self.ident, &self.generics)
+    fn outlives_bounds(&self, cfg: &Config) -> (TokenStream, TokenStream) {
+        outlives_bounds(cfg, &self.generics)
     }
 
-    fn static_name(&self) -> TokenStream {
-        item_static_name(&self.ident, &self.generics)
+    fn new_fn_name(&self) -> syn::Ident {
+        syn::Ident::new("new_enum", Span::call_site())
     }
 
-    fn qual_name(&self, cfg: &Config) -> TokenStream {
-        item_qual_name(cfg, &self.ident, &self.generics)
+    fn name(&self, cfg: &Config, ty: NameTy) -> TokenStream {
+        match ty {
+            NameTy::Ident => {
+                let ident = &self.ident;
+                quote!(#ident)
+            },
+            NameTy::Path => item_name(&self.ident, &self.generics),
+            NameTy::StaticPath => item_static_name(&self.ident, &self.generics),
+            NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics)
+        }
+    }
+}
+
+impl OutputHelpers for syn::ItemUnion {
+    fn reflect_bounds(&self, cfg: &Config) -> (TokenStream, TokenStream) {
+        reflect_bounds(cfg, &self.generics)
+    }
+
+    fn outlives_bounds(&self, cfg: &Config) -> (TokenStream, TokenStream) {
+        outlives_bounds(cfg, &self.generics)
+    }
+
+    fn new_fn_name(&self) -> syn::Ident {
+        syn::Ident::new("new_union", Span::call_site())
+    }
+
+    fn name(&self, cfg: &Config, ty: NameTy) -> TokenStream {
+        match ty {
+            NameTy::Ident => {
+                let ident = &self.ident;
+                quote!(#ident)
+            },
+            NameTy::Path => item_name(&self.ident, &self.generics),
+            NameTy::StaticPath => item_static_name(&self.ident, &self.generics),
+            NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics)
+        }
     }
 }
 
@@ -227,19 +312,24 @@ fn is_maybe(bound: &syn::TypeParamBound) -> bool {
     }
 }
 
-pub fn impl_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, TokenStream) {
-    let reflected_bound = syn::TypeParamBound::Trait(syn::TraitBound {
+fn reflect_bound(cfg: &Config) -> syn::TypeParamBound {
+    syn::TypeParamBound::Trait(syn::TraitBound {
         paren_token: None,
         modifier: syn::TraitBoundModifier::None,
         lifetimes: None,
         path: syn::Path {
             leading_colon: None,
-            segments: Punctuated::from_iter(vec![
-                syn::PathSegment::from(cfg.crate_name.clone()),
-                syn::PathSegment::from(syn::Ident::new("Reflected", Span::call_site())),
-            ]),
+            segments: Punctuated::from_iter(
+                vec![cfg.crate_name.clone(), syn::Ident::new("Reflected", Span::call_site())]
+                    .into_iter()
+                    .map(syn::PathSegment::from)
+            ),
         },
-    });
+    })
+}
+
+fn reflect_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, TokenStream) {
+    let reflected_bound = reflect_bound(cfg);
 
     let mut impl_bounds: Punctuated<syn::GenericParam, Token![,]> = Punctuated::new();
     let mut clauses: Punctuated<syn::WherePredicate, Token![,]> = Punctuated::new();
@@ -248,25 +338,24 @@ pub fn impl_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, Toke
         clauses.extend(clause.predicates.iter().cloned());
     }
 
+    // For each param and bound in <>, if there's an existing clause, append the bounds to it.
+    // Otherwise, add a new bound
     generics.params.iter().for_each(|param| match param {
         syn::GenericParam::Lifetime(param) => {
             let found = clauses.iter_mut().any(|clause| {
                 if let syn::WherePredicate::Lifetime(life) = clause {
                     if life.lifetime == param.lifetime {
                         life.bounds.extend(param.bounds.iter().cloned());
-                        true
-                    } else {
-                        false
+                        return true;
                     }
-                } else {
-                    false
                 }
+                false
             });
 
             if !found {
                 clauses.push(syn::WherePredicate::Lifetime(syn::PredicateLifetime {
                     lifetime: param.lifetime.clone(),
-                    colon_token: syn::token::Colon(Span::call_site()),
+                    colon_token: syn::token::Colon::default(),
                     bounds: param.bounds.clone(),
                 }));
             }
@@ -288,16 +377,11 @@ pub fn impl_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, Toke
                             .map_or(false, |ident| param.ident == *ident)
                         {
                             pred_ty.bounds.extend(param.bounds.iter().cloned());
-                            true
-                        } else {
-                            false
+                            return true;
                         }
-                    } else {
-                        false
                     }
-                } else {
-                    false
                 }
+                false
             });
 
             if !found {
@@ -307,7 +391,7 @@ pub fn impl_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, Toke
                         qself: None,
                         path: syn::Path::from(param.ident.clone()),
                     }),
-                    colon_token: syn::token::Colon(Span::call_site()),
+                    colon_token: syn::token::Colon::default(),
                     bounds: param
                         .bounds
                         .iter()
@@ -322,7 +406,7 @@ pub fn impl_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, Toke
             let colon_token = if bounds.is_empty() {
                 None
             } else {
-                Some(syn::token::Colon(Span::call_site()))
+                Some(syn::token::Colon::default())
             };
 
             impl_bounds.push(syn::GenericParam::Type(syn::TypeParam {
@@ -378,7 +462,7 @@ pub fn impl_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, Toke
                         },
                         qself: None,
                     }),
-                    colon_token: syn::token::Colon(Span::call_site()),
+                    colon_token: syn::token::Colon::default(),
                     bounds,
                 }));
             }
@@ -386,6 +470,174 @@ pub fn impl_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, Toke
     });
 
     clauses.extend(key_bounds);
+
+    (quote!(<#impl_bounds>), quote!(where #clauses))
+}
+
+fn not_outlives_bound(cfg: &Config, lifetime: Lifetime) -> syn::TypeParamBound {
+    syn::TypeParamBound::Trait(syn::TraitBound {
+        paren_token: None,
+        modifier: syn::TraitBoundModifier::None,
+        lifetimes: None,
+        path: syn::Path {
+            leading_colon: None,
+            segments: Punctuated::from_iter(
+                vec![
+                    cfg.crate_name.clone().into(),
+                    syn::Ident::new("value", Span::call_site()).into(),
+                    syn::PathSegment {
+                        ident: syn::Ident::new("NotOutlives", Span::call_site()),
+                        arguments: syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
+                            colon2_token: Some(syn::token::Colon2::default()),
+                            lt_token: syn::token::Lt::default(),
+                            args: Punctuated::from_iter(vec![syn::GenericArgument::Lifetime(lifetime)].into_iter()),
+                            gt_token: syn::token::Gt::default(),
+                        })
+                    }
+                ]
+            ),
+        },
+    })
+}
+
+fn outlives_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, TokenStream) {
+    let mut impl_bounds: Vec<syn::GenericParam> = Vec::new();
+    let mut clauses: Punctuated<syn::WherePredicate, Token![,]> = Punctuated::new();
+    let mut lifetimes: Vec<syn::Lifetime> = Vec::new();
+
+    if let Some(clause) = &generics.where_clause {
+        clauses.extend(clause.predicates.iter().cloned());
+    }
+
+    let mut count = 0;
+    let base_lifetime = Lifetime::new("'no", Span::call_site());
+    impl_bounds.push(syn::GenericParam::Lifetime(syn::LifetimeDef {
+        attrs: vec![],
+        lifetime: base_lifetime.clone(),
+        colon_token: None,
+        bounds: Punctuated::new(),
+    }));
+
+    generics.params.iter().for_each(|param| match param {
+        syn::GenericParam::Lifetime(param) => {
+            // If there's an existing where clause for this lifetime, use it.
+            // Otherwise, add one
+            let found = clauses.iter_mut().any(|clause| {
+                if let syn::WherePredicate::Lifetime(life) = clause {
+                    if life.lifetime == param.lifetime {
+                        life.bounds.extend(param.bounds.iter().cloned());
+                        return true;
+                    }
+                }
+                false
+            });
+
+            if !found {
+                clauses.push(syn::WherePredicate::Lifetime(syn::PredicateLifetime {
+                    lifetime: param.lifetime.clone(),
+                    colon_token: syn::token::Colon::default(),
+                    bounds: param.bounds.clone(),
+                }));
+            }
+
+            lifetimes.push(param.lifetime.clone());
+
+            impl_bounds.push(syn::GenericParam::Lifetime(syn::LifetimeDef {
+                attrs: vec![],
+                lifetime: param.lifetime.clone(),
+                colon_token: None,
+                bounds: Punctuated::new(),
+            }));
+        }
+        syn::GenericParam::Type(param) => {
+            let new_lifetime = syn::Lifetime::new(&format!("'a{}", count), Span::call_site());
+            impl_bounds.push(syn::GenericParam::Lifetime(syn::LifetimeDef {
+                attrs: vec![],
+                lifetime: new_lifetime.clone(),
+                colon_token: None,
+                bounds: Punctuated::new(),
+            }));
+            count += 1;
+
+            let found = clauses.iter_mut().any(|clause| {
+                if let syn::WherePredicate::Type(pred_ty) = clause {
+                    if let syn::Type::Path(path) = &pred_ty.bounded_ty {
+                        if path
+                            .path
+                            .get_ident()
+                            .map_or(false, |ident| param.ident == *ident)
+                        {
+                            pred_ty.bounds.extend(param.bounds.iter().cloned());
+                            pred_ty.bounds.push(not_outlives_bound(cfg, new_lifetime.clone()));
+                            return true;
+                        }
+                    }
+                }
+                false
+            });
+
+            if !found {
+                let mut bounds: Punctuated<_, _> = param
+                    .bounds
+                    .iter()
+                    .cloned()
+                    .filter(|bound| !is_maybe(bound))
+                    .collect();
+
+                bounds.push(not_outlives_bound(cfg, new_lifetime));
+
+                clauses.push(syn::WherePredicate::Type(syn::PredicateType {
+                    lifetimes: None,
+                    bounded_ty: syn::Type::Path(syn::TypePath {
+                        qself: None,
+                        path: syn::Path::from(param.ident.clone()),
+                    }),
+                    colon_token: syn::token::Colon::default(),
+                    bounds,
+                }))
+            }
+
+            let bounds: Punctuated<syn::TypeParamBound, Token![+]> =
+                param.bounds.iter().cloned().filter(is_maybe).collect();
+            let colon_token = if bounds.is_empty() {
+                None
+            } else {
+                Some(syn::token::Colon::default())
+            };
+
+            impl_bounds.push(syn::GenericParam::Type(syn::TypeParam {
+                attrs: vec![],
+                ident: param.ident.clone(),
+                colon_token,
+                bounds,
+                eq_token: None,
+                default: None,
+            }))
+        }
+        syn::GenericParam::Const(_) => impl_bounds.push(param.clone()),
+    });
+
+    impl_bounds.sort_unstable_by(|left, right| {
+        let left = match left {
+            syn::GenericParam::Lifetime(_) => -1,
+            syn::GenericParam::Type(_) => 0,
+            syn::GenericParam::Const(_) => 1,
+        };
+        let right = match right {
+            syn::GenericParam::Lifetime(_) => -1,
+            syn::GenericParam::Type(_) => 0,
+            syn::GenericParam::Const(_) => 1,
+        };
+        return i32::cmp(&left, &right)
+    });
+    let impl_bounds: Punctuated<syn::GenericParam, Token![,]> = impl_bounds.into_iter().collect();
+
+    lifetimes.extend((0..count).map(|idx| syn::Lifetime::new(&format!("'a{}", idx), Span::call_site())));
+    clauses.push(syn::WherePredicate::Lifetime(syn::PredicateLifetime {
+        lifetime: base_lifetime,
+        colon_token: syn::token::Colon::default(),
+        bounds: lifetimes.into_iter().collect(),
+    }));
 
     (quote!(<#impl_bounds>), quote!(where #clauses))
 }

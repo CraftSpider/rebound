@@ -1,0 +1,32 @@
+error[E0277]: the trait bound `WithLifetime<'_>: From<WithLifetime<'_>>` is not satisfied
+  --> $DIR/cast_generated_lifetime.rs:13:31
+   |
+13 |         let val = Value::from(r);
+   |                               ^
+   |                               |
+   |                               expected an implementor of trait `From<WithLifetime<'_>>`
+   |                               help: consider borrowing here: `&r`
+   |
+   = note: required because of the requirements on the impl of `From<WithLifetime<'_>>` for `Value<'_>`
+   = note: required by `from`
+
+error[E0308]: mismatched types
+  --> $DIR/cast_generated_lifetime.rs:18:14
+   |
+18 |     do_stuff(invalid);
+   |              ^^^^^^^
+   |              |
+   |              expected `&WithLifetime<'_>`, found struct `WithLifetime`
+   |              help: consider borrowing here: `&invalid`
+
+error[E0277]: the trait bound `WithLifetime<'_>: Reflected` is not satisfied
+  --> $DIR/cast_generated_lifetime.rs:14:23
+   |
+14 |         invalid = val.cast();
+   |                       ^^^^ the trait `Reflected` is not implemented for `WithLifetime<'_>`
+
+error[E0277]: the trait bound `WithLifetime<'_>: NotOutlives<'_>` is not satisfied
+  --> $DIR/cast_generated_lifetime.rs:14:23
+   |
+14 |         invalid = val.cast();
+   |                       ^^^^ the trait `NotOutlives<'_>` is not implemented for `WithLifetime<'_>`
