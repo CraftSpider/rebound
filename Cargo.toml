@@ -1,6 +1,6 @@
 [package]
 name = "rebound"
-version = "0.2.0"
+version = "0.3.0"
 description = "Full runtime reflection for Rust, with lifetime safety"
 keywords = ["reflection", "reflect", "no_std"]
 categories = ["memory-management"]
