@@ -1,23 +1,14 @@
 //! A crate aiming to implement 'full' reflection in Rust.
 
-#![allow(
-    incomplete_features,
-    clippy::nonstandard_macro_braces,
-)]
-#![feature(
-    specialization,
-    decl_macro,
-    once_cell,
-    never_type,
-    ptr_metadata,
-)]
+#![allow(incomplete_features, clippy::nonstandard_macro_braces)]
+#![feature(specialization, decl_macro, once_cell, never_type, ptr_metadata)]
 // Features used just to implement reflection for their stuff
 // TODO: Make individual cargo features to support these
 #![feature(
     associated_type_bounds,
     allocator_api,
     ptr_internals,
-    raw_vec_internals,
+    raw_vec_internals
 )]
 
 mod __impls;

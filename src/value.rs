@@ -180,7 +180,9 @@ impl<'a> Value<'a> {
     /// // Fails
     /// let i = int.try_borrow::<&str>();
     /// ```
-    pub fn try_borrow<'b, T: ?Sized + Reflected + NotOutlives<'b>>(&'b self) -> Result<&'b T, Error> {
+    pub fn try_borrow<'b, T: ?Sized + Reflected + NotOutlives<'b>>(
+        &'b self,
+    ) -> Result<&'b T, Error> {
         unsafe { self.try_borrow_unsafe() }
     }
 
@@ -237,7 +239,9 @@ impl<'a> Value<'a> {
     /// *c = 2;
     ///
     /// ```
-    pub fn try_borrow_mut<'b, T: ?Sized + Reflected + NotOutlives<'b>>(&'b mut self) -> Result<&'b mut T, Error> {
+    pub fn try_borrow_mut<'b, T: ?Sized + Reflected + NotOutlives<'b>>(
+        &'b mut self,
+    ) -> Result<&'b mut T, Error> {
         unsafe { self.try_borrow_unsafe_mut() }
     }
 
