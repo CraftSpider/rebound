@@ -2,8 +2,8 @@ use crate::__helpers::*;
 use crate::reflect::*;
 use crate::{AssocConst, AssocFn, Field, Type};
 
-use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
 use crate::value::NotOutlives;
+use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
 
 macro_rules! reflect_prims {
     ($($ty:ty),+ $(,)?) => {
@@ -322,10 +322,11 @@ where
 }
 
 unsafe impl<'a0, 'b, T0> NotOutlives<'b> for (T0,)
-    where
-        'b: 'a0,
-        T0: NotOutlives<'a0>,
-{}
+where
+    'b: 'a0,
+    T0: NotOutlives<'a0>,
+{
+}
 
 impl<T0, T1> Reflected for (T0, T1)
 where
@@ -373,11 +374,12 @@ where
 }
 
 unsafe impl<'a0, 'a1, 'b, T0, T1> NotOutlives<'b> for (T0, T1)
-    where
-        'b: 'a0 + 'a1,
-        T0: NotOutlives<'a0>,
-        T1: NotOutlives<'a1>,
-{}
+where
+    'b: 'a0 + 'a1,
+    T0: NotOutlives<'a0>,
+    T1: NotOutlives<'a1>,
+{
+}
 
 impl<T0, T1, T2> Reflected for (T0, T1, T2)
 where
@@ -436,12 +438,13 @@ where
 }
 
 unsafe impl<'a0, 'a1, 'a2, 'b, T0, T1, T2> NotOutlives<'b> for (T0, T1, T2)
-    where
-        'b: 'a0 + 'a1 + 'a2,
-        T0: NotOutlives<'a0>,
-        T1: NotOutlives<'a1>,
-        T2: NotOutlives<'a2>,
-{}
+where
+    'b: 'a0 + 'a1 + 'a2,
+    T0: NotOutlives<'a0>,
+    T1: NotOutlives<'a1>,
+    T2: NotOutlives<'a2>,
+{
+}
 
 // Arrays/Slices
 impl<T, const N: usize> Reflected for [T; N]
@@ -474,10 +477,7 @@ where
     }
 }
 
-unsafe impl<'a, T, const N: usize> NotOutlives<'a> for [T; N]
-where
-    T: NotOutlives<'a>
-{}
+unsafe impl<'a, T, const N: usize> NotOutlives<'a> for [T; N] where T: NotOutlives<'a> {}
 
 impl<T> Reflected for [T]
 where
@@ -509,7 +509,8 @@ unsafe impl<'a, 'b, T> NotOutlives<'b> for [T]
 where
     'b: 'a,
     T: NotOutlives<'a>,
-{}
+{
+}
 
 impl<T> ReflectedImpl<0> for [T]
 where
@@ -727,10 +728,7 @@ impl<T: ?Sized + Reflected> ReflectedPointer for *const T {
     }
 }
 
-unsafe impl<'a, T> NotOutlives<'a> for *const T
-where
-    T: NotOutlives<'a>
-{}
+unsafe impl<'a, T> NotOutlives<'a> for *const T where T: NotOutlives<'a> {}
 
 impl<T: ?Sized + Reflected> ReflectedImpl<0> for *const T {
     fn assoc_fns() -> Vec<AssocFn> {
@@ -805,10 +803,7 @@ impl<T: ?Sized + Reflected> ReflectedPointer for *mut T {
     }
 }
 
-unsafe impl<'a, T> NotOutlives<'a> for *mut T
-    where
-        T: NotOutlives<'a>
-{}
+unsafe impl<'a, T> NotOutlives<'a> for *mut T where T: NotOutlives<'a> {}
 
 // References
 impl<T: ?Sized + Reflected> Reflected for &T {
@@ -834,10 +829,11 @@ impl<T: ?Sized + Reflected> ReflectedReference for &T {
 }
 
 unsafe impl<'a, 'b, T: ?Sized> NotOutlives<'b> for &'b T
-    where
-        'b: 'a,
-        T: NotOutlives<'a>,
-{}
+where
+    'b: 'a,
+    T: NotOutlives<'a>,
+{
+}
 
 impl<T: ?Sized + Reflected> Reflected for &mut T {
     type Key = &'static mut T::Key;
@@ -862,10 +858,11 @@ impl<T: ?Sized + Reflected> ReflectedReference for &mut T {
 }
 
 unsafe impl<'a, 'b, T: ?Sized> NotOutlives<'b> for &'b mut T
-    where
-        'b: 'a,
-        T: NotOutlives<'a>,
-{}
+where
+    'b: 'a,
+    T: NotOutlives<'a>,
+{
+}
 
 // Function pointers
 impl<T: Reflected> Reflected for fn() -> T {

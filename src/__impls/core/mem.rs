@@ -1,14 +1,14 @@
 use crate::reflect::ReflectedStruct;
 use crate::{Field, Reflected, Type};
 
-use core::mem::*;
 use crate::value::NotOutlives;
+use core::mem::*;
 
 // TODO: Support custom unsized impls in extern_items!
 
 impl<T> Reflected for ManuallyDrop<T>
 where
-    T: ?Sized + Reflected
+    T: ?Sized + Reflected,
 {
     type Key = ManuallyDrop<T::Key>;
 
@@ -23,7 +23,7 @@ where
 
 impl<T> ReflectedStruct for ManuallyDrop<T>
 where
-    T: ?Sized + Reflected
+    T: ?Sized + Reflected,
 {
     fn fields() -> Vec<Field> {
         unsafe {
@@ -41,5 +41,6 @@ where
 unsafe impl<'a, 'b, T> NotOutlives<'b> for ManuallyDrop<T>
 where
     'b: 'a,
-    T: ?Sized + NotOutlives<'a>
-{}
+    T: ?Sized + NotOutlives<'a>,
+{
+}

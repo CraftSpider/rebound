@@ -1,11 +1,11 @@
 //! Reflection related traits
 
 use crate::info::UnionField;
+use crate::utils::StaticTypeMap;
 use crate::{AssocConst, AssocFn, Error, Field, Type, Value, Variant};
 
-use crate::utils::StaticTypeMap;
-use rebound_proc::impl_find;
 use core::ptr;
+use rebound_proc::impl_find;
 use std::lazy::SyncOnceCell;
 
 /// A trait representing any reflected [`Type`]. Supports operations common to all Types,
