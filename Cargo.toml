@@ -14,9 +14,12 @@ edition = "2018"
 [features]
 default = ["core", "alloc", "std"]
 
+# Reflection support for various crates
 core = []
 alloc = []
 std = []
+
+# Reflection support for nightly features
 never-type = []
 
 [dependencies]

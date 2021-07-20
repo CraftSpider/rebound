@@ -997,6 +997,7 @@ impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> ReflectedFunctio
 }
 
 // Never type
+#[cfg(feature = "never-type")]
 impl Reflected for ! {
     type Key = !;
 

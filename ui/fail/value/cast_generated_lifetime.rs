@@ -1,9 +1,10 @@
 
-use rebound::Value;
+use rebound::{Value, rebound};
 
+#[rebound]
 struct WithLifetime<'a>(&'a i32);
 
-fn do_stuff(_: &WithLifetime<'_>) {}
+fn do_stuff(_: WithLifetime<'_>) {}
 
 fn main() {
     let invalid: WithLifetime<'_>;

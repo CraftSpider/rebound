@@ -581,7 +581,8 @@ pub fn generate_reflect_type(cfg: &Config, item: &Item) -> Result<TokenStream> {
         }
 
         // For each T, need `T: NotOutlives<'a>, 'b: 'a`
-        unsafe impl #out_impl_bounds #crate_name::value::NotOutlives<'_> for #name #out_where_bounds {}
+        // TODO: Add impl bounds lifetime to name
+        unsafe impl #out_impl_bounds #crate_name::value::NotOutlives<'no> for #name #out_where_bounds {}
     ))
 }
 

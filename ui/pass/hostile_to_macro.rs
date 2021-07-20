@@ -22,7 +22,7 @@ impl Foo {
     const BAZ: i32 = 1;
 
     fn new() -> Foo { ::core::todo!() }
-    fn bazzify(&self, a: i32) { ::core::todo!() }
+    fn bazzify(&self, _a: i32) { ::core::todo!() }
 }
 
 #[rebound]

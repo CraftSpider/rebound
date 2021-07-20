@@ -1,9 +1,10 @@
 //! A crate aiming to implement 'full' reflection in Rust.
 
 #![allow(incomplete_features, clippy::nonstandard_macro_braces)]
-#![feature(specialization, once_cell, never_type, ptr_metadata)]
+#![feature(specialization, once_cell, ptr_metadata)]
 // Features used just to implement reflection for their stuff
 // TODO: Make individual cargo features to support these
+#![cfg_attr(feature = "never-type", feature(never_type))]
 #![feature(
     associated_type_bounds,
     allocator_api,
