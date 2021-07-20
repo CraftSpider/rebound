@@ -1,4 +1,3 @@
-use crate::__helpers::*;
 use crate::reflect::*;
 use crate::{AssocConst, AssocFn, Field, Type};
 
@@ -25,6 +24,40 @@ macro_rules! reflect_prims {
     };
 }
 
+// macro_rules! reflect_tuples {
+//     () => {};
+//     // We need to be left-recursive to avoid parsing ambiguity, but the last element of a tuple
+//     // is special to we make it the distinct one.
+//     ($last:tt $($generics:tt)*) => {
+//         impl<$($generics,)* $last> Reflected for ($($generics,)* $last,)
+//         where
+//             $($generics: Reflected,)*
+//             $($generics::Key: Sized,)*
+//             $last: Reflected,
+//         {
+//             type Key = ($($generics::Key,)* $last::Key,);
+//
+//             fn name() -> String {
+//                 let mut out = "(".to_string();
+//
+//                 $(
+//                 out += &format!("{}, ", $generics::name());
+//                 )*
+//                 out += &format!("{},", $last::name());
+//
+//                 out += ")";
+//                 out
+//             }
+//
+//             unsafe fn init() {
+//                 Type::new_tuple::<($($generics,)* $last,)>()
+//             }
+//         }
+//
+//         reflect_tuples! { $($generics)* }
+//     };
+// }
+
 // Integers
 reflect_prims! {
     u8,
@@ -47,6 +80,10 @@ reflect_prims! {
     char,
     str,
 }
+
+// reflect_tuples! {
+//     A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+// }
 
 impl ReflectedImpl<0> for u8 {
     fn assoc_fns() -> Vec<AssocFn> {
@@ -288,7 +325,6 @@ impl ReflectedTuple for () {
     }
 }
 
-// TODO: Make this valid for non-static lifetimes maybe
 impl<T0> Reflected for (T0,)
 where
     T0: Reflected,
@@ -902,6 +938,57 @@ impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T {
 impl<T: Reflected, A0: Reflected> ReflectedFunction for fn(A0) -> T {
     fn args() -> Vec<Type> {
         vec![Type::from::<A0>()]
+    }
+
+    fn ret() -> Type {
+        Type::from::<T>()
+    }
+}
+
+impl<T: Reflected, A0: Reflected, A1: Reflected> Reflected for fn(A0, A1) -> T {
+    type Key = fn(A0::Key, A1::Key) -> T::Key;
+
+    fn name() -> String {
+        format!("fn({}, {}) -> {}", A0::name(), A1::name(), T::name())
+    }
+
+    unsafe fn init() {
+        Type::new_fn::<fn(A0, A1) -> T>()
+    }
+}
+
+impl<T: Reflected, A0: Reflected, A1: Reflected> ReflectedFunction for fn(A0, A1) -> T {
+    fn args() -> Vec<Type> {
+        vec![
+            Type::from::<A0>(),
+            Type::from::<A1>(),
+        ]
+    }
+
+    fn ret() -> Type {
+        Type::from::<T>()
+    }
+}
+
+impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected for fn(A0, A1, A2) -> T {
+    type Key = fn(A0::Key, A1::Key, A2::Key) -> T::Key;
+
+    fn name() -> String {
+        format!("fn({}, {}, {}) -> {}", A0::name(), A1::name(), A2::name(), T::name())
+    }
+
+    unsafe fn init() {
+        Type::new_fn::<fn(A0, A1, A2) -> T>()
+    }
+}
+
+impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> ReflectedFunction for fn(A0, A1, A2) -> T {
+    fn args() -> Vec<Type> {
+        vec![
+            Type::from::<A0>(),
+            Type::from::<A1>(),
+            Type::from::<A2>(),
+        ]
     }
 
     fn ret() -> Type {

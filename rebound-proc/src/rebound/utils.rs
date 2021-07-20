@@ -94,7 +94,7 @@ fn item_qual_name(cfg: &Config, name: &syn::Ident, generics: &syn::Generics) -> 
         quote!(module_path!())
     };
 
-    quote!(format!(#fmt_str, #module_path, stringify!(#name), #(#ty_generics,)* ))
+    quote!(::std::format!(#fmt_str, #module_path, stringify!(#name), #(#ty_generics,)* ))
 }
 
 #[derive(Copy, Clone)]

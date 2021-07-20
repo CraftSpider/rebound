@@ -58,10 +58,11 @@ pub fn generate_assoc_fn(
             #crate_name::AssocFn::new_dynamic(
                 #[allow(unused_mut, unused_variables)]
                 |this, mut args| {
+                    use ::core::convert::From;
                     let v = #crate_name::Value::from( <#self_ty>::#fn_name(this.cast_unsafe::<#receiver>(), #( args.remove(0).cast_unsafe::<#args>(), )* ) );
                     // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
                     //         As such, we know that the lifetimes here should never be violated.
-                    unsafe { core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v) }
+                    unsafe { ::core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v) }
                 },
                 stringify!(#fn_name),
                 #crate_name::Type::from::<#self_ty>(),
@@ -75,10 +76,11 @@ pub fn generate_assoc_fn(
             #crate_name::AssocFn::new_static(
                 #[allow(unused_mut, unused_variables)]
                 |mut args| {
+                    use ::core::convert::From;
                     let v = #crate_name::Value::from( <#self_ty>::#fn_name( #( args.remove(0).cast_unsafe::<#args>(), )* ) );
                     // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
                     //         As such, we know that the lifetimes here should never be violated.
-                    unsafe { core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v) }
+                    unsafe { ::core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v) }
                 },
                 stringify!(#fn_name),
                 #crate_name::Type::from::<#self_ty>(),
@@ -99,7 +101,10 @@ pub fn generate_assoc_const(
 
     Ok(quote!(
         #crate_name::AssocConst::new(
-            Box::new(|| #crate_name::Value::from(<#self_ty>::#const_name)),
+            ::std::boxed::Box::new(|| {
+                use ::core::convert::From;
+                #crate_name::Value::from(<#self_ty>::#const_name)
+            }),
             stringify!(#const_name),
             #crate_name::Type::from::<#self_ty>(),
             #crate_name::Type::from::<#const_ty>(),
@@ -134,13 +139,22 @@ pub fn generate_struct_field(
     };
 
     let accessor = if !no_get {
-        quote!(Some(#crate_name::__helpers::__make_ref_accessor!(#name, #field_name),))
+        quote!(::core::option::Option::Some(|this| {
+            let inner = this.borrow_unsafe::<#name>();
+            let v = #crate_name::Value::from_ref(&inner.#field_name);
+            // SAFETY: See rebound::ty::Ref
+            #[allow(unused_unsafe)]
+            unsafe { ::core::mem::transmute(v) }
+        }))
     } else {
         quote!(None)
     };
 
     let setter = if !no_set {
-        quote!(Some(#crate_name::__helpers::__make_setter!(#name, #field_name)))
+        quote!(::core::option::Option::Some(|this, value| {
+            let inner = this.borrow_unsafe_mut::<#name>();
+            inner.#field_name = value.cast_unsafe();
+        }))
     } else {
         quote!(None)
     };
@@ -189,15 +203,15 @@ pub fn generate_enum_field(
     };
 
     let accessor = if !no_get {
-        quote!(Some(|this| {
+        quote!(::core::option::Option::Some(|this| {
             let inner = this.borrow_unsafe::<#name>();
             if let #simple_name::#var_name #field_access = inner {
                 let v = #crate_name::Value::from_ref(field);
                 // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
                 //         As such, we know that the lifetimes here should never be violated.
-                core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v)
+                ::core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v)
             } else {
-                unreachable!()
+                ::core::unreachable!()
             }
         }))
     } else {
@@ -205,12 +219,12 @@ pub fn generate_enum_field(
     };
 
     let setter = if !no_set {
-        quote!(Some(|this, value| {
+        quote!(::core::option::Option::Some(|this, value| {
             let inner = this.borrow_unsafe_mut::<#name>();
             if let #simple_name::#var_name #field_access = inner {
                 *field = value.cast_unsafe::<#field_ty>();
             } else {
-                unreachable!()
+                ::core::unreachable!()
             }
         }))
     } else {
@@ -224,9 +238,10 @@ pub fn generate_enum_field(
             #name_arg,
             #crate_name::Type::from::<#name>(),
             if let #crate_name::Type::Enum(info) = #crate_name::Type::from::<#name>() {
+                use ::core::iter::{Iterator, IntoIterator};
                 info.variants().into_iter().filter(|var| var.name() == stringify!(#var_name)).nth(0).unwrap()
             } else {
-                unreachable!()
+                ::core::unreachable!()
             },
             #crate_name::Type::from::<#field_ty>(),
         )
@@ -247,19 +262,19 @@ pub fn generate_union_field(
     let field_name = field.ident.as_ref().unwrap();
 
     let accessor = if !no_get {
-        quote!(Some(|this| {
+        quote!(::core::option::Option::Some(|this| {
             let inner = this.borrow_unsafe::<#name>();
             let v = #crate_name::Value::from_ref(unsafe { &inner.#field_name });
             // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
             //         As such, we know that the lifetimes here should never be violated.
-            core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v)
+            ::core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v)
         }))
     } else {
         quote!(None)
     };
 
     let setter = if !no_set {
-        quote!(Some(|this, value| {
+        quote!(::core::option::Option::Some(|this, value| {
             let inner = this.borrow_unsafe_mut::<#name>();
             unsafe { inner.#field_name = value.cast_unsafe::<#field_ty>() };
         }))
@@ -302,7 +317,7 @@ pub fn generate_variant(
                 #crate_name::Variant::Struct(#crate_name::info::StructVariant::new(
                     stringify!(#var_name),
                     #crate_name::Type::from::<#name>(),
-                    || { vec![ #(#fields),* ] },
+                    || { ::std::vec![ #(#fields),* ] },
                     |val| {
                         if let #simple_name::#var_name { .. } = unsafe { val.borrow_unsafe::<#name>() } {
                             true
@@ -338,7 +353,7 @@ pub fn generate_variant(
                 #crate_name::Variant::Tuple(#crate_name::info::TupleVariant::new(
                     stringify!(#var_name),
                     #crate_name::Type::from::<#name>(),
-                    || { vec![ #(#fields),* ] },
+                    || { ::std::vec![ #(#fields),* ] },
                     |val| {
                         if let #name::#var_name(..) = val.borrow_unsafe::<#name>() {
                             true
@@ -365,9 +380,9 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
 
     Ok(quote!(
         impl #impl_bounds #crate_name::reflect::ReflectedEnum for #name #where_bounds {
-            fn variants() -> Vec<#crate_name::Variant> {
+            fn variants() -> ::std::vec::Vec<#crate_name::Variant> {
                 unsafe {
-                    vec![
+                    ::std::vec![
                         #(#variant_impls),*
                     ]
                 }
@@ -431,17 +446,17 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
 
     let out = quote!(
         impl #crate_name::reflect::ReflectedImpl<#num> for #self_ty {
-            fn assoc_fns() -> Vec<#crate_name::AssocFn> {
+            fn assoc_fns() -> ::std::vec::Vec<#crate_name::AssocFn> {
                 unsafe {
-                    vec![
+                    ::std::vec![
                         #(#impl_fns,)*
                     ]
                 }
             }
 
-            fn assoc_consts() -> Vec<#crate_name::AssocConst> {
+            fn assoc_consts() -> ::std::vec::Vec<#crate_name::AssocConst> {
                 unsafe {
-                    vec![
+                    ::std::vec![
                         #(#impl_consts,)*
                     ]
                 }
@@ -473,9 +488,9 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
             struct_impl = quote!(
                 impl #impl_bounds #crate_name::reflect::ReflectedStruct for #name #where_bounds {
                     #[allow(unused_unsafe)]
-                    fn fields() -> Vec<#crate_name::Field> {
+                    fn fields() -> ::std::vec::Vec<#crate_name::Field> {
                         unsafe {
-                            vec![
+                            ::std::vec![
                                 #(#fields,)*
                             ]
                         }
@@ -494,9 +509,9 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
             struct_impl = quote!(
                 impl #impl_bounds #crate_name::reflect::ReflectedTupleStruct for #name #where_bounds {
                     #[allow(unused_unsafe)]
-                    fn fields() -> Vec<#crate_name::Field> {
+                    fn fields() -> ::std::vec::Vec<#crate_name::Field> {
                         unsafe {
-                            vec![
+                            ::std::vec![
                                 #(#fields,)*
                             ]
                         }
@@ -532,9 +547,9 @@ pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<Toke
     Ok(quote!(
         impl #impl_bounds #crate_name::reflect::ReflectedUnion for #name #where_bounds {
             #[allow(unused_unsafe)]
-            fn fields() -> Vec<#crate_name::UnionField> {
+            fn fields() -> ::std::vec::Vec<#crate_name::UnionField> {
                 unsafe {
-                    vec![
+                    ::std::vec![
                         #(#fields,)*
                     ]
                 }
@@ -556,7 +571,7 @@ pub fn generate_reflect_type(cfg: &Config, item: &Item) -> Result<TokenStream> {
         impl #reflect_impl_bounds #crate_name::reflect::Reflected for #name #reflect_where_bounds {
             type Key = #static_name;
 
-            fn name() -> String {
+            fn name() -> ::std::string::String {
                 #rebound_name
             }
 

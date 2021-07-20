@@ -13,26 +13,28 @@ use std::lazy::SyncOnceCell;
 use std::sync::RwLock;
 
 /// Implement CommonTypeInfo for a given struct
-macro impl_common($ty:ty) {
-    impl CommonTypeInfo for $ty {
-        fn name(&self) -> String {
-            (self.vtable.name)()
-        }
+macro_rules! impl_common {
+    ($ty:ty) => {
+        impl CommonTypeInfo for $ty {
+            fn name(&self) -> String {
+                (self.vtable.name)()
+            }
 
-        fn assoc_fns(&self) -> &'static [AssocFn] {
-            (self.vtable.assoc_fns)()
-        }
+            fn assoc_fns(&self) -> &'static [AssocFn] {
+                (self.vtable.assoc_fns)()
+            }
 
-        fn assoc_consts(&self) -> &'static [AssocConst] {
-            (self.vtable.assoc_consts)()
-        }
+            fn assoc_consts(&self) -> &'static [AssocConst] {
+                (self.vtable.assoc_consts)()
+            }
 
-        fn as_ref<'a>(&self, val: &'a Value) -> Result<Value<'a>, Error> {
-            (self.vtable.as_ref)(val)
-        }
+            fn as_ref<'a>(&self, val: &'a Value) -> Result<Value<'a>, Error> {
+                (self.vtable.as_ref)(val)
+            }
 
-        fn as_mut<'a>(&self, val: &'a mut Value) -> Result<Value<'a>, Error> {
-            (self.vtable.as_mut)(val)
+            fn as_mut<'a>(&self, val: &'a mut Value) -> Result<Value<'a>, Error> {
+                (self.vtable.as_mut)(val)
+            }
         }
     }
 }

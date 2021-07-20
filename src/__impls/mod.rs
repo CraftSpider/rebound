@@ -1,5 +1,8 @@
 // TODO: Add ReflectedImpls for all types
 
+#[macro_use]
+pub mod __helpers;
+
 // Implementations for base types, such as `char` or `*const T`
 mod base;
 
