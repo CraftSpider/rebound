@@ -1,6 +1,6 @@
 //! Runtime information about a type
 
-use crate::info::*;
+use crate::info::{AssocConst, AssocFn, Field, UnionField, Variant};
 use crate::reflect::*;
 use crate::utils::StaticTypeMap;
 use crate::{Error, Value};
@@ -28,15 +28,15 @@ macro_rules! impl_common {
                 (self.vtable.assoc_consts)()
             }
 
-            fn as_ref<'a>(&self, val: &'a Value) -> Result<Value<'a>, Error> {
+            fn as_ref<'a>(&self, val: &'a Value<'_>) -> Result<Value<'a>, Error> {
                 (self.vtable.as_ref)(val)
             }
 
-            fn as_mut<'a>(&self, val: &'a mut Value) -> Result<Value<'a>, Error> {
+            fn as_mut<'a>(&self, val: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
                 (self.vtable.as_mut)(val)
             }
         }
-    }
+    };
 }
 
 // SAFETY: *do not touch these if you don't know what you're doing*
@@ -53,21 +53,21 @@ pub trait CommonTypeInfo {
     // fn impled_traits(&self) -> Vec<TraitInfo>;
 
     /// Convert a Value of this type to a reference to that value, if it's not already a reference
-    fn as_ref<'a>(&self, val: &'a Value) -> Result<Value<'a>, Error>;
+    fn as_ref<'a>(&self, val: &'a Value<'_>) -> Result<Value<'a>, Error>;
     /// Convert a Value of this type to a mutable reference to that value, if it's not already a
     /// reference
-    fn as_mut<'a>(&self, val: &'a mut Value) -> Result<Value<'a>, Error>;
+    fn as_mut<'a>(&self, val: &'a mut Value<'_>) -> Result<Value<'a>, Error>;
 }
 
-/// Common VTable used by all types
+/// Common `VTable` used by all types
 #[derive(Copy, Clone)]
 struct TypeVTable {
     name: fn() -> String,
     assoc_fns: fn() -> &'static [AssocFn],
     assoc_consts: fn() -> &'static [AssocConst],
 
-    as_ref: for<'a> fn(&'a Value) -> Result<Value<'a>, Error>,
-    as_mut: for<'a> fn(&'a mut Value) -> Result<Value<'a>, Error>,
+    as_ref: for<'a> fn(&'a Value<'_>) -> Result<Value<'a>, Error>,
+    as_mut: for<'a> fn(&'a mut Value<'_>) -> Result<Value<'a>, Error>,
 }
 
 impl fmt::Debug for TypeVTable {
@@ -327,6 +327,10 @@ impl Type {
     /// - References will have no lifetime
     /// - Possibly other things
     ///
+    /// # Panics
+    ///
+    /// If the function fails to acquire the global reflection lock
+    ///
     /// # Safety
     ///
     /// This function is in no way memory unsafe, however, the format used for type names is an
@@ -345,7 +349,7 @@ impl Type {
         None
     }
 
-    /// Get a Type instance by TypeId of its associated key, assuming it has been instantiated
+    /// Get a [`Type`] instance by [`TypeId`] of its associated key, assuming it has been instantiated
     /// beforehand.
     pub fn from_id(ty_id: &TypeId) -> Option<Type> {
         REFLECTED_TYS
@@ -428,11 +432,11 @@ impl CommonTypeInfo for Type {
         self.as_inner().assoc_consts()
     }
 
-    fn as_ref<'a>(&self, val: &'a Value) -> Result<Value<'a>, Error> {
+    fn as_ref<'a>(&self, val: &'a Value<'_>) -> Result<Value<'a>, Error> {
         self.as_inner().as_ref(val)
     }
 
-    fn as_mut<'a>(&self, val: &'a mut Value) -> Result<Value<'a>, Error> {
+    fn as_mut<'a>(&self, val: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
         self.as_inner().as_mut(val)
     }
 }
@@ -619,21 +623,21 @@ impl EnumInfo {
     }
 
     /// Retrieve the [`Variant`] of a given [`Value`]
-    pub fn variant_of(&self, val: &Value) -> Result<Variant, Error> {
+    pub fn variant_of(&self, val: &Value<'_>) -> Result<Variant, Error> {
         for i in self.variants() {
             if i.is_variant(val)? {
                 return Ok(i);
             }
         }
-        unreachable!("An instance of an enum should always be one of its variants")
+        Err(Error::wrong_type(val.ty(), Type::Enum(*self)))
     }
 
     /// Check whether a [`Value`] is of a specific [`Variant`], if it's of this type
-    pub fn is_variant(&self, val: &Value, var: &Variant) -> Result<bool, Error> {
-        if var.assoc_ty() == Type::Enum(*self) {
-            var.is_variant(val)
+    pub fn is_variant(&self, val: &Value<'_>, variant: &Variant) -> Result<bool, Error> {
+        if variant.assoc_ty() == Type::Enum(*self) {
+            variant.is_variant(val)
         } else {
-            Err(Error::wrong_type(var.assoc_ty(), Type::Enum(*self)))
+            Err(Error::wrong_type(variant.assoc_ty(), Type::Enum(*self)))
         }
     }
 }

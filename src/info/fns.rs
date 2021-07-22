@@ -145,9 +145,10 @@ impl AssocFn {
         }
 
         // Actually call the helper func
-        Ok(match &self.kind {
-            FnKind::Static { call } => call(args),
-            FnKind::Dynamic { call, .. } => call(this.unwrap(), args),
+        Ok(match (&self.kind, this) {
+            (FnKind::Static { call }, None) => call(args),
+            (FnKind::Dynamic { call, .. }, Some(this)) => call(this, args),
+            _ => unreachable!(),
         })
     }
 }

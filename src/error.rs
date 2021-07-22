@@ -58,14 +58,14 @@ pub enum Error {
 }
 
 impl Error {
-    pub(crate) fn wrong_type(wrong: Type, right: Type) -> Error {
+    pub(crate) const fn wrong_type(wrong: Type, right: Type) -> Error {
         Error::WrongType {
             wrong_ty: wrong,
             right_ty: right,
         }
     }
 
-    pub(crate) fn wrong_args_num(wrong: usize, right: usize) -> Error {
+    pub(crate) const fn wrong_args_num(wrong: usize, right: usize) -> Error {
         Error::WrongArgsNum {
             wrong_num: wrong,
             right_num: right,

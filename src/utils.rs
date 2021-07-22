@@ -22,6 +22,10 @@ impl<T: 'static> StaticTypeMap<T> {
 
     /// Get or init the value related to a specific type in a thread-safe manner. The closure passed
     /// to this function will be run at most once per Ty over the life of the program.
+    ///
+    /// # Panics
+    ///
+    /// If we fail to acquire the backing lock for the internal map
     pub fn call_once<Ty, F>(&'static self, f: F) -> &'static T
     where
         Ty: ?Sized + Reflected,
@@ -29,7 +33,7 @@ impl<T: 'static> StaticTypeMap<T> {
     {
         let cell = {
             let reader = self.map.read().unwrap();
-            reader.get(&Ty::name()).cloned() // Clone reference
+            reader.get(&Ty::name()).copied() // Copy reference
         };
 
         if let Some(cell) = cell {

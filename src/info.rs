@@ -17,4 +17,4 @@ pub use union_fields::UnionField;
 pub use variants::{StructVariant, TupleVariant, UnitVariant, Variant};
 
 type AccessHelper = for<'a, 'b> fn(&'a Value<'b>) -> Value<'a>;
-type SetHelper = fn(&mut Value, Value<'static>);
+type SetHelper = fn(&mut Value<'_>, Value<'static>);

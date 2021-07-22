@@ -21,6 +21,12 @@ fn drop_impl<T: ?Sized + Reflected>(meta: *mut (), ptr: *mut ()) {
     }
 }
 
+/// Trait to represent a bound that a type may not outlives some given lifetime. Used to allow
+/// sound borrowing of non-static Values.
+///
+/// If this was allowed, one could create a value containing a reference with a lifetime of `'a`,
+/// then when they call `borrow`, the compiler would allow the creation of an output reference with
+/// a lifetime of `'static`, which would be immediately unsound.
 pub unsafe trait NotOutlives<'a> {}
 
 /// A Value represents a value with an erased type. It may be owned or borrowed.
@@ -66,7 +72,7 @@ impl<'a> Value<'a> {
 
     /// Create a new borrowed Value from a reference, with a lifetime no greater than that of the
     /// provided reference.
-    pub fn from_ref<T: ?Sized + Reflected>(val: &T) -> Value {
+    pub fn from_ref<T: ?Sized + Reflected>(val: &T) -> Value<'_> {
         let (ptr, meta) = (val as *const T as *mut T).to_raw_parts();
         let meta = Box::into_raw(Box::new(meta)).cast();
 
@@ -124,7 +130,9 @@ impl<'a> Value<'a> {
         if let ValueKind::Owned { .. } = &self.kind {
             if Type::from::<T>() == self.ty {
                 self.kind = ValueKind::Moved;
-                Ok(*Box::from_raw(self.ptr as *mut T))
+                // Want to drop meta here as well, else we'll leak it
+                Box::from_raw(self.meta);
+                Ok(*Box::from_raw(self.ptr.cast::<T>()))
             } else {
                 let ty = self.ty;
                 Err((self, Error::wrong_type(Type::from::<T>(), ty)))
@@ -136,6 +144,11 @@ impl<'a> Value<'a> {
 
     /// Attempt to move the contained T out of this Value, panicking on failure. This will panic
     /// in all the cases that [`Value::try_case_unsafe`] would return an Err value.
+    ///
+    /// # Panics
+    ///
+    /// If this value contains some type other than `T`, or if this is a borrowed value and as
+    /// such cannot be moved out of
     ///
     /// # Safety
     ///
@@ -157,6 +170,12 @@ impl<'a> Value<'a> {
 
     /// Attempt to move the contained T out of this Value, panicking on failure. This will panic
     /// in all the cases that [`Value::try_cast`] would return an Err value.
+    ///
+    /// # Panics
+    ///
+    /// If this value contains some type other than `T`, or if this is a borrowed value and as
+    /// such cannot be moved out of
+    ///
     pub fn cast<T: Reflected + NotOutlives<'a>>(self) -> T {
         self.try_cast()
             .unwrap_or_else(|_| panic!("Couldn't cast Value into type {}", T::name()))
@@ -183,8 +202,12 @@ impl<'a> Value<'a> {
         }
     }
 
-    /// Attempt to immutably borrow the T contained in this value, panicking on failure. This will
-    /// panic in all the cases that [`Value::try_borrow`] would return an Err value.
+    /// Attempt to immutably borrow the T contained in this value, panicking on failure.
+    ///
+    /// # Panics
+    ///
+    /// In all cases that [`Value::try_borrow_unsafe`] would return an Err, if this value contains
+    /// some type other than `T`
     ///
     /// # Safety
     ///
@@ -209,7 +232,7 @@ impl<'a> Value<'a> {
     /// // Fails
     /// let i = int.try_borrow::<&str>();
     /// ```
-    pub fn try_borrow<'b, T: ?Sized + Reflected + NotOutlives<'b>>(
+    pub fn try_borrow<'b, T: ?Sized + Reflected + NotOutlives<'a>>(
         &'b self,
     ) -> Result<&'b T, Error> {
         unsafe { self.try_borrow_unsafe() }
@@ -217,6 +240,11 @@ impl<'a> Value<'a> {
 
     /// Attempt to immutably borrow the T contained in this value, panicking on failure. This will
     /// panic in all the cases that [`Value::try_borrow`] would return an Err value.
+    ///
+    /// # Panics
+    ///
+    /// In all cases that [`Value::try_borrow`] would return an Err, if this value contains some
+    /// type other than `T`
     ///
     /// # Example
     ///
@@ -229,7 +257,7 @@ impl<'a> Value<'a> {
     /// // Panics
     /// let b = bool.borrow::<char>();
     /// ```
-    pub fn borrow<'b, T: ?Sized + Reflected + NotOutlives<'b>>(&'b self) -> &'b T {
+    pub fn borrow<'b, T: ?Sized + Reflected + NotOutlives<'a>>(&'b self) -> &'b T {
         self.try_borrow()
             .unwrap_or_else(|_| panic!("Couldn't borrow Value as type {}", T::name()))
     }
@@ -252,6 +280,11 @@ impl<'a> Value<'a> {
 
     /// Attempt to mutably borrow the T contained in this value, panicking on failure. This will
     /// panic in all the cases that [`Value::try_borrow_mut`] would return an Err value.
+    ///
+    /// # Panics
+    ///
+    /// In all cases that [`Value::try_borrow_unsafe_mut`] would return an Err, if this value
+    /// contains some type other than `T`
     ///
     /// # Safety
     ///
@@ -281,7 +314,7 @@ impl<'a> Value<'a> {
     /// *c = 2;
     ///
     /// ```
-    pub fn try_borrow_mut<'b, T: ?Sized + Reflected + NotOutlives<'b>>(
+    pub fn try_borrow_mut<'b, T: ?Sized + Reflected + NotOutlives<'a>>(
         &'b mut self,
     ) -> Result<&'b mut T, Error> {
         unsafe { self.try_borrow_unsafe_mut() }
@@ -289,6 +322,11 @@ impl<'a> Value<'a> {
 
     /// Attempt to mutably borrow the T contained in this value, panicking on failure. This will
     /// panic in all the cases that [`Value::try_borrow_mut`] would return an Err value.
+    ///
+    /// # Panics
+    ///
+    /// In all cases that [`Value::try_borrow_mut`] would return an Err, if this value
+    /// contains some type other than `T`
     ///
     /// # Example
     ///
@@ -301,7 +339,7 @@ impl<'a> Value<'a> {
     /// // Fails
     /// let s = str.borrow_mut::<&i32>();
     /// ```
-    pub fn borrow_mut<'b, T: ?Sized + Reflected + NotOutlives<'b>>(&'b mut self) -> &'b mut T {
+    pub fn borrow_mut<'b, T: ?Sized + Reflected + NotOutlives<'a>>(&'b mut self) -> &'b mut T {
         self.try_borrow_mut()
             .unwrap_or_else(|_| panic!("Couldn't mutably borrow Value as type {}", T::name()))
     }
@@ -309,14 +347,14 @@ impl<'a> Value<'a> {
     /// If this Value is not a reference Type, get a Value containing an immutable reference to
     /// the data contained within this Value. A convenience function for operations that expect a
     /// reference to data you own.
-    pub fn as_ref(&self) -> Result<Value, Error> {
+    pub fn as_ref(&self) -> Result<Value<'_>, Error> {
         self.ty.as_ref(self)
     }
 
     /// If this Value is not a reference Type, get a Value containing a mutable reference to the
     /// data contained within this Value. A convenience function for operations that expect a
     /// mutable reference to data you own.
-    pub fn as_mut(&mut self) -> Result<Value, Error> {
+    pub fn as_mut(&mut self) -> Result<Value<'_>, Error> {
         let ty = self.ty;
         ty.as_mut(self)
     }

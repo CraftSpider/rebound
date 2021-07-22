@@ -1,4 +1,7 @@
-use crate::reflect::*;
+use crate::reflect::{
+    Reflected, ReflectedArray, ReflectedFunction, ReflectedImpl, ReflectedPointer,
+    ReflectedReference, ReflectedSlice, ReflectedTuple,
+};
 use crate::{AssocConst, AssocFn, Field, Type};
 
 use crate::value::NotOutlives;
@@ -274,13 +277,13 @@ impl ReflectedImpl<0> for str {
             fn as_mut_ptr(&mut self) -> *mut u8;
             fn split_at(&self, mid: usize) -> (&str, &str);
             fn split_at_mut(&mut self, mid: usize) -> (&mut str, &mut str);
-            fn chars(&self) -> Chars;
-            fn char_indices(&self) -> CharIndices;
-            fn bytes(&self) -> Bytes;
-            fn split_whitespace(&self) -> SplitWhitespace;
-            fn split_ascii_whitespace(&self) -> SplitAsciiWhitespace;
-            fn lines(&self) -> Lines;
-            fn encode_utf16(&self) -> EncodeUtf16;
+            fn chars(&self) -> Chars<'_>;
+            fn char_indices(&self) -> CharIndices<'_>;
+            fn bytes(&self) -> Bytes<'_>;
+            fn split_whitespace(&self) -> SplitWhitespace<'_>;
+            fn split_ascii_whitespace(&self) -> SplitAsciiWhitespace<'_>;
+            fn lines(&self) -> Lines<'_>;
+            fn encode_utf16(&self) -> EncodeUtf16<'_>;
             fn trim(&self) -> &str;
             fn trim_start(&self) -> &str;
             fn trim_end(&self) -> &str;
@@ -288,9 +291,9 @@ impl ReflectedImpl<0> for str {
             fn eq_ignore_ascii_case(&self, other: &str) -> bool;
             fn make_ascii_uppercase(&mut self);
             fn make_ascii_lowercase(&mut self);
-            fn escape_debug(&self) -> EscapeDebug;
-            fn escape_default(&self) -> EscapeDefault;
-            fn escape_unicode(&self) -> EscapeUnicode;
+            fn escape_debug(&self) -> EscapeDebug<'_>;
+            fn escape_default(&self) -> EscapeDefault<'_>;
+            fn escape_unicode(&self) -> EscapeUnicode<'_>;
             fn into_boxed_bytes(self: Box<str>) -> Box<[u8]>;
             fn to_lowercase(&self) -> String;
             fn to_uppercase(&self) -> String;
@@ -959,10 +962,7 @@ impl<T: Reflected, A0: Reflected, A1: Reflected> Reflected for fn(A0, A1) -> T {
 
 impl<T: Reflected, A0: Reflected, A1: Reflected> ReflectedFunction for fn(A0, A1) -> T {
     fn args() -> Vec<Type> {
-        vec![
-            Type::from::<A0>(),
-            Type::from::<A1>(),
-        ]
+        vec![Type::from::<A0>(), Type::from::<A1>()]
     }
 
     fn ret() -> Type {
@@ -974,7 +974,13 @@ impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected for fn
     type Key = fn(A0::Key, A1::Key, A2::Key) -> T::Key;
 
     fn name() -> String {
-        format!("fn({}, {}, {}) -> {}", A0::name(), A1::name(), A2::name(), T::name())
+        format!(
+            "fn({}, {}, {}) -> {}",
+            A0::name(),
+            A1::name(),
+            A2::name(),
+            T::name()
+        )
     }
 
     unsafe fn init() {
@@ -982,13 +988,11 @@ impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected for fn
     }
 }
 
-impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> ReflectedFunction for fn(A0, A1, A2) -> T {
+impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> ReflectedFunction
+    for fn(A0, A1, A2) -> T
+{
     fn args() -> Vec<Type> {
-        vec![
-            Type::from::<A0>(),
-            Type::from::<A1>(),
-            Type::from::<A2>(),
-        ]
+        vec![Type::from::<A0>(), Type::from::<A1>(), Type::from::<A2>()]
     }
 
     fn ret() -> Type {

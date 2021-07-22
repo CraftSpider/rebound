@@ -1,9 +1,25 @@
 //! A crate aiming to implement 'full' reflection in Rust.
 
 #![allow(incomplete_features, clippy::nonstandard_macro_braces)]
+#![warn(
+    missing_docs,
+    elided_lifetimes_in_paths,
+    explicit_outlives_requirements,
+    missing_abi,
+    noop_method_call,
+    pointer_structural_match,
+    semicolon_in_expressions_from_macros,
+    unused_import_braces,
+    unused_lifetimes,
+    clippy::cargo,
+    clippy::missing_panics_doc,
+    clippy::doc_markdown,
+    clippy::ptr_as_ptr,
+    clippy::cloned_instead_of_copied,
+    clippy::unreadable_literal
+)]
 #![feature(specialization, once_cell, ptr_metadata)]
 // Features used just to implement reflection for their stuff
-// TODO: Make individual cargo features to support these
 #![cfg_attr(feature = "never-type", feature(never_type))]
 #![feature(
     associated_type_bounds,

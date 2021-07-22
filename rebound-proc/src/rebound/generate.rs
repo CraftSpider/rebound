@@ -62,7 +62,7 @@ pub fn generate_assoc_fn(
                     let v = #crate_name::Value::from( <#self_ty>::#fn_name(this.cast_unsafe::<#receiver>(), #( args.remove(0).cast_unsafe::<#args>(), )* ) );
                     // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
                     //         As such, we know that the lifetimes here should never be violated.
-                    unsafe { ::core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v) }
+                    unsafe { ::core::mem::transmute::<#crate_name::Value<'_>, #crate_name::Value<'_>>(v) }
                 },
                 stringify!(#fn_name),
                 #crate_name::Type::from::<#self_ty>(),
