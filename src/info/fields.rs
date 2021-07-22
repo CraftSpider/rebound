@@ -68,7 +68,7 @@ impl Field {
     /// Internal Function, creates a new unnamed field
     ///
     /// # Safety
-    ///f
+    ///
     /// Should only be called within a Reflected item's `fields` implementation
     pub unsafe fn new_tuple(
         get_ptr: Option<AccessHelper>,

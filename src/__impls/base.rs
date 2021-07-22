@@ -6,6 +6,8 @@ use crate::{AssocConst, AssocFn, Field, Type};
 
 use crate::value::NotOutlives;
 use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
+use std::lazy::SyncOnceCell;
+use crate::utils::StaticTypeMap;
 
 macro_rules! reflect_prims {
     ($($ty:ty),+ $(,)?) => {
@@ -323,8 +325,8 @@ impl Reflected for () {
 }
 
 impl ReflectedTuple for () {
-    fn fields() -> Vec<Field> {
-        vec![]
+    fn fields() -> &'static [Field] {
+        &[]
     }
 }
 
@@ -347,16 +349,24 @@ impl<T0> ReflectedTuple for (T0,)
 where
     T0: Reflected,
 {
-    fn fields() -> Vec<Field> {
-        unsafe {
-            vec![Field::new_tuple(
-                Some(__make_ref_accessor!((T0,), 0)),
-                Some(__make_setter!((T0,), 0)),
-                0,
-                Type::from::<(T0,)>(),
-                Type::from::<T0>(),
-            )]
-        }
+    fn fields() -> &'static [Field] {
+        static TUPLE_FIELDS: SyncOnceCell<StaticTypeMap<[Field; 1]>> = SyncOnceCell::new();
+
+        TUPLE_FIELDS
+            .get_or_init(StaticTypeMap::new)
+            .call_once::<Self, _>(|| {
+                unsafe {
+                    [
+                        Field::new_tuple(
+                            Some(__make_ref_accessor!((T0,), 0)),
+                            Some(__make_setter!((T0,), 0)),
+                            0,
+                            Type::from::<(T0,)>(),
+                            Type::from::<T0>(),
+                        )
+                    ]
+                }
+            })
     }
 }
 
@@ -390,25 +400,31 @@ where
     T0::Key: Sized,
     T1: Reflected,
 {
-    fn fields() -> Vec<Field> {
-        unsafe {
-            vec![
-                Field::new_tuple(
-                    Some(__make_ref_accessor!((T0, T1), 0)),
-                    Some(__make_setter!((T0, T1), 0)),
-                    0,
-                    Type::from::<(T0, T1)>(),
-                    Type::from::<T0>(),
-                ),
-                Field::new_tuple(
-                    Some(__make_ref_accessor!((T0, T1), 1)),
-                    Some(__make_setter!((T0, T1), 1)),
-                    1,
-                    Type::from::<(T0, T1)>(),
-                    Type::from::<T1>(),
-                ),
-            ]
-        }
+    fn fields() -> &'static [Field] {
+        static TUPLE_FIELDS: SyncOnceCell<StaticTypeMap<[Field; 2]>> = SyncOnceCell::new();
+
+        TUPLE_FIELDS
+            .get_or_init(StaticTypeMap::new)
+            .call_once::<Self, _>(|| {
+                unsafe {
+                    [
+                        Field::new_tuple(
+                            Some(__make_ref_accessor!((T0, T1), 0)),
+                            Some(__make_setter!((T0, T1), 0)),
+                            0,
+                            Type::from::<(T0, T1)>(),
+                            Type::from::<T0>(),
+                        ),
+                        Field::new_tuple(
+                            Some(__make_ref_accessor!((T0, T1), 1)),
+                            Some(__make_setter!((T0, T1), 1)),
+                            1,
+                            Type::from::<(T0, T1)>(),
+                            Type::from::<T1>(),
+                        ),
+                    ]
+                }
+            })
     }
 }
 
@@ -447,32 +463,38 @@ where
     T1::Key: Sized,
     T2: Reflected,
 {
-    fn fields() -> Vec<Field> {
-        unsafe {
-            vec![
-                Field::new_tuple(
-                    Some(__make_ref_accessor!((T0, T1, T2), 0)),
-                    Some(__make_setter!((T0, T1, T2), 0)),
-                    0,
-                    Type::from::<(T0, T1, T2)>(),
-                    Type::from::<T0>(),
-                ),
-                Field::new_tuple(
-                    Some(__make_ref_accessor!((T0, T1, T2), 1)),
-                    Some(__make_setter!((T0, T1, T2), 1)),
-                    1,
-                    Type::from::<(T0, T1, T2)>(),
-                    Type::from::<T1>(),
-                ),
-                Field::new_tuple(
-                    Some(__make_ref_accessor!((T0, T1, T2), 2)),
-                    Some(__make_setter!((T0, T1, T2), 2)),
-                    2,
-                    Type::from::<(T0, T1, T2)>(),
-                    Type::from::<T1>(),
-                ),
-            ]
-        }
+    fn fields() -> &'static [Field] {
+        static TUPLE_FIELDS: SyncOnceCell<StaticTypeMap<[Field; 3]>> = SyncOnceCell::new();
+
+        TUPLE_FIELDS
+            .get_or_init(StaticTypeMap::new)
+            .call_once::<Self, _>(|| {
+                unsafe {
+                    [
+                        Field::new_tuple(
+                            Some(__make_ref_accessor!((T0, T1, T2), 0)),
+                            Some(__make_setter!((T0, T1, T2), 0)),
+                            0,
+                            Type::from::<(T0, T1, T2)>(),
+                            Type::from::<T0>(),
+                        ),
+                        Field::new_tuple(
+                            Some(__make_ref_accessor!((T0, T1, T2), 1)),
+                            Some(__make_setter!((T0, T1, T2), 1)),
+                            1,
+                            Type::from::<(T0, T1, T2)>(),
+                            Type::from::<T1>(),
+                        ),
+                        Field::new_tuple(
+                            Some(__make_ref_accessor!((T0, T1, T2), 2)),
+                            Some(__make_setter!((T0, T1, T2), 2)),
+                            2,
+                            Type::from::<(T0, T1, T2)>(),
+                            Type::from::<T1>(),
+                        ),
+                    ]
+                }
+            })
     }
 }
 

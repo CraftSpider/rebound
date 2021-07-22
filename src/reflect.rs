@@ -56,7 +56,7 @@ pub trait Reflected {
 /// A trait representing a reflected tuple. Supports operations specific to tuples
 pub trait ReflectedTuple: Reflected {
     /// Retrieve the fields of this Tuple
-    fn fields() -> Vec<Field>;
+    fn fields() -> &'static [Field];
 }
 
 /// A trait representing a reflected slice. Supports operations specific to slices

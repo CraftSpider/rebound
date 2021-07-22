@@ -453,12 +453,12 @@ impl_common!(PrimitiveInfo);
 #[derive(Debug, Copy, Clone)]
 pub struct TupleInfo {
     vtable: TypeVTable,
-    fields: fn() -> Vec<Field>,
+    fields: fn() -> &'static [Field],
 }
 
 impl TupleInfo {
     /// Get all the [`Fields`](Field) of this Tuple
-    pub fn fields(&self) -> Vec<Field> {
+    pub fn fields(&self) -> &'static [Field] {
         (self.fields)()
     }
 }
