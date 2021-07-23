@@ -2,10 +2,10 @@
 
 use crate::Reflected;
 
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::lazy::SyncOnceCell;
 use std::sync::RwLock;
-use std::any::TypeId;
 
 /// A helper for making `static` variables in a generic which are unique per type used in the
 /// generic.

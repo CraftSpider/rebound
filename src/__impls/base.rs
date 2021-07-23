@@ -2,12 +2,12 @@ use crate::reflect::{
     Reflected, ReflectedArray, ReflectedFunction, ReflectedImpl, ReflectedPointer,
     ReflectedReference, ReflectedSlice, ReflectedTuple,
 };
+use crate::utils::StaticTypeMap;
+use crate::value::NotOutlives;
 use crate::{AssocConst, AssocFn, Field, Type};
 
-use crate::value::NotOutlives;
 use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
 use std::lazy::SyncOnceCell;
-use crate::utils::StaticTypeMap;
 
 macro_rules! reflect_prims {
     ($($ty:ty),+ $(,)?) => {
@@ -354,18 +354,14 @@ where
 
         TUPLE_FIELDS
             .get_or_init(StaticTypeMap::new)
-            .call_once::<Self, _>(|| {
-                unsafe {
-                    [
-                        Field::new_tuple(
-                            Some(__make_ref_accessor!((T0,), 0)),
-                            Some(__make_setter!((T0,), 0)),
-                            0,
-                            Type::from::<(T0,)>(),
-                            Type::from::<T0>(),
-                        )
-                    ]
-                }
+            .call_once::<Self, _>(|| unsafe {
+                [Field::new_tuple(
+                    Some(__make_ref_accessor!((T0,), 0)),
+                    Some(__make_setter!((T0,), 0)),
+                    0,
+                    Type::from::<(T0,)>(),
+                    Type::from::<T0>(),
+                )]
             })
     }
 }
@@ -405,25 +401,23 @@ where
 
         TUPLE_FIELDS
             .get_or_init(StaticTypeMap::new)
-            .call_once::<Self, _>(|| {
-                unsafe {
-                    [
-                        Field::new_tuple(
-                            Some(__make_ref_accessor!((T0, T1), 0)),
-                            Some(__make_setter!((T0, T1), 0)),
-                            0,
-                            Type::from::<(T0, T1)>(),
-                            Type::from::<T0>(),
-                        ),
-                        Field::new_tuple(
-                            Some(__make_ref_accessor!((T0, T1), 1)),
-                            Some(__make_setter!((T0, T1), 1)),
-                            1,
-                            Type::from::<(T0, T1)>(),
-                            Type::from::<T1>(),
-                        ),
-                    ]
-                }
+            .call_once::<Self, _>(|| unsafe {
+                [
+                    Field::new_tuple(
+                        Some(__make_ref_accessor!((T0, T1), 0)),
+                        Some(__make_setter!((T0, T1), 0)),
+                        0,
+                        Type::from::<(T0, T1)>(),
+                        Type::from::<T0>(),
+                    ),
+                    Field::new_tuple(
+                        Some(__make_ref_accessor!((T0, T1), 1)),
+                        Some(__make_setter!((T0, T1), 1)),
+                        1,
+                        Type::from::<(T0, T1)>(),
+                        Type::from::<T1>(),
+                    ),
+                ]
             })
     }
 }
@@ -468,32 +462,30 @@ where
 
         TUPLE_FIELDS
             .get_or_init(StaticTypeMap::new)
-            .call_once::<Self, _>(|| {
-                unsafe {
-                    [
-                        Field::new_tuple(
-                            Some(__make_ref_accessor!((T0, T1, T2), 0)),
-                            Some(__make_setter!((T0, T1, T2), 0)),
-                            0,
-                            Type::from::<(T0, T1, T2)>(),
-                            Type::from::<T0>(),
-                        ),
-                        Field::new_tuple(
-                            Some(__make_ref_accessor!((T0, T1, T2), 1)),
-                            Some(__make_setter!((T0, T1, T2), 1)),
-                            1,
-                            Type::from::<(T0, T1, T2)>(),
-                            Type::from::<T1>(),
-                        ),
-                        Field::new_tuple(
-                            Some(__make_ref_accessor!((T0, T1, T2), 2)),
-                            Some(__make_setter!((T0, T1, T2), 2)),
-                            2,
-                            Type::from::<(T0, T1, T2)>(),
-                            Type::from::<T1>(),
-                        ),
-                    ]
-                }
+            .call_once::<Self, _>(|| unsafe {
+                [
+                    Field::new_tuple(
+                        Some(__make_ref_accessor!((T0, T1, T2), 0)),
+                        Some(__make_setter!((T0, T1, T2), 0)),
+                        0,
+                        Type::from::<(T0, T1, T2)>(),
+                        Type::from::<T0>(),
+                    ),
+                    Field::new_tuple(
+                        Some(__make_ref_accessor!((T0, T1, T2), 1)),
+                        Some(__make_setter!((T0, T1, T2), 1)),
+                        1,
+                        Type::from::<(T0, T1, T2)>(),
+                        Type::from::<T1>(),
+                    ),
+                    Field::new_tuple(
+                        Some(__make_ref_accessor!((T0, T1, T2), 2)),
+                        Some(__make_setter!((T0, T1, T2), 2)),
+                        2,
+                        Type::from::<(T0, T1, T2)>(),
+                        Type::from::<T1>(),
+                    ),
+                ]
             })
     }
 }
