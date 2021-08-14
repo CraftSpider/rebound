@@ -1,17 +1,17 @@
 //! Reflection related traits
 
 use crate::info::UnionField;
+use crate::utils::StaticTypeMap;
 use crate::{AssocConst, AssocFn, Error, Field, Type, Value, Variant};
 
-use crate::utils::StaticTypeMap;
-use rebound_proc::impl_find;
 use core::ptr;
+use rebound_proc::impl_find;
 use std::lazy::SyncOnceCell;
 
 /// A trait representing any reflected [`Type`]. Supports operations common to all Types,
 /// such as retrieving its qualified name or impl information.
 pub trait Reflected {
-    /// The static key type used for the backing TypeId of a Type
+    /// The static key type used for the backing [`TypeId`] of a Type
     type Key: ?Sized + 'static;
 
     /// Get the qualified name of this Type
@@ -56,7 +56,7 @@ pub trait Reflected {
 /// A trait representing a reflected tuple. Supports operations specific to tuples
 pub trait ReflectedTuple: Reflected {
     /// Retrieve the fields of this Tuple
-    fn fields() -> Vec<Field>;
+    fn fields() -> &'static [Field];
 }
 
 /// A trait representing a reflected slice. Supports operations specific to slices
@@ -143,8 +143,8 @@ impl<T: ?Sized + Reflected, const N: u8> ReflectedImpl<N> for T {
 
 // Crate-private auto impls
 pub(crate) trait Ref: Reflected {
-    fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error>;
-    fn mut_val<'a>(val: &'a mut Value) -> Result<Value<'a>, Error>;
+    fn ref_val<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error>;
+    fn mut_val<'a>(val: &'a mut Value<'_>) -> Result<Value<'a>, Error>;
 }
 
 // SAFETY: Value cannot be safely constructed with a lifetime that outlives the contained object.
@@ -152,17 +152,17 @@ pub(crate) trait Ref: Reflected {
 //         The transmute just conveys this to the rust compiler, converting the lifetime.
 
 impl<T: ?Sized + Reflected> Ref for T {
-    default fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error> {
+    default fn ref_val<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error> {
         unsafe {
-            Ok(core::mem::transmute::<Value, Value>(Value::from(
+            Ok(core::mem::transmute::<Value<'_>, Value<'_>>(Value::from(
                 val.borrow_unsafe::<Self>(),
             )))
         }
     }
 
-    default fn mut_val<'a>(val: &'a mut Value) -> Result<Value<'a>, Error> {
+    default fn mut_val<'a>(val: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
         unsafe {
-            Ok(core::mem::transmute::<Value, Value>(Value::from(
+            Ok(core::mem::transmute::<Value<'_>, Value<'_>>(Value::from(
                 val.borrow_unsafe_mut::<Self>(),
             )))
         }
@@ -170,26 +170,28 @@ impl<T: ?Sized + Reflected> Ref for T {
 }
 
 impl<T: ?Sized + Reflected> Ref for &T {
-    fn ref_val<'a>(val: &'a Value) -> Result<Value<'a>, Error> {
+    fn ref_val<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error> {
         unsafe {
             let new_ref = ptr::from_raw_parts::<T>(val.raw_ptr().cast(), *val.raw_meta().cast())
                 .as_ref()
                 .unwrap();
-            Ok(core::mem::transmute::<Value, Value>(Value::from(new_ref)))
+            Ok(core::mem::transmute::<Value<'_>, Value<'_>>(Value::from(
+                new_ref,
+            )))
         }
     }
 
-    fn mut_val<'a>(_: &'a mut Value) -> Result<Value<'a>, Error> {
+    fn mut_val<'a>(_: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
         Err(Error::CantReborrow)
     }
 }
 
 impl<T: ?Sized + Reflected> Ref for &mut T {
-    fn ref_val<'a>(_: &'a Value) -> Result<Value<'a>, Error> {
+    fn ref_val<'a>(_: &'a Value<'_>) -> Result<Value<'a>, Error> {
         Err(Error::CantReborrow)
     }
 
-    fn mut_val<'a>(_: &'a mut Value) -> Result<Value<'a>, Error> {
+    fn mut_val<'a>(_: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
         Err(Error::CantReborrow)
     }
 }

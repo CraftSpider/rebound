@@ -1,6 +1,6 @@
 [package]
 name = "rebound"
-version = "0.2.0"
+version = "0.3.0"
 description = "Full runtime reflection for Rust, with lifetime safety"
 keywords = ["reflection", "reflect", "no_std"]
 categories = ["memory-management"]
@@ -14,9 +14,14 @@ edition = "2018"
 [features]
 default = ["core", "alloc", "std"]
 
+# Reflection support for various crates
+all-crates = ["core", "alloc", "std"]
 core = []
 alloc = []
 std = []
+
+# Reflection support for certain nightly features
+all-features = ["never-type"]
 never-type = []
 
 [dependencies]

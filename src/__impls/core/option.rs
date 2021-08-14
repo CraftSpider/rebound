@@ -2,7 +2,7 @@ use core::option::*;
 
 use rebound_proc::extern_items;
 
-// TODO: Real type of `!` is private
+use crate::__impls::PrivateTy;
 
 extern_items! {
     pub enum Option<T> {
@@ -11,6 +11,6 @@ extern_items! {
     }
 
     pub struct IntoIter<A> {
-        inner: !,
+        inner: PrivateTy,
     }
 }

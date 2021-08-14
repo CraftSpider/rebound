@@ -2,7 +2,7 @@ use core::iter::*;
 
 use rebound_proc::extern_items;
 
-// TODO: Real type of `!` is private
+use crate::__impls::PrivateTy;
 
 extern_items! {
     pub struct Copied<I> {
@@ -10,11 +10,11 @@ extern_items! {
     }
 
     pub struct Flatten<I: Iterator<Item: IntoIterator>> {
-        inner: !,
+        inner: PrivateTy,
     }
 
     pub struct FlatMap<I, U: IntoIterator, F> {
-        inner: !,
+        inner: PrivateTy,
     }
 
     pub struct Chain<A, B> {

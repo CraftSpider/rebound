@@ -2,22 +2,22 @@ use core::char::*;
 
 use rebound_proc::extern_items;
 
-// TODO: Real kinds of `!` are private
+use crate::__impls::PrivateTy;
 
 extern_items! {
     pub struct EscapeDebug(EscapeDefault);
 
     pub struct EscapeDefault {
-        state: !,
+        state: PrivateTy,
     }
 
     pub struct EscapeUnicode {
         c: char,
-        state: !,
+        state: PrivateTy,
         hex_digit_idx: usize,
     }
 
-    pub struct ToLowercase(!);
+    pub struct ToLowercase(PrivateTy);
 
-    pub struct ToUppercase(!);
+    pub struct ToUppercase(PrivateTy);
 }
