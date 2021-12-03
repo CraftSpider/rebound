@@ -11,7 +11,7 @@ use std::ptr::NonNull;
 /// A trait representing any reflected [`Type`]. Supports operations common to all Types,
 /// such as retrieving its qualified name or impl information.
 pub trait Reflected {
-    /// The static key type used for the backing [`TypeId`] of a Type
+    /// The static key type used for the backing [`TypeId`](core::any::TypeId) of a Type
     type Key: ?Sized + 'static;
 
     /// Get the qualified name of this Type

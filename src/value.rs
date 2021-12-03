@@ -130,7 +130,7 @@ impl<'a> Value<'a> {
     }
 
     /// Attempt to move the contained T out of this Value, panicking on failure. This will panic
-    /// in all the cases that [`Value::try_case_unsafe`] would return an Err value.
+    /// in all the cases that [`Value::try_cast_unsafe`] would return an Err value.
     ///
     /// # Panics
     ///
