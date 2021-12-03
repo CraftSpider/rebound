@@ -1,11 +1,11 @@
 error[E0597]: `a` does not live long enough
-  --> $DIR/cast_lifetime.rs:9:29
+  --> $DIR/cast_generated_lifetime.rs:13:30
    |
-9  |         let v = Value::from(&a);
-   |                             ^^ borrowed value does not live long enough
-10 |         invalid = v.cast();
-11 |     }
+13 |         let r = WithLifetime(&a);
+   |                              ^^ borrowed value does not live long enough
+...
+16 |     }
    |     - `a` dropped here while still borrowed
 ...
-14 |     do_stuff(invalid);
+19 |     do_stuff(invalid);
    |              ------- borrow later used here
