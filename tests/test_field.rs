@@ -114,7 +114,7 @@ fn test_wrong_ty() {
         let field = &info.fields()[0];
         field
             .get_ref(&val)
-            .expect_err("Successfully set Struct field on a Vec");
+            .expect_err("Successfully got Struct field on a Vec");
         field
             .set(&mut val, Value::from(-1.0))
             .expect_err("Successfully set Struct field on a Vec");

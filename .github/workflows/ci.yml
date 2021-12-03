@@ -4,8 +4,38 @@ on: [push, pull_request]
 name: Rebound CI
 
 jobs:
+  check:
+    name: Rebound Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          components: rustfmt, clippy, miri
+
+      - name: Check (no features)
+        uses: actions-rs/cargo@v1
+        with:
+          command: check --no-default-features
+
+      - name: Check (default features)
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+
+      - name: Check (all features)
+        uses: actions-rs/cargo@v1
+        with:
+          command: check --all-features
+
   lints:
     name: Rebound Lints
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -30,6 +60,7 @@ jobs:
           command: clippy
   test:
     name: Rebound Tests
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -41,12 +72,6 @@ jobs:
           toolchain: nightly
           override: true
           components: miri
-
-      - name: Run test (no features)
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --no-default-features
 
       - name: Run tests (all features)
         uses: actions-rs/cargo@v1

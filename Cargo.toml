@@ -17,8 +17,8 @@ default = ["core", "alloc", "std"]
 # Reflection support for various crates
 all-crates = ["core", "alloc", "std"]
 core = []
-alloc = []
-std = []
+alloc = ["core"]
+std = ["core", "alloc"]
 
 # Reflection support for certain nightly features
 all-features = ["never-type"]

@@ -93,6 +93,7 @@ reflect_prims! {
 impl ReflectedImpl<0> for u8 {
     fn assoc_fns() -> Vec<AssocFn> {
         extern_assoc_fns!(u8 @
+            #[cfg(feature = "core")]
             fn from_str_radix(src: &str, radix: u32) -> Result<u8, core::num::ParseIntError>;
             const fn count_ones(self) -> u32;
             const fn count_zeros(self) -> u32;
@@ -108,19 +109,30 @@ impl ReflectedImpl<0> for u8 {
             const fn from_le(x: u8) -> u8;
             const fn to_be(self) -> u8;
             const fn to_le(self) -> u8;
+            #[cfg(feature = "core")]
             const fn checked_add(self, rhs: u8) -> Option<u8>;
             // unsafe fn unchecked_add(self, rhs: u8) -> u8;
+            #[cfg(feature = "core")]
             const fn checked_sub(self, rhs: u8) -> Option<u8>;
             // unsafe fn unchecked_sub(self, rhs: u8) -> u8;
+            #[cfg(feature = "core")]
             const fn checked_mul(self, rhs: u8) -> Option<u8>;
             // unsafe fn unchecked_mul(self, rhs: u8) -> u8;
+            #[cfg(feature = "core")]
             fn checked_div(self, rhs: u8) -> Option<u8>;
+            #[cfg(feature = "core")]
             fn checked_div_euclid(self, rhs: u8) -> Option<u8>;
+            #[cfg(feature = "core")]
             fn checked_rem(self, rhs: u8) -> Option<u8>;
+            #[cfg(feature = "core")]
             fn checked_rem_euclid(self, rhs: u8) -> Option<u8>;
+            #[cfg(feature = "core")]
             const fn checked_neg(self) -> Option<u8>;
+            #[cfg(feature = "core")]
             const fn checked_shl(self, rhs: u32) -> Option<u8>;
+            #[cfg(feature = "core")]
             const fn checked_shr(self, rhs: u32) -> Option<u8>;
+            #[cfg(feature = "core")]
             fn checked_pow(self, exp: u32) -> Option<u8>;
             const fn saturating_add(self, rhs: u8) -> u8;
             const fn saturating_sub(self, rhs: u8) -> u8;
@@ -153,6 +165,7 @@ impl ReflectedImpl<0> for u8 {
             fn rem_euclid(self, rhs: u8) -> u8;
             const fn is_power_of_two(self) -> bool;
             fn next_power_of_two(self) -> u8;
+            #[cfg(feature = "core")]
             fn checked_next_power_of_two(self) -> Option<u8>;
             // fn wrapping_next_power_of_two(self) -> u8;
             const fn to_be_bytes(self) -> [u8; 1];
@@ -210,6 +223,7 @@ impl ReflectedImpl<0> for bool {
 
 impl ReflectedImpl<0> for char {
     fn assoc_fns() -> Vec<AssocFn> {
+        #[cfg(feature = "core")]
         use core::char::{EscapeDebug, EscapeDefault, EscapeUnicode, ToLowercase, ToUppercase};
 
         extern_assoc_fns!(char @
@@ -217,9 +231,13 @@ impl ReflectedImpl<0> for char {
             // unsafe fn from_u32_unchecked(i: u32) -> char;
             // fn from_digit(num: u32, radix: u32) -> Option<char>;
             fn is_digit(self, radix: u32) -> bool;
+            #[cfg(feature = "core")]
             fn to_digit(self, radix: u32) -> Option<u32>;
+            #[cfg(feature = "core")]
             fn escape_unicode(self) -> EscapeUnicode;
+            #[cfg(feature = "core")]
             fn escape_debug(self) -> EscapeDebug;
+            #[cfg(feature = "core")]
             fn escape_default(self) -> EscapeDefault;
             fn len_utf8(self) -> usize;
             fn len_utf16(self) -> usize;
@@ -232,7 +250,9 @@ impl ReflectedImpl<0> for char {
             fn is_alphanumeric(self) -> bool;
             fn is_control(self) -> bool;
             fn is_numeric(self) -> bool;
+            #[cfg(feature = "core")]
             fn to_lowercase(self) -> ToLowercase;
+            #[cfg(feature = "core")]
             fn to_uppercase(self) -> ToUppercase;
             const fn is_ascii(&self) -> bool;
             fn to_ascii_uppercase(&self) -> char;
@@ -264,6 +284,7 @@ impl ReflectedImpl<0> for char {
 
 impl ReflectedImpl<0> for str {
     fn assoc_fns() -> Vec<AssocFn> {
+        #[cfg(feature = "core")]
         use core::str::{
             Bytes, CharIndices, Chars, EncodeUtf16, EscapeDebug, EscapeDefault, EscapeUnicode,
             Lines, SplitAsciiWhitespace, SplitWhitespace,
@@ -279,12 +300,19 @@ impl ReflectedImpl<0> for str {
             fn as_mut_ptr(&mut self) -> *mut u8;
             fn split_at(&self, mid: usize) -> (&str, &str);
             fn split_at_mut(&mut self, mid: usize) -> (&mut str, &mut str);
+            #[cfg(feature = "core")]
             fn chars(&self) -> Chars<'_>;
+            #[cfg(feature = "core")]
             fn char_indices(&self) -> CharIndices<'_>;
+            #[cfg(feature = "core")]
             fn bytes(&self) -> Bytes<'_>;
+            #[cfg(feature = "core")]
             fn split_whitespace(&self) -> SplitWhitespace<'_>;
+            #[cfg(feature = "core")]
             fn split_ascii_whitespace(&self) -> SplitAsciiWhitespace<'_>;
+            #[cfg(feature = "core")]
             fn lines(&self) -> Lines<'_>;
+            #[cfg(feature = "core")]
             fn encode_utf16(&self) -> EncodeUtf16<'_>;
             fn trim(&self) -> &str;
             fn trim_start(&self) -> &str;
@@ -293,15 +321,25 @@ impl ReflectedImpl<0> for str {
             fn eq_ignore_ascii_case(&self, other: &str) -> bool;
             fn make_ascii_uppercase(&mut self);
             fn make_ascii_lowercase(&mut self);
+            #[cfg(feature = "core")]
             fn escape_debug(&self) -> EscapeDebug<'_>;
+            #[cfg(feature = "core")]
             fn escape_default(&self) -> EscapeDefault<'_>;
+            #[cfg(feature = "core")]
             fn escape_unicode(&self) -> EscapeUnicode<'_>;
+            #[cfg(feature = "alloc")]
             fn into_boxed_bytes(self: Box<str>) -> Box<[u8]>;
+            #[cfg(feature = "alloc")]
             fn to_lowercase(&self) -> String;
+            #[cfg(feature = "alloc")]
             fn to_uppercase(&self) -> String;
+            #[cfg(feature = "alloc")]
             fn into_string(self: Box<str>) -> String;
+            #[cfg(feature = "alloc")]
             fn repeat(&self, n: usize) -> String;
+            #[cfg(feature = "alloc")]
             fn to_ascii_uppercase(&self) -> String;
+            #[cfg(feature = "alloc")]
             fn to_ascii_lowercase(&self) -> String;
         )
     }
@@ -572,7 +610,9 @@ where
     <T::Key as Reflected>::Key: Sized,
 {
     fn assoc_fns() -> Vec<AssocFn> {
+        #[cfg(feature = "core")]
         use core::ops::Range;
+        #[cfg(feature = "core")]
         use core::slice::{
             Chunks, ChunksExact, ChunksExactMut, ChunksMut, Iter, IterMut, RChunks, RChunksExact,
             RChunksExactMut, RChunksMut, Windows,
@@ -581,30 +621,51 @@ where
         extern_assoc_fns!([T] @
             const fn len(&self) -> usize;
             const fn is_empty(&self) -> bool;
+            #[cfg(feature = "core")]
             fn first(&self) -> Option<&T>;
+            #[cfg(feature = "core")]
             fn first_mut(&mut self) -> Option<&mut T>;
+            #[cfg(feature = "core")]
             fn split_first(&self) -> Option<(&T, &[T])>;
+            #[cfg(feature = "core")]
             fn split_first_mut(&mut self) -> Option<(&mut T, &mut [T])>;
+            #[cfg(feature = "core")]
             fn split_last(&self) -> Option<(&T, &[T])>;
+            #[cfg(feature = "core")]
             fn split_last_mut(&mut self) -> Option<(&mut T, &mut [T])>;
+            #[cfg(feature = "core")]
             fn last(&self) -> Option<&T>;
+            #[cfg(feature = "core")]
             fn last_mut(&mut self) -> Option<&mut T>;
             const fn as_ptr(&self) -> *const T;
             fn as_mut_ptr(&mut self) -> *mut T;
+            #[cfg(feature = "core")]
             fn as_ptr_range(&self) -> Range<*const T>;
+            #[cfg(feature = "core")]
             fn as_mut_ptr_range(&mut self) -> Range<*mut T>;
             fn swap(&mut self, a: usize, b: usize);
             fn reverse(&mut self);
+            #[cfg(feature = "core")]
             fn iter(&self) -> Iter<'_, T>;
+            #[cfg(feature = "core")]
             fn iter_mut(&mut self) -> IterMut<'_, T>;
+            #[cfg(feature = "core")]
             fn windows(&self, size: usize) -> Windows<'_, T>;
+            #[cfg(feature = "core")]
             fn chunks(&self, chunk_size: usize) -> Chunks<'_, T>;
+            #[cfg(feature = "core")]
             fn chunks_mut(&mut self, chunk_size: usize) -> ChunksMut<'_, T>;
+            #[cfg(feature = "core")]
             fn chunks_exact(&self, chunk_size: usize) -> ChunksExact<'_, T>;
+            #[cfg(feature = "core")]
             fn chunks_exact_mut(&mut self, chunk_size: usize) -> ChunksExactMut<'_, T>;
+            #[cfg(feature = "core")]
             fn rchunks(&self, chunk_size: usize) -> RChunks<'_, T>;
+            #[cfg(feature = "core")]
             fn rchunks_mut(&mut self, chunk_size: usize) -> RChunksMut<'_, T>;
+            #[cfg(feature = "core")]
             fn rchunks_exact(&self, chunk_size: usize) -> RChunksExact<'_, T>;
+            #[cfg(feature = "core")]
             fn rchunks_exact_mut(&mut self, chunk_size: usize) -> RChunksExactMut<'_, T>;
             fn split_at(&self, mid: usize) -> (&[T], &[T]);
             fn split_at_mut(&mut self, mid: usize) -> (&mut [T], &mut [T]);
@@ -664,6 +725,7 @@ where
         extern_assoc_fns!([T] @
             fn sort(&mut self);
             fn sort_unstable(&mut self);
+            #[cfg(feature = "core")]
             fn binary_search(&self, x: &T) -> Result<usize, usize>;
         )
     }
@@ -698,7 +760,9 @@ where
 {
     fn assoc_fns() -> Vec<AssocFn> {
         extern_assoc_fns!([T] @
+            #[cfg(feature = "alloc")]
             fn to_vec(&self) -> Vec<T>;
+            #[cfg(feature = "alloc")]
             fn into_vec(self: Box<[T]>) -> Vec<T>;
         )
     }
@@ -732,6 +796,7 @@ where
 {
     fn assoc_fns() -> Vec<AssocFn> {
         extern_assoc_fns!([T] @
+            #[cfg(feature = "alloc")]
             fn repeat(&self, n: usize) -> Vec<T>;
         )
     }
@@ -748,7 +813,9 @@ impl ReflectedImpl<8> for [u8] {
             fn eq_ignore_ascii_case(&self, other: &[u8]) -> bool;
             fn make_ascii_uppercase(&mut self);
             fn make_ascii_lowercase(&mut self);
+            #[cfg(feature = "alloc")]
             fn to_ascii_uppercase(&self) -> Vec<u8>;
+            #[cfg(feature = "alloc")]
             fn to_ascii_lowercase(&self) -> Vec<u8>;
         )
     }

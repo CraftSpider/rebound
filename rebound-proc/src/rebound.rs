@@ -238,9 +238,10 @@ pub fn extern_assoc_fns(input: TokenStream) -> TokenStream {
 
     let mut output = Vec::new();
     for sig in &input.defs {
+        let attrs = &sig.attrs;
         let afn = generate_assoc_fn(&config, &input.ty, &sig.sig);
         match afn {
-            Ok(ts) => output.push(ts),
+            Ok(ts) => output.push(quote!(#(#attrs)* #ts)),
             Err(msg) => return quote!(compile_error!(#msg)),
         }
     }
