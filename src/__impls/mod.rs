@@ -1,5 +1,8 @@
 // TODO: Add ReflectedImpls for all types
 
+#[macro_use]
+pub mod __helpers;
+
 // Implementations for base types, such as `char` or `*const T`
 mod base;
 
@@ -15,6 +18,7 @@ mod alloc;
 #[cfg(feature = "std")]
 mod std;
 
-/// Used to represent a type which is private in the external implementation
+/// Used to represent a type which is private in the external implementation.
+/// Uninhabited, it's impossible to create an instance of this value
 #[crate::rebound(crate_name = "crate")]
-pub(crate) struct PrivateTy;
+pub(crate) enum PrivateTy {}

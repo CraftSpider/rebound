@@ -1,70 +1,73 @@
 //! Runtime information about a type
 
-use crate::info::*;
+use crate::info::{AssocConst, AssocFn, Field, UnionField, Variant};
 use crate::reflect::*;
 use crate::utils::StaticTypeMap;
 use crate::{Error, Value};
 
 use core::fmt;
 use core::hash::{Hash, Hasher};
+use once_cell::sync::OnceCell;
+use std::any::TypeId;
 use std::collections::HashMap;
-use std::lazy::SyncOnceCell;
 use std::sync::RwLock;
 
-/// Implement CommonTypeInfo for a given struct
-macro impl_common($ty:ty) {
-    impl CommonTypeInfo for $ty {
-        fn name(&self) -> String {
-            (self.vtable.name)()
-        }
+/// Implement `CommonTypeInfo` for a given struct
+macro_rules! impl_common {
+    ($ty:ty) => {
+        impl CommonTypeInfo for $ty {
+            fn name(&self) -> String {
+                (self.vtable.name)()
+            }
 
-        fn assoc_fns(&self) -> &'static Vec<AssocFn> {
-            (self.vtable.assoc_fns)()
-        }
+            fn assoc_fns(&self) -> &'static [AssocFn] {
+                (self.vtable.assoc_fns)()
+            }
 
-        fn assoc_consts(&self) -> &'static Vec<AssocConst> {
-            (self.vtable.assoc_consts)()
-        }
+            fn assoc_consts(&self) -> &'static [AssocConst] {
+                (self.vtable.assoc_consts)()
+            }
 
-        fn as_ref<'a>(&self, val: &'a Value) -> Result<Value<'a>, Error> {
-            (self.vtable.as_ref)(val)
-        }
+            fn as_ref<'a>(&self, val: &'a Value<'_>) -> Result<Value<'a>, Error> {
+                (self.vtable.as_ref)(val)
+            }
 
-        fn as_mut<'a>(&self, val: &'a mut Value) -> Result<Value<'a>, Error> {
-            (self.vtable.as_mut)(val)
+            fn as_mut<'a>(&self, val: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
+                (self.vtable.as_mut)(val)
+            }
         }
-    }
+    };
 }
 
 // SAFETY: *do not touch these if you don't know what you're doing*
-static REFLECTED_TYS: SyncOnceCell<RwLock<HashMap<String, Type>>> = SyncOnceCell::new();
+static REFLECTED_TYS: OnceCell<RwLock<HashMap<TypeId, Type>>> = OnceCell::new();
 
 /// Common information / operations between all types
 pub trait CommonTypeInfo {
     /// Get this type's name
     fn name(&self) -> String;
     /// Get the known associated functions of this type
-    fn assoc_fns(&self) -> &'static Vec<AssocFn>;
+    fn assoc_fns(&self) -> &'static [AssocFn];
     /// Get the known associated constants of this type
-    fn assoc_consts(&self) -> &'static Vec<AssocConst>;
+    fn assoc_consts(&self) -> &'static [AssocConst];
     // fn impled_traits(&self) -> Vec<TraitInfo>;
 
     /// Convert a Value of this type to a reference to that value, if it's not already a reference
-    fn as_ref<'a>(&self, val: &'a Value) -> Result<Value<'a>, Error>;
+    fn as_ref<'a>(&self, val: &'a Value<'_>) -> Result<Value<'a>, Error>;
     /// Convert a Value of this type to a mutable reference to that value, if it's not already a
     /// reference
-    fn as_mut<'a>(&self, val: &'a mut Value) -> Result<Value<'a>, Error>;
+    fn as_mut<'a>(&self, val: &'a mut Value<'_>) -> Result<Value<'a>, Error>;
 }
 
-/// Common VTable used by all types
+/// Common `VTable` used by all types
 #[derive(Copy, Clone)]
 struct TypeVTable {
     name: fn() -> String,
-    assoc_fns: fn() -> &'static Vec<AssocFn>,
-    assoc_consts: fn() -> &'static Vec<AssocConst>,
+    assoc_fns: fn() -> &'static [AssocFn],
+    assoc_consts: fn() -> &'static [AssocConst],
 
-    as_ref: for<'a> fn(&'a Value) -> Result<Value<'a>, Error>,
-    as_mut: for<'a> fn(&'a mut Value) -> Result<Value<'a>, Error>,
+    as_ref: for<'a> fn(&'a Value<'_>) -> Result<Value<'a>, Error>,
+    as_mut: for<'a> fn(&'a mut Value<'_>) -> Result<Value<'a>, Error>,
 }
 
 impl fmt::Debug for TypeVTable {
@@ -95,8 +98,9 @@ impl TypeVTable {
 /// that the type implement the [`Reflected`] trait, though most types are also expected to
 /// implement another trait related to information they possess not shared by other type kinds.
 ///
-/// This is not, and cannot, be backed by [`core::any::TypeId`], because that is only valid on
-/// `'static` types, while this works with dynamic lifetimes.
+/// This is backed by [`core::any::TypeId`], through the usage of a `Key` associated type on all
+/// Reflected items, which represents a `'static` version of that item, even if the item isn't
+/// always static. This works because lifetimes are erased for Type instances anyways.
 #[derive(Debug, Copy, Clone)]
 pub enum Type {
     /// A primitive simple type, such as `u8` or `str`
@@ -146,19 +150,19 @@ macro_rules! ty_unwraps {
 }
 
 impl Type {
-    fn add_ty(ty: Type) {
+    fn add_ty<T: ?Sized + Reflected>(ty: Type) {
         let mut map = REFLECTED_TYS
             .get_or_init(|| RwLock::new(HashMap::new()))
             .write()
             .expect("REFLECTED_TYS not initialized correctly");
 
-        let name = ty.name();
+        let type_id = TypeId::of::<T::Key>();
 
-        if map.contains_key(&name) {
-            panic!("Type {} already registered", name);
+        if map.contains_key(&type_id) {
+            panic!("Type {} already registered", ty.name());
         }
 
-        map.insert(name, ty);
+        map.insert(type_id, ty);
     }
 
     /// Internal function used by generated code to initialize a Type for primitives
@@ -168,7 +172,7 @@ impl Type {
             vtable: TypeVTable::new::<T>(),
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for tuples
@@ -179,7 +183,7 @@ impl Type {
             fields: T::fields,
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for arrays
@@ -191,7 +195,7 @@ impl Type {
             length: T::length(),
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for slices
@@ -202,7 +206,7 @@ impl Type {
             element: T::element,
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for pointers
@@ -214,7 +218,7 @@ impl Type {
             mutability: T::mutability(),
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for references
@@ -226,7 +230,7 @@ impl Type {
             mutability: T::mutability(),
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for function pointers
@@ -238,7 +242,7 @@ impl Type {
             ret: T::ret,
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for structs
@@ -252,7 +256,7 @@ impl Type {
             fields: T::fields,
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for tuple structs
@@ -266,7 +270,7 @@ impl Type {
             fields: T::fields,
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for unit structs
@@ -279,7 +283,7 @@ impl Type {
             vtable: TypeVTable::new::<T>(),
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for enums
@@ -293,7 +297,7 @@ impl Type {
             variants: T::variants,
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for unions
@@ -307,12 +311,13 @@ impl Type {
             fields: T::fields,
         });
 
-        Type::add_ty(ty);
+        Type::add_ty::<T>(ty);
     }
 
     /// Get a Type instance by name, assuming it has been instantiated beforehand.
     /// The name provided is expected to be of a certain normalized form, which may not
-    /// be fully stable between versions. Prefer [`Type::from`] if possible.
+    /// be fully stable between versions. This function is also fairly slow.
+    /// Prefer [`Type::from`] or [`Type::from_id`] if possible.
     ///
     /// Current Requirements:
     /// - All struct names should be fully qualified, so for example the Type for Type would be
@@ -322,27 +327,47 @@ impl Type {
     /// - References will have no lifetime
     /// - Possibly other things
     ///
+    /// # Panics
+    ///
+    /// If the function fails to acquire the global reflection lock
+    ///
     /// # Safety
     ///
     /// This function is in no way memory unsafe, however, the format used for type names is an
     /// implementation detail, and thus may change even across patch versions.
     pub unsafe fn from_name(name: &str) -> Option<Type> {
+        let ref_tys = REFLECTED_TYS
+            .get_or_init(|| RwLock::new(HashMap::new()))
+            .read()
+            .unwrap();
+        for ty in ref_tys.values() {
+            if ty.name() == name {
+                return Some(*ty);
+            }
+        }
+
+        None
+    }
+
+    /// Get a [`Type`] instance by [`TypeId`] of its associated key, assuming it has been instantiated
+    /// beforehand.
+    pub fn from_id(ty_id: &TypeId) -> Option<Type> {
         REFLECTED_TYS
             .get_or_init(|| RwLock::new(HashMap::new()))
             .read()
             .expect("Couldn't get read lock on Reflection mapping")
-            .get(name)
+            .get(ty_id)
             .copied()
     }
 
     /// Get a Type instance from any reflected type, instantiating it if necessary.
     pub fn from<T: ?Sized + Reflected>() -> Type {
-        static INIT: SyncOnceCell<StaticTypeMap<()>> = SyncOnceCell::new();
+        static INIT: OnceCell<StaticTypeMap<()>> = OnceCell::new();
         INIT.get_or_init(StaticTypeMap::new).call_once::<T, _>(|| {
             unsafe { T::init() };
         });
 
-        unsafe { Type::from_name(&T::name()).expect("Type not initialized") }
+        Type::from_id(&TypeId::of::<T::Key>()).expect("Type not initialized")
     }
 
     fn as_inner(&self) -> &dyn CommonTypeInfo {
@@ -399,19 +424,19 @@ impl CommonTypeInfo for Type {
         self.as_inner().name()
     }
 
-    fn assoc_fns(&self) -> &'static Vec<AssocFn> {
+    fn assoc_fns(&self) -> &'static [AssocFn] {
         self.as_inner().assoc_fns()
     }
 
-    fn assoc_consts(&self) -> &'static Vec<AssocConst> {
+    fn assoc_consts(&self) -> &'static [AssocConst] {
         self.as_inner().assoc_consts()
     }
 
-    fn as_ref<'a>(&self, val: &'a Value) -> Result<Value<'a>, Error> {
+    fn as_ref<'a>(&self, val: &'a Value<'_>) -> Result<Value<'a>, Error> {
         self.as_inner().as_ref(val)
     }
 
-    fn as_mut<'a>(&self, val: &'a mut Value) -> Result<Value<'a>, Error> {
+    fn as_mut<'a>(&self, val: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
         self.as_inner().as_mut(val)
     }
 }
@@ -428,12 +453,12 @@ impl_common!(PrimitiveInfo);
 #[derive(Debug, Copy, Clone)]
 pub struct TupleInfo {
     vtable: TypeVTable,
-    fields: fn() -> Vec<Field>,
+    fields: fn() -> &'static [Field],
 }
 
 impl TupleInfo {
     /// Get all the [`Fields`](Field) of this Tuple
-    pub fn fields(&self) -> Vec<Field> {
+    pub fn fields(&self) -> &'static [Field] {
         (self.fields)()
     }
 }
@@ -597,21 +622,22 @@ impl EnumInfo {
         (self.variants)()
     }
 
-    pub fn variant_of(&self, val: &Value) -> Result<Variant, Error> {
+    /// Retrieve the [`Variant`] of a given [`Value`]
+    pub fn variant_of(&self, val: &Value<'_>) -> Result<Variant, Error> {
         for i in self.variants() {
             if i.is_variant(val)? {
                 return Ok(i);
             }
         }
-        unreachable!("An instance of an enum should always be one of its variants")
+        Err(Error::wrong_type(val.ty(), Type::Enum(*self)))
     }
 
     /// Check whether a [`Value`] is of a specific [`Variant`], if it's of this type
-    pub fn is_variant(&self, val: &Value, var: &Variant) -> Result<bool, Error> {
-        if var.assoc_ty() == Type::Enum(*self) {
-            var.is_variant(val)
+    pub fn is_variant(&self, val: &Value<'_>, variant: &Variant) -> Result<bool, Error> {
+        if variant.assoc_ty() == Type::Enum(*self) {
+            variant.is_variant(val)
         } else {
-            Err(Error::wrong_type(var.assoc_ty(), Type::Enum(*self)))
+            Err(Error::wrong_type(variant.assoc_ty(), Type::Enum(*self)))
         }
     }
 }

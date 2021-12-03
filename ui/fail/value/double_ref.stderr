@@ -1,0 +1,23 @@
+error[E0597]: `a` does not live long enough
+  --> $DIR/double_ref.rs:9:17
+   |
+9  |         let r = &a;
+   |                 ^^ borrowed value does not live long enough
+...
+12 |     }
+   |     - `a` dropped here while still borrowed
+...
+15 |     do_stuff(invalid);
+   |              ------- borrow later used here
+
+error[E0597]: `r` does not live long enough
+  --> $DIR/double_ref.rs:10:31
+   |
+10 |         let val = Value::from(&r);
+   |                               ^^ borrowed value does not live long enough
+11 |         invalid = *val.borrow::<&&i32>();
+12 |     }
+   |     - `r` dropped here while still borrowed
+...
+15 |     do_stuff(invalid);
+   |              ------- borrow later used here

@@ -1,0 +1,11 @@
+error[E0597]: `a` does not live long enough
+  --> $DIR/cast_generated_lifetime.rs:13:30
+   |
+13 |         let r = WithLifetime(&a);
+   |                              ^^ borrowed value does not live long enough
+...
+16 |     }
+   |     - `a` dropped here while still borrowed
+...
+19 |     do_stuff(invalid);
+   |              ------- borrow later used here

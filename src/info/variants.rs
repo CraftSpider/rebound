@@ -2,7 +2,7 @@ use crate::{Error, Field, Type, Value};
 
 use core::fmt;
 
-type IsVarHelper = fn(&Value) -> bool;
+type IsVarHelper = fn(&Value<'_>) -> bool;
 
 /// Info about a variant on an enum [`Type`]. Allows accessing the name and fields of the given
 /// variant.
@@ -35,11 +35,12 @@ impl Variant {
         }
     }
 
-    pub fn is_variant(&self, val: &Value) -> Result<bool, Error> {
+    /// Check whether a given [`Value`] is this variant
+    pub fn is_variant(&self, val: &Value<'_>) -> Result<bool, Error> {
         match self {
-            Variant::Unit(var) => var.is_variant(val),
-            Variant::Tuple(var) => var.is_variant(val),
-            Variant::Struct(var) => var.is_variant(val),
+            Variant::Unit(variant) => variant.is_variant(val),
+            Variant::Tuple(variant) => variant.is_variant(val),
+            Variant::Struct(variant) => variant.is_variant(val),
         }
     }
 }
@@ -76,7 +77,8 @@ impl UnitVariant {
         self.assoc_ty
     }
 
-    pub fn is_variant(&self, val: &Value) -> Result<bool, Error> {
+    /// Check whether a given [`Value`] is this variant
+    pub fn is_variant(&self, val: &Value<'_>) -> Result<bool, Error> {
         if val.ty() == self.assoc_ty() {
             Ok((self.is_var)(val))
         } else {
@@ -145,7 +147,8 @@ impl TupleVariant {
         (self.fields)()
     }
 
-    pub fn is_variant(&self, val: &Value) -> Result<bool, Error> {
+    /// Check whether a given [`Value`] is this variant
+    pub fn is_variant(&self, val: &Value<'_>) -> Result<bool, Error> {
         if val.ty() == self.assoc_ty() {
             Ok((self.is_var)(val))
         } else {
@@ -214,7 +217,8 @@ impl StructVariant {
         (self.fields)()
     }
 
-    pub fn is_variant(&self, val: &Value) -> Result<bool, Error> {
+    /// Check whether a given [`Value`] is this variant
+    pub fn is_variant(&self, val: &Value<'_>) -> Result<bool, Error> {
         if val.ty() == self.assoc_ty() {
             Ok((self.is_var)(val))
         } else {

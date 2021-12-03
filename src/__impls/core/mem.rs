@@ -1,23 +1,19 @@
 use crate::reflect::ReflectedStruct;
 use crate::{Field, Reflected, Type};
 
+use crate::value::NotOutlives;
 use core::mem::*;
 
 // TODO: Support custom unsized impls in extern_items!
 
-impl<T: ?Sized + Reflected> Reflected for ManuallyDrop<T> {
-    type Meta = T::Meta;
+impl<T> Reflected for ManuallyDrop<T>
+where
+    T: ?Sized + Reflected,
+{
+    type Key = ManuallyDrop<T::Key>;
 
     fn name() -> String {
         format!("core::mem::ManuallyDrop<{}>", T::name())
-    }
-
-    unsafe fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        T::assemble(meta, ptr) as *mut ManuallyDrop<T>
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        T::disassemble(self as &T)
     }
 
     unsafe fn init() {
@@ -25,7 +21,10 @@ impl<T: ?Sized + Reflected> Reflected for ManuallyDrop<T> {
     }
 }
 
-impl<T: ?Sized + Reflected> ReflectedStruct for ManuallyDrop<T> {
+impl<T> ReflectedStruct for ManuallyDrop<T>
+where
+    T: ?Sized + Reflected,
+{
     fn fields() -> Vec<Field> {
         unsafe {
             vec![Field::new_named(
@@ -37,4 +36,11 @@ impl<T: ?Sized + Reflected> ReflectedStruct for ManuallyDrop<T> {
             )]
         }
     }
+}
+
+unsafe impl<'a, 'b, T> NotOutlives<'b> for ManuallyDrop<T>
+where
+    'b: 'a,
+    T: ?Sized + NotOutlives<'a>,
+{
 }

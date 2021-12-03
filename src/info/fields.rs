@@ -68,7 +68,7 @@ impl Field {
     /// Internal Function, creates a new unnamed field
     ///
     /// # Safety
-    ///f
+    ///
     /// Should only be called within a Reflected item's `fields` implementation
     pub unsafe fn new_tuple(
         get_ptr: Option<AccessHelper>,
@@ -155,8 +155,8 @@ impl Field {
                     if let FieldKind::EnumTuple { assoc_var, .. }
                     | FieldKind::EnumNamed { assoc_var, .. } = self.kind()
                     {
-                        if !assoc_var.is_variant(this).unwrap() {
-                            let var = this.ty().unwrap_enum().variant_of(this).unwrap();
+                        if !assoc_var.is_variant(this)? {
+                            let var = this.ty().unwrap_enum().variant_of(this)?;
                             Err(Error::wrong_variant(&var, assoc_var))
                         } else {
                             Ok((get_ptr)(this))
@@ -173,7 +173,7 @@ impl Field {
     /// Set the data contained within this Field on a [`Value`], assuming the Values of both `this`
     /// and `other` are of the correct type and the operation is supported.
     #[allow(clippy::suspicious_operation_groupings)]
-    pub fn set(&self, this: &mut Value, other: Value<'static>) -> Result<(), Error> {
+    pub fn set(&self, this: &mut Value<'_>, other: Value<'static>) -> Result<(), Error> {
         self.set_ptr
             .as_ref()
             .map_or(Err(Error::UnsupportedOperation), |set_ptr| {
@@ -181,8 +181,8 @@ impl Field {
                     if let FieldKind::EnumTuple { assoc_var, .. }
                     | FieldKind::EnumNamed { assoc_var, .. } = self.kind()
                     {
-                        if !assoc_var.is_variant(this).unwrap() {
-                            let var = this.ty().unwrap_enum().variant_of(this).unwrap();
+                        if !assoc_var.is_variant(this)? {
+                            let var = this.ty().unwrap_enum().variant_of(this)?;
                             Err(Error::wrong_variant(&var, assoc_var))
                         } else {
                             (set_ptr)(this, other);

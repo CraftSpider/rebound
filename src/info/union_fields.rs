@@ -76,7 +76,7 @@ impl UnionField {
     /// This is unsafe for the same reason setting a non-Copy field on a union normally is,
     /// reading the field may require the union content be read as a value of the type being set.
     #[allow(clippy::suspicious_operation_groupings)]
-    pub unsafe fn set(&self, this: &mut Value, other: Value<'static>) -> Result<(), Error> {
+    pub unsafe fn set(&self, this: &mut Value<'_>, other: Value<'static>) -> Result<(), Error> {
         self.set_ptr
             .as_ref()
             .map_or(Err(Error::UnsupportedOperation), |set_ptr| {

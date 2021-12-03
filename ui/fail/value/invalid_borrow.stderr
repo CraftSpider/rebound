@@ -2,7 +2,7 @@ error[E0502]: cannot borrow `val` as mutable because it is also borrowed as immu
   --> $DIR/invalid_borrow.rs:8:13
    |
 7  |     let borrow = val.borrow::<i32>();
-   |                  --- immutable borrow occurs here
+   |                  ------------------- immutable borrow occurs here
 8  |     let _ = val.borrow_mut::<i32>();
    |             ^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
 9  |

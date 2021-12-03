@@ -1,8 +1,67 @@
-use crate::__helpers::*;
-use crate::reflect::*;
+use crate::reflect::{
+    Reflected, ReflectedArray, ReflectedFunction, ReflectedImpl, ReflectedPointer,
+    ReflectedReference, ReflectedSlice, ReflectedTuple,
+};
+use crate::utils::StaticTypeMap;
+use crate::value::NotOutlives;
 use crate::{AssocConst, AssocFn, Field, Type};
 
-use rebound_proc::{extern_assoc_consts, extern_assoc_fns, reflect_prims};
+use once_cell::sync::OnceCell;
+use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
+
+macro_rules! reflect_prims {
+    ($($ty:ty),+ $(,)?) => {
+        $(
+        impl Reflected for $ty {
+            type Key = $ty;
+
+            fn name() -> String {
+                stringify!($ty).into()
+            }
+
+            unsafe fn init() {
+                Type::new_prim::<$ty>()
+            }
+        }
+
+        unsafe impl<'a> NotOutlives<'a> for $ty {}
+        )*
+    };
+}
+
+// macro_rules! reflect_tuples {
+//     () => {};
+//     // We need to be left-recursive to avoid parsing ambiguity, but the last element of a tuple
+//     // is special to we make it the distinct one.
+//     ($last:tt $($generics:tt)*) => {
+//         impl<$($generics,)* $last> Reflected for ($($generics,)* $last,)
+//         where
+//             $($generics: Reflected,)*
+//             $($generics::Key: Sized,)*
+//             $last: Reflected,
+//         {
+//             type Key = ($($generics::Key,)* $last::Key,);
+//
+//             fn name() -> String {
+//                 let mut out = "(".to_string();
+//
+//                 $(
+//                 out += &format!("{}, ", $generics::name());
+//                 )*
+//                 out += &format!("{},", $last::name());
+//
+//                 out += ")";
+//                 out
+//             }
+//
+//             unsafe fn init() {
+//                 Type::new_tuple::<($($generics,)* $last,)>()
+//             }
+//         }
+//
+//         reflect_tuples! { $($generics)* }
+//     };
+// }
 
 // Integers
 reflect_prims! {
@@ -22,9 +81,14 @@ reflect_prims! {
     f32,
     f64,
 
-    char,
     bool,
+    char,
+    str,
 }
+
+// reflect_tuples! {
+//     A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+// }
 
 impl ReflectedImpl<0> for u8 {
     fn assoc_fns() -> Vec<AssocFn> {
@@ -198,27 +262,6 @@ impl ReflectedImpl<0> for char {
     }
 }
 
-impl Reflected for str {
-    type Meta = usize;
-
-    fn name() -> String {
-        "str".into()
-    }
-
-    unsafe fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        core::str::from_utf8_unchecked(core::slice::from_raw_parts(ptr as *const u8, *meta))
-            as *const str as _
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        self.as_bytes().disassemble()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<str>()
-    }
-}
-
 impl ReflectedImpl<0> for str {
     fn assoc_fns() -> Vec<AssocFn> {
         use core::str::{
@@ -236,13 +279,13 @@ impl ReflectedImpl<0> for str {
             fn as_mut_ptr(&mut self) -> *mut u8;
             fn split_at(&self, mid: usize) -> (&str, &str);
             fn split_at_mut(&mut self, mid: usize) -> (&mut str, &mut str);
-            fn chars(&self) -> Chars;
-            fn char_indices(&self) -> CharIndices;
-            fn bytes(&self) -> Bytes;
-            fn split_whitespace(&self) -> SplitWhitespace;
-            fn split_ascii_whitespace(&self) -> SplitAsciiWhitespace;
-            fn lines(&self) -> Lines;
-            fn encode_utf16(&self) -> EncodeUtf16;
+            fn chars(&self) -> Chars<'_>;
+            fn char_indices(&self) -> CharIndices<'_>;
+            fn bytes(&self) -> Bytes<'_>;
+            fn split_whitespace(&self) -> SplitWhitespace<'_>;
+            fn split_ascii_whitespace(&self) -> SplitAsciiWhitespace<'_>;
+            fn lines(&self) -> Lines<'_>;
+            fn encode_utf16(&self) -> EncodeUtf16<'_>;
             fn trim(&self) -> &str;
             fn trim_start(&self) -> &str;
             fn trim_end(&self) -> &str;
@@ -250,9 +293,9 @@ impl ReflectedImpl<0> for str {
             fn eq_ignore_ascii_case(&self, other: &str) -> bool;
             fn make_ascii_uppercase(&mut self);
             fn make_ascii_lowercase(&mut self);
-            fn escape_debug(&self) -> EscapeDebug;
-            fn escape_default(&self) -> EscapeDefault;
-            fn escape_unicode(&self) -> EscapeUnicode;
+            fn escape_debug(&self) -> EscapeDebug<'_>;
+            fn escape_default(&self) -> EscapeDefault<'_>;
+            fn escape_unicode(&self) -> EscapeUnicode<'_>;
             fn into_boxed_bytes(self: Box<str>) -> Box<[u8]>;
             fn to_lowercase(&self) -> String;
             fn to_uppercase(&self) -> String;
@@ -270,16 +313,10 @@ impl ReflectedImpl<0> for str {
 
 // Tuple reflections
 impl Reflected for () {
+    type Key = ();
+
     fn name() -> String {
         "()".into()
-    }
-
-    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr.cast()
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        ((), self as *const Self as _)
     }
 
     unsafe fn init() {
@@ -288,26 +325,19 @@ impl Reflected for () {
 }
 
 impl ReflectedTuple for () {
-    fn fields() -> Vec<Field> {
-        vec![]
+    fn fields() -> &'static [Field] {
+        &[]
     }
 }
 
-// TODO: Make this valid for non-static lifetimes maybe
 impl<T0> Reflected for (T0,)
 where
     T0: Reflected,
 {
+    type Key = (T0::Key,);
+
     fn name() -> String {
         format!("({},)", T0::name())
-    }
-
-    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr.cast()
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        ((), self as *const Self as _)
     }
 
     unsafe fn init() {
@@ -319,34 +349,40 @@ impl<T0> ReflectedTuple for (T0,)
 where
     T0: Reflected,
 {
-    fn fields() -> Vec<Field> {
-        unsafe {
-            vec![Field::new_tuple(
-                Some(__make_ref_accessor!((T0,), 0)),
-                Some(__make_setter!((T0,), 0)),
-                0,
-                Type::from::<(T0,)>(),
-                Type::from::<T0>(),
-            )]
-        }
+    fn fields() -> &'static [Field] {
+        static TUPLE_FIELDS: OnceCell<StaticTypeMap<[Field; 1]>> = OnceCell::new();
+
+        TUPLE_FIELDS
+            .get_or_init(StaticTypeMap::new)
+            .call_once::<Self, _>(|| unsafe {
+                [Field::new_tuple(
+                    Some(__make_ref_accessor!((T0,), 0)),
+                    Some(__make_setter!((T0,), 0)),
+                    0,
+                    Type::from::<(T0,)>(),
+                    Type::from::<T0>(),
+                )]
+            })
     }
+}
+
+unsafe impl<'a0, 'b, T0> NotOutlives<'b> for (T0,)
+where
+    'b: 'a0,
+    T0: NotOutlives<'a0>,
+{
 }
 
 impl<T0, T1> Reflected for (T0, T1)
 where
     T0: Reflected,
+    T0::Key: Sized,
     T1: Reflected,
 {
+    type Key = (T0::Key, T1::Key);
+
     fn name() -> String {
         format!("({}, {})", T0::name(), T1::name())
-    }
-
-    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr.cast()
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        ((), self as *const Self as _)
     }
 
     unsafe fn init() {
@@ -357,46 +393,55 @@ where
 impl<T0, T1> ReflectedTuple for (T0, T1)
 where
     T0: Reflected,
+    T0::Key: Sized,
     T1: Reflected,
 {
-    fn fields() -> Vec<Field> {
-        unsafe {
-            vec![
-                Field::new_tuple(
-                    Some(__make_ref_accessor!((T0, T1), 0)),
-                    Some(__make_setter!((T0, T1), 0)),
-                    0,
-                    Type::from::<(T0, T1)>(),
-                    Type::from::<T0>(),
-                ),
-                Field::new_tuple(
-                    Some(__make_ref_accessor!((T0, T1), 1)),
-                    Some(__make_setter!((T0, T1), 1)),
-                    1,
-                    Type::from::<(T0, T1)>(),
-                    Type::from::<T1>(),
-                ),
-            ]
-        }
+    fn fields() -> &'static [Field] {
+        static TUPLE_FIELDS: OnceCell<StaticTypeMap<[Field; 2]>> = OnceCell::new();
+
+        TUPLE_FIELDS
+            .get_or_init(StaticTypeMap::new)
+            .call_once::<Self, _>(|| unsafe {
+                [
+                    Field::new_tuple(
+                        Some(__make_ref_accessor!((T0, T1), 0)),
+                        Some(__make_setter!((T0, T1), 0)),
+                        0,
+                        Type::from::<(T0, T1)>(),
+                        Type::from::<T0>(),
+                    ),
+                    Field::new_tuple(
+                        Some(__make_ref_accessor!((T0, T1), 1)),
+                        Some(__make_setter!((T0, T1), 1)),
+                        1,
+                        Type::from::<(T0, T1)>(),
+                        Type::from::<T1>(),
+                    ),
+                ]
+            })
     }
+}
+
+unsafe impl<'a0, 'a1, 'b, T0, T1> NotOutlives<'b> for (T0, T1)
+where
+    'b: 'a0 + 'a1,
+    T0: NotOutlives<'a0>,
+    T1: NotOutlives<'a1>,
+{
 }
 
 impl<T0, T1, T2> Reflected for (T0, T1, T2)
 where
     T0: Reflected,
+    T0::Key: Sized,
     T1: Reflected,
+    T1::Key: Sized,
     T2: Reflected,
 {
+    type Key = (T0::Key, T1::Key, T2::Key);
+
     fn name() -> String {
         format!("({}, {}, {})", T0::name(), T1::name(), T2::name())
-    }
-
-    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr.cast()
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        ((), self as *const Self as _)
     }
 
     unsafe fn init() {
@@ -407,50 +452,63 @@ where
 impl<T0, T1, T2> ReflectedTuple for (T0, T1, T2)
 where
     T0: Reflected,
+    T0::Key: Sized,
     T1: Reflected,
+    T1::Key: Sized,
     T2: Reflected,
 {
-    fn fields() -> Vec<Field> {
-        unsafe {
-            vec![
-                Field::new_tuple(
-                    Some(__make_ref_accessor!((T0, T1, T2), 0)),
-                    Some(__make_setter!((T0, T1, T2), 0)),
-                    0,
-                    Type::from::<(T0, T1, T2)>(),
-                    Type::from::<T0>(),
-                ),
-                Field::new_tuple(
-                    Some(__make_ref_accessor!((T0, T1, T2), 1)),
-                    Some(__make_setter!((T0, T1, T2), 1)),
-                    1,
-                    Type::from::<(T0, T1, T2)>(),
-                    Type::from::<T1>(),
-                ),
-                Field::new_tuple(
-                    Some(__make_ref_accessor!((T0, T1, T2), 2)),
-                    Some(__make_setter!((T0, T1, T2), 2)),
-                    2,
-                    Type::from::<(T0, T1, T2)>(),
-                    Type::from::<T1>(),
-                ),
-            ]
-        }
+    fn fields() -> &'static [Field] {
+        static TUPLE_FIELDS: OnceCell<StaticTypeMap<[Field; 3]>> = OnceCell::new();
+
+        TUPLE_FIELDS
+            .get_or_init(StaticTypeMap::new)
+            .call_once::<Self, _>(|| unsafe {
+                [
+                    Field::new_tuple(
+                        Some(__make_ref_accessor!((T0, T1, T2), 0)),
+                        Some(__make_setter!((T0, T1, T2), 0)),
+                        0,
+                        Type::from::<(T0, T1, T2)>(),
+                        Type::from::<T0>(),
+                    ),
+                    Field::new_tuple(
+                        Some(__make_ref_accessor!((T0, T1, T2), 1)),
+                        Some(__make_setter!((T0, T1, T2), 1)),
+                        1,
+                        Type::from::<(T0, T1, T2)>(),
+                        Type::from::<T1>(),
+                    ),
+                    Field::new_tuple(
+                        Some(__make_ref_accessor!((T0, T1, T2), 2)),
+                        Some(__make_setter!((T0, T1, T2), 2)),
+                        2,
+                        Type::from::<(T0, T1, T2)>(),
+                        Type::from::<T1>(),
+                    ),
+                ]
+            })
     }
 }
 
+unsafe impl<'a0, 'a1, 'a2, 'b, T0, T1, T2> NotOutlives<'b> for (T0, T1, T2)
+where
+    'b: 'a0 + 'a1 + 'a2,
+    T0: NotOutlives<'a0>,
+    T1: NotOutlives<'a1>,
+    T2: NotOutlives<'a2>,
+{
+}
+
 // Arrays/Slices
-impl<T: Reflected, const N: usize> Reflected for [T; N] {
+impl<T, const N: usize> Reflected for [T; N]
+where
+    T: Reflected,
+    T::Key: Sized,
+{
+    type Key = [T::Key; N];
+
     fn name() -> String {
         format!("[{}; {}]", T::name(), N)
-    }
-
-    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr.cast()
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        ((), self as *const Self as _)
     }
 
     unsafe fn init() {
@@ -458,7 +516,11 @@ impl<T: Reflected, const N: usize> Reflected for [T; N] {
     }
 }
 
-impl<T: Reflected, const N: usize> ReflectedArray for [T; N] {
+impl<T, const N: usize> ReflectedArray for [T; N]
+where
+    T: Reflected,
+    T::Key: Sized,
+{
     fn element() -> Type {
         Type::from::<T>()
     }
@@ -468,19 +530,17 @@ impl<T: Reflected, const N: usize> ReflectedArray for [T; N] {
     }
 }
 
-impl<T: Reflected> Reflected for [T] {
-    type Meta = usize;
+unsafe impl<'a, T, const N: usize> NotOutlives<'a> for [T; N] where T: NotOutlives<'a> {}
+
+impl<T> Reflected for [T]
+where
+    T: Reflected,
+    T::Key: Sized,
+{
+    type Key = [T::Key];
 
     fn name() -> String {
         format!("[{}]", T::name())
-    }
-
-    unsafe fn assemble(meta: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        core::slice::from_raw_parts_mut(ptr as *mut T, *meta) as *mut Self
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        (self.len(), self.as_ptr() as _)
     }
 
     unsafe fn init() {
@@ -488,13 +548,29 @@ impl<T: Reflected> Reflected for [T] {
     }
 }
 
-impl<T: Reflected> ReflectedSlice for [T] {
+impl<T> ReflectedSlice for [T]
+where
+    T: Reflected,
+    T::Key: Sized,
+{
     fn element() -> Type {
         Type::from::<T>()
     }
 }
 
-impl<T: Reflected> ReflectedImpl<0> for [T] {
+unsafe impl<'a, 'b, T> NotOutlives<'b> for [T]
+where
+    'b: 'a,
+    T: NotOutlives<'a>,
+{
+}
+
+impl<T> ReflectedImpl<0> for [T]
+where
+    T: Reflected,
+    T::Key: Reflected + Sized,
+    <T::Key as Reflected>::Key: Sized,
+{
     fn assoc_fns() -> Vec<AssocFn> {
         use core::ops::Range;
         use core::slice::{
@@ -542,7 +618,11 @@ impl<T: Reflected> ReflectedImpl<0> for [T] {
     }
 }
 
-impl<T: Reflected + PartialEq> ReflectedImpl<1> for [T] {
+impl<T> ReflectedImpl<1> for [T]
+where
+    T: Reflected + PartialEq,
+    T::Key: Sized,
+{
     fn assoc_fns() -> Vec<AssocFn> {
         extern_assoc_fns!([T] @
             fn contains(&self, x: &T) -> bool;
@@ -559,7 +639,11 @@ impl<T: Reflected + PartialEq> ReflectedImpl<1> for [T] {
     }
 }
 
-impl<T: Reflected + PartialOrd> ReflectedImpl<2> for [T] {
+impl<T> ReflectedImpl<2> for [T]
+where
+    T: Reflected + PartialOrd,
+    T::Key: Sized,
+{
     fn assoc_fns() -> Vec<AssocFn> {
         extern_assoc_fns!([T] @
             // fn is_sorted(&self) -> bool;
@@ -571,7 +655,11 @@ impl<T: Reflected + PartialOrd> ReflectedImpl<2> for [T] {
     }
 }
 
-impl<T: Reflected + Ord> ReflectedImpl<3> for [T] {
+impl<T> ReflectedImpl<3> for [T]
+where
+    T: Reflected + Ord,
+    T::Key: Sized,
+{
     fn assoc_fns() -> Vec<AssocFn> {
         extern_assoc_fns!([T] @
             fn sort(&mut self);
@@ -585,7 +673,11 @@ impl<T: Reflected + Ord> ReflectedImpl<3> for [T] {
     }
 }
 
-impl<T: Reflected + Clone> ReflectedImpl<4> for [T] {
+impl<T> ReflectedImpl<4> for [T]
+where
+    T: Reflected + Clone,
+    T::Key: Sized,
+{
     fn assoc_fns() -> Vec<AssocFn> {
         extern_assoc_fns!([T] @
             // fn fill(&mut self, value: T);
@@ -598,7 +690,12 @@ impl<T: Reflected + Clone> ReflectedImpl<4> for [T] {
     }
 }
 
-impl<T: Reflected + Clone + 'static> ReflectedImpl<5> for [T] {
+impl<T> ReflectedImpl<5> for [T]
+where
+    T: Reflected + Clone + 'static,
+    T::Key: Reflected + Sized,
+    <T::Key as Reflected>::Key: Reflected + Sized,
+{
     fn assoc_fns() -> Vec<AssocFn> {
         extern_assoc_fns!([T] @
             fn to_vec(&self) -> Vec<T>;
@@ -611,7 +708,11 @@ impl<T: Reflected + Clone + 'static> ReflectedImpl<5> for [T] {
     }
 }
 
-impl<T: Reflected + Copy> ReflectedImpl<6> for [T] {
+impl<T> ReflectedImpl<6> for [T]
+where
+    T: Reflected + Copy,
+    T::Key: Sized,
+{
     fn assoc_fns() -> Vec<AssocFn> {
         extern_assoc_fns!([T] @
             fn copy_from_slice(&mut self, src: &[T]);
@@ -624,7 +725,11 @@ impl<T: Reflected + Copy> ReflectedImpl<6> for [T] {
     }
 }
 
-impl<T: Reflected + Copy + 'static> ReflectedImpl<7> for [T] {
+impl<T> ReflectedImpl<7> for [T]
+where
+    T: Reflected + Copy + 'static,
+    T::Key: Reflected + Sized,
+{
     fn assoc_fns() -> Vec<AssocFn> {
         extern_assoc_fns!([T] @
             fn repeat(&self, n: usize) -> Vec<T>;
@@ -655,16 +760,10 @@ impl ReflectedImpl<8> for [u8] {
 
 // Pointers
 impl<T: ?Sized + Reflected> Reflected for *const T {
+    type Key = *const T::Key;
+
     fn name() -> String {
         format!("*const {}", T::name())
-    }
-
-    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr.cast()
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        ((), self as *const *const T as _)
     }
 
     unsafe fn init() {
@@ -681,6 +780,8 @@ impl<T: ?Sized + Reflected> ReflectedPointer for *const T {
         false
     }
 }
+
+unsafe impl<'a, T> NotOutlives<'a> for *const T where T: NotOutlives<'a> {}
 
 impl<T: ?Sized + Reflected> ReflectedImpl<0> for *const T {
     fn assoc_fns() -> Vec<AssocFn> {
@@ -734,16 +835,10 @@ impl<T: Reflected + 'static> ReflectedImpl<2> for *const T {
 }
 
 impl<T: ?Sized + Reflected> Reflected for *mut T {
+    type Key = *mut T::Key;
+
     fn name() -> String {
         format!("*mut {}", T::name())
-    }
-
-    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr.cast()
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        ((), self as *const *mut T as _)
     }
 
     unsafe fn init() {
@@ -761,18 +856,14 @@ impl<T: ?Sized + Reflected> ReflectedPointer for *mut T {
     }
 }
 
+unsafe impl<'a, T> NotOutlives<'a> for *mut T where T: NotOutlives<'a> {}
+
 // References
 impl<T: ?Sized + Reflected> Reflected for &T {
+    type Key = &'static T::Key;
+
     fn name() -> String {
         format!("&{}", T::name())
-    }
-
-    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr.cast()
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        ((), self as *const &T as _)
     }
 
     unsafe fn init() {
@@ -790,17 +881,18 @@ impl<T: ?Sized + Reflected> ReflectedReference for &T {
     }
 }
 
+unsafe impl<'a, 'b, T: ?Sized> NotOutlives<'b> for &'b T
+where
+    'b: 'a,
+    T: NotOutlives<'a>,
+{
+}
+
 impl<T: ?Sized + Reflected> Reflected for &mut T {
+    type Key = &'static mut T::Key;
+
     fn name() -> String {
         format!("&mut {}", T::name())
-    }
-
-    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr.cast()
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        ((), self as *const &mut T as _)
     }
 
     unsafe fn init() {
@@ -818,18 +910,19 @@ impl<T: ?Sized + Reflected> ReflectedReference for &mut T {
     }
 }
 
+unsafe impl<'a, 'b, T: ?Sized> NotOutlives<'b> for &'b mut T
+where
+    'b: 'a,
+    T: NotOutlives<'a>,
+{
+}
+
 // Function pointers
 impl<T: Reflected> Reflected for fn() -> T {
+    type Key = fn() -> T::Key;
+
     fn name() -> String {
         format!("fn() -> {}", T::name())
-    }
-
-    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr.cast()
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        ((), self as *const Self as _)
     }
 
     unsafe fn init() {
@@ -848,16 +941,10 @@ impl<T: Reflected> ReflectedFunction for fn() -> T {
 }
 
 impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T {
+    type Key = fn(A0::Key) -> T::Key;
+
     fn name() -> String {
         format!("fn({}) -> {}", A0::name(), T::name())
-    }
-
-    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr.cast()
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        ((), self as *const Self as _)
     }
 
     unsafe fn init() {
@@ -875,18 +962,65 @@ impl<T: Reflected, A0: Reflected> ReflectedFunction for fn(A0) -> T {
     }
 }
 
+impl<T: Reflected, A0: Reflected, A1: Reflected> Reflected for fn(A0, A1) -> T {
+    type Key = fn(A0::Key, A1::Key) -> T::Key;
+
+    fn name() -> String {
+        format!("fn({}, {}) -> {}", A0::name(), A1::name(), T::name())
+    }
+
+    unsafe fn init() {
+        Type::new_fn::<fn(A0, A1) -> T>()
+    }
+}
+
+impl<T: Reflected, A0: Reflected, A1: Reflected> ReflectedFunction for fn(A0, A1) -> T {
+    fn args() -> Vec<Type> {
+        vec![Type::from::<A0>(), Type::from::<A1>()]
+    }
+
+    fn ret() -> Type {
+        Type::from::<T>()
+    }
+}
+
+impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected for fn(A0, A1, A2) -> T {
+    type Key = fn(A0::Key, A1::Key, A2::Key) -> T::Key;
+
+    fn name() -> String {
+        format!(
+            "fn({}, {}, {}) -> {}",
+            A0::name(),
+            A1::name(),
+            A2::name(),
+            T::name()
+        )
+    }
+
+    unsafe fn init() {
+        Type::new_fn::<fn(A0, A1, A2) -> T>()
+    }
+}
+
+impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> ReflectedFunction
+    for fn(A0, A1, A2) -> T
+{
+    fn args() -> Vec<Type> {
+        vec![Type::from::<A0>(), Type::from::<A1>(), Type::from::<A2>()]
+    }
+
+    fn ret() -> Type {
+        Type::from::<T>()
+    }
+}
+
 // Never type
+#[cfg(feature = "never-type")]
 impl Reflected for ! {
+    type Key = !;
+
     fn name() -> String {
         "!".into()
-    }
-
-    unsafe fn assemble(_: *mut Self::Meta, ptr: *mut ()) -> *mut Self {
-        ptr.cast()
-    }
-
-    fn disassemble(&self) -> (Self::Meta, *mut ()) {
-        ((), self as *const Self as _)
     }
 
     unsafe fn init() {

@@ -16,5 +16,5 @@ pub use fns::AssocFn;
 pub use union_fields::UnionField;
 pub use variants::{StructVariant, TupleVariant, UnitVariant, Variant};
 
-type AccessHelper = Box<dyn for<'a> Fn(&'a Value<'a>) -> Value<'a>>;
-type SetHelper = Box<dyn Fn(&mut Value, Value<'static>)>;
+type AccessHelper = for<'a, 'b> fn(&'a Value<'b>) -> Value<'a>;
+type SetHelper = fn(&mut Value<'_>, Value<'static>);

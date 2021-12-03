@@ -64,13 +64,12 @@ extern_items! {
         size: core::num::NonZeroUsize,
     }
 
-    // TODO: Support where bounds
-    pub struct Split<'a, T: 'a, P: FnMut(&T) -> bool>
+    // pub struct Split<'a, T: 'a, P>
     // where
     //     P: FnMut(&T) -> bool,
-    {
-        v: &'a [T],
-        pred: P,
-        finished: bool,
-    }
+    // {
+    //     v: &'a [T],
+    //     pred: P,
+    //     finished: bool,
+    // }
 }

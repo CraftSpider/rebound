@@ -1,6 +1,5 @@
 
-#![allow(incomplete_features)]
-#![feature(specialization)]
+#![feature(min_specialization)]
 
 use rebound::{Type, rebound};
 
