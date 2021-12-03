@@ -4,7 +4,7 @@ use crate::info::UnionField;
 use crate::utils::StaticTypeMap;
 use crate::{AssocConst, AssocFn, Error, Field, Type, Value, Variant};
 
-use core::ptr;
+use std::ptr::NonNull;
 use once_cell::sync::OnceCell;
 use rebound_proc::impl_find;
 
@@ -172,9 +172,8 @@ impl<T: ?Sized + Reflected> Ref for T {
 impl<T: ?Sized + Reflected> Ref for &T {
     fn ref_val<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error> {
         unsafe {
-            let new_ref = ptr::from_raw_parts::<T>(val.raw_ptr().cast(), *val.raw_meta().cast())
-                .as_ref()
-                .unwrap();
+            let new_ref = NonNull::<T>::from_raw_parts(val.raw_ptr(), *val.raw_meta().cast().as_ref())
+                .as_ref();
             Ok(core::mem::transmute::<Value<'_>, Value<'_>>(Value::from(
                 new_ref,
             )))

@@ -1,24 +1,19 @@
 //! Dynamically typed, lifetime safe values
 
 use crate::{Error, Reflected, Type};
-
 use crate::ty::CommonTypeInfo;
-use core::fmt;
+
 use core::marker::PhantomData;
-use core::ptr;
+use core::{mem, fmt};
+use core::ptr::NonNull;
+
+use craft_eraser::{ErasedBox, ErasedNonNull};
 
 #[derive(Debug)]
 enum ValueKind {
-    Owned { drop: fn(*mut (), *mut ()) },
-    Borrowed,
+    Owned(ErasedBox),
+    Borrowed(ErasedNonNull),
     Moved,
-}
-
-fn drop_impl<T: ?Sized + Reflected>(meta: *mut (), ptr: *mut ()) {
-    unsafe {
-        let meta = *Box::from_raw(meta.cast::<<T as ptr::Pointee>::Metadata>());
-        Box::from_raw(ptr::from_raw_parts_mut::<T>(ptr, meta));
-    }
 }
 
 /// Trait to represent a bound that a type may not outlives some given lifetime. Used to allow
@@ -44,10 +39,8 @@ pub unsafe trait NotOutlives<'no> {}
 /// as a type not the same as the input type will result in a failure at runtime.
 #[derive(Debug)]
 pub struct Value<'a> {
-    meta: *mut (),
-    ptr: *mut (),
+    value: ValueKind,
     ty: Type,
-    kind: ValueKind,
     _phantom: PhantomData<&'a ()>,
 }
 
@@ -59,18 +52,13 @@ impl<'a> Value<'a> {
     /// # Safety
     ///
     /// Similar to [`Box::from_raw`], this function may result in a double-free if called more than
-    /// once with the same pointer.
-    pub unsafe fn from_ptr_owned<T: ?Sized + Reflected + 'a>(val: *mut T) -> Value<'a> {
-        let (ptr, meta) = val.to_raw_parts();
-        let meta = Box::into_raw(Box::new(meta)).cast();
-
+    /// once with the same pointer. The pointer must also upheld any additional obligations on that
+    /// function.
+    pub unsafe fn from_ptr_owned<T: ?Sized + Reflected + 'a>(val: NonNull<T>) -> Value<'a> {
         Value {
-            meta,
-            ptr,
+            // SAFETY: Out safety requires the same guarantees
+            value: ValueKind::Owned(ErasedBox::from_raw(val)),
             ty: Type::from::<T>(),
-            kind: ValueKind::Owned {
-                drop: drop_impl::<T>,
-            },
             _phantom: PhantomData,
         }
     }
@@ -78,38 +66,31 @@ impl<'a> Value<'a> {
     /// Create a new borrowed Value from a reference, with a lifetime no greater than that of the
     /// provided reference.
     pub fn from_ref<T: ?Sized + Reflected>(val: &T) -> Value<'_> {
-        let (ptr, meta) = (val as *const T as *mut T).to_raw_parts();
-        let meta = Box::into_raw(Box::new(meta)).cast();
-
         Value {
-            meta,
-            ptr,
+            value: ValueKind::Borrowed(ErasedNonNull::from(val)),
             ty: Type::from::<T>(),
-            kind: ValueKind::Borrowed,
             _phantom: PhantomData,
         }
     }
 
-    /// Get a pointer to the raw backing metadata of this Value
-    ///
-    /// # Safety
-    ///
-    /// Similar to [`pointer::as_ref`], the pointer returned by this function may outlive the
-    /// borrowed Value, it is the user's responsibility to not use it past the lifetime of this
-    /// Value.
-    pub unsafe fn raw_meta(&self) -> *mut () {
-        self.meta
+    /// Get a pointer to the raw backing metadata of this `Value`. It is the user's responsibility to not allow
+    /// this pointer to outlive the lifetime of this `Value`.
+    pub fn raw_meta(&self) -> NonNull<()> {
+        match &self.value {
+            ValueKind::Owned(b) => b.raw_meta_ptr(),
+            ValueKind::Borrowed(p) => p.raw_meta_ptr(),
+            ValueKind::Moved => unreachable!()
+        }
     }
 
-    /// Get the raw backing pointer of this Value
-    ///
-    /// # Safety
-    ///
-    /// Similar to [`pointer::as_ref`], the pointer returned by this function may outlive the
-    /// borrowed Value, it is the user's responsibility to not use it past the lifetime of this
-    /// Value.
-    pub unsafe fn raw_ptr(&self) -> *mut () {
-        self.ptr
+    /// Get the raw backing pointer of this `Value`. It is the user's responsibility to not allow
+    /// this pointer to outlive the lifetime of this `Value`.
+    pub fn raw_ptr(&self) -> NonNull<()> {
+        match &self.value {
+            ValueKind::Owned(b) => b.raw_ptr(),
+            ValueKind::Borrowed(p) => p.raw_ptr(),
+            ValueKind::Moved => unreachable!()
+        }
     }
 
     /// Get the [`Type`] of this Value
@@ -132,17 +113,18 @@ impl<'a> Value<'a> {
     /// the provided T does *not* outlive `'a`. As such, it is the user's responsibility to not move
     /// data out of this value in a way which gives it a lifetime longer than its original.
     pub unsafe fn try_cast_unsafe<T: Reflected>(mut self) -> Result<T, (Self, Error)> {
-        if let ValueKind::Owned { .. } = &self.kind {
+        let value = mem::replace(&mut self.value, ValueKind::Moved);
+
+        if let ValueKind::Owned(b) = value {
             if Type::from::<T>() == self.ty {
-                self.kind = ValueKind::Moved;
-                // Want to drop meta here as well, else we'll leak it
-                Box::from_raw(self.meta);
-                Ok(*Box::from_raw(self.ptr.cast::<T>()))
+                Ok(*b.reify_box::<T>())
             } else {
+                self.value = ValueKind::Owned(b);
                 let ty = self.ty;
                 Err((self, Error::wrong_type(Type::from::<T>(), ty)))
             }
         } else {
+            self.value = value;
             Err((self, Error::BorrowedValue))
         }
     }
@@ -200,8 +182,8 @@ impl<'a> Value<'a> {
     /// See [`Value::try_cast`]
     pub unsafe fn try_borrow_unsafe<T: ?Sized + Reflected>(&self) -> Result<&T, Error> {
         if Type::from::<T>() == self.ty() {
-            let ptr = ptr::from_raw_parts_mut(self.ptr, *self.meta.cast());
-            Ok(&*ptr)
+            let ptr = NonNull::<T>::from_raw_parts(self.raw_ptr(), *self.raw_meta().cast().as_ref());
+            Ok(ptr.as_ref())
         } else {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         }
@@ -276,8 +258,8 @@ impl<'a> Value<'a> {
     /// See [`Value::try_cast`]
     pub unsafe fn try_borrow_unsafe_mut<T: ?Sized + Reflected>(&mut self) -> Result<&mut T, Error> {
         if Type::from::<T>() == self.ty() {
-            let ptr = ptr::from_raw_parts_mut(self.ptr, *self.meta.cast());
-            Ok(&mut *ptr)
+            let mut ptr = NonNull::<T>::from_raw_parts(self.raw_ptr(), *self.raw_meta().cast().as_ref());
+            Ok(ptr.as_mut())
         } else {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         }
@@ -367,31 +349,16 @@ impl<'a> Value<'a> {
 
 impl<'a> fmt::Pointer for Value<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Pointer::fmt(&self.ptr, f)
+        fmt::Pointer::fmt(&self.raw_ptr(), f)
     }
 }
 
 impl<'a, T: Reflected + 'a> From<T> for Value<'a> {
     default fn from(val: T) -> Value<'a> {
-        let (ptr, meta) = Box::into_raw(Box::new(val)).to_raw_parts();
-        let meta = Box::into_raw(Box::<<T as ptr::Pointee>::Metadata>::new(meta)).cast();
-
         Value {
-            meta,
-            ptr,
+            value: ValueKind::Owned(ErasedBox::new(val)),
             ty: Type::from::<T>(),
             _phantom: PhantomData,
-            kind: ValueKind::Owned {
-                drop: drop_impl::<T>,
-            },
-        }
-    }
-}
-
-impl<'a> Drop for Value<'a> {
-    fn drop(&mut self) {
-        if let ValueKind::Owned { drop } = &self.kind {
-            drop(self.meta, self.ptr);
         }
     }
 }

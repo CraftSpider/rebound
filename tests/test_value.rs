@@ -1,3 +1,4 @@
+use std::ptr::NonNull;
 use rebound::{rebound, Type, Value};
 
 #[rebound]
@@ -64,7 +65,7 @@ fn test_mut_ref_value() {
 #[test]
 fn test_slice_value() {
     let slice = Box::<[i32]>::from(&[1, 2, 3] as &[i32]);
-    let v = unsafe { Value::from_ptr_owned(Box::into_raw(slice)) };
+    let v = unsafe { Value::from_ptr_owned(NonNull::from(Box::leak(slice))) };
 
     assert_eq!(v.ty(), Type::from::<[i32]>());
     let r = v.borrow::<[i32]>();
