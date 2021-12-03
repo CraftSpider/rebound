@@ -21,14 +21,3 @@ error[E0597]: `r` does not live long enough
 ...
 15 |     do_stuff(invalid);
    |              ------- borrow later used here
-
-error[E0597]: `val` does not live long enough
-  --> $DIR/double_ref.rs:11:20
-   |
-11 |         invalid = *val.borrow::<&&i32>();
-   |                    ^^^ borrowed value does not live long enough
-12 |     }
-   |     - `val` dropped here while still borrowed
-...
-15 |     do_stuff(invalid);
-   |              ------- borrow later used here

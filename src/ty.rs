@@ -9,7 +9,7 @@ use core::fmt;
 use core::hash::{Hash, Hasher};
 use std::any::TypeId;
 use std::collections::HashMap;
-use std::lazy::SyncOnceCell;
+use once_cell::sync::OnceCell;
 use std::sync::RwLock;
 
 /// Implement CommonTypeInfo for a given struct
@@ -40,7 +40,7 @@ macro_rules! impl_common {
 }
 
 // SAFETY: *do not touch these if you don't know what you're doing*
-static REFLECTED_TYS: SyncOnceCell<RwLock<HashMap<TypeId, Type>>> = SyncOnceCell::new();
+static REFLECTED_TYS: OnceCell<RwLock<HashMap<TypeId, Type>>> = OnceCell::new();
 
 /// Common information / operations between all types
 pub trait CommonTypeInfo {
@@ -362,7 +362,7 @@ impl Type {
 
     /// Get a Type instance from any reflected type, instantiating it if necessary.
     pub fn from<T: ?Sized + Reflected>() -> Type {
-        static INIT: SyncOnceCell<StaticTypeMap<()>> = SyncOnceCell::new();
+        static INIT: OnceCell<StaticTypeMap<()>> = OnceCell::new();
         INIT.get_or_init(StaticTypeMap::new).call_once::<T, _>(|| {
             unsafe { T::init() };
         });

@@ -18,14 +18,13 @@
     clippy::cloned_instead_of_copied,
     clippy::unreadable_literal
 )]
-#![feature(specialization, once_cell, ptr_metadata)]
+#![feature(specialization, ptr_metadata)]
 // Features used just to implement reflection for their stuff
 #![cfg_attr(feature = "never-type", feature(never_type))]
 #![feature(
     associated_type_bounds,
     allocator_api,
-    ptr_internals,
-    raw_vec_internals
+    ptr_internals
 )]
 
 #[doc(hidden)]

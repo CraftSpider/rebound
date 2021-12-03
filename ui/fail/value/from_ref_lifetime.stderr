@@ -7,4 +7,4 @@ error[E0597]: `lives_shorter` does not live long enough
    |     - `lives_shorter` dropped here while still borrowed
 10 |
 11 |     let _borrow = val.borrow::<i32>();
-   |                   --- borrow later used here
+   |                   ------------------- borrow later used here

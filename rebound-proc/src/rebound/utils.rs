@@ -5,7 +5,7 @@ use std::iter::FromIterator;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::punctuated::Punctuated;
-// use syn::spanned::Spanned;
+use syn::spanned::Spanned;
 use syn::{Lifetime, Token};
 
 pub fn path_to_string(path: &syn::Path) -> String {
@@ -43,6 +43,14 @@ where
 fn item_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
     build_name(name, generics, |param| match param {
         syn::GenericParam::Lifetime(..) => quote!('_),
+        syn::GenericParam::Type(syn::TypeParam { ident, .. })
+        | syn::GenericParam::Const(syn::ConstParam { ident, .. }) => quote!(#ident),
+    })
+}
+
+fn item_lifetime_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
+    build_name(name, generics, |param| match param {
+        syn::GenericParam::Lifetime(lifetime) => quote!(#lifetime),
         syn::GenericParam::Type(syn::TypeParam { ident, .. })
         | syn::GenericParam::Const(syn::ConstParam { ident, .. }) => quote!(#ident),
     })
@@ -103,6 +111,8 @@ pub enum NameTy {
     Ident,
     /// This item's code path
     Path,
+    /// This item's path with generic lifetimes
+    LifetimePath,
     /// This item's full path with static lifetimes
     StaticPath,
     /// This item's full rebound name path
@@ -185,6 +195,7 @@ impl OutputHelpers for syn::ItemStruct {
                 quote!(#ident)
             }
             NameTy::Path => item_name(&self.ident, &self.generics),
+            NameTy::LifetimePath => item_lifetime_name(&self.ident, &self.generics),
             NameTy::StaticPath => item_static_name(&self.ident, &self.generics),
             NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics),
         }
@@ -211,6 +222,7 @@ impl OutputHelpers for syn::ItemEnum {
                 quote!(#ident)
             }
             NameTy::Path => item_name(&self.ident, &self.generics),
+            NameTy::LifetimePath => item_lifetime_name(&self.ident, &self.generics),
             NameTy::StaticPath => item_static_name(&self.ident, &self.generics),
             NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics),
         }
@@ -237,6 +249,7 @@ impl OutputHelpers for syn::ItemUnion {
                 quote!(#ident)
             }
             NameTy::Path => item_name(&self.ident, &self.generics),
+            NameTy::LifetimePath => item_lifetime_name(&self.ident, &self.generics),
             NameTy::StaticPath => item_static_name(&self.ident, &self.generics),
             NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics),
         }
@@ -525,6 +538,12 @@ fn outlives_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, Toke
 
     generics.params.iter().for_each(|param| match param {
         syn::GenericParam::Lifetime(param) => {
+            clauses.iter_mut().for_each(|clause| if let syn::WherePredicate::Lifetime(life) = clause {
+                if life.lifetime == base_lifetime {
+                    life.bounds.push(param.lifetime.clone())
+                }
+            });
+
             // If there's an existing where clause for this lifetime, use it.
             // Otherwise, add one
             let found = clauses.iter_mut().any(|clause| {

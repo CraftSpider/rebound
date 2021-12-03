@@ -7,7 +7,7 @@ use crate::value::NotOutlives;
 use crate::{AssocConst, AssocFn, Field, Type};
 
 use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
-use std::lazy::SyncOnceCell;
+use once_cell::sync::OnceCell;
 
 macro_rules! reflect_prims {
     ($($ty:ty),+ $(,)?) => {
@@ -350,7 +350,7 @@ where
     T0: Reflected,
 {
     fn fields() -> &'static [Field] {
-        static TUPLE_FIELDS: SyncOnceCell<StaticTypeMap<[Field; 1]>> = SyncOnceCell::new();
+        static TUPLE_FIELDS: OnceCell<StaticTypeMap<[Field; 1]>> = OnceCell::new();
 
         TUPLE_FIELDS
             .get_or_init(StaticTypeMap::new)
@@ -397,7 +397,7 @@ where
     T1: Reflected,
 {
     fn fields() -> &'static [Field] {
-        static TUPLE_FIELDS: SyncOnceCell<StaticTypeMap<[Field; 2]>> = SyncOnceCell::new();
+        static TUPLE_FIELDS: OnceCell<StaticTypeMap<[Field; 2]>> = OnceCell::new();
 
         TUPLE_FIELDS
             .get_or_init(StaticTypeMap::new)
@@ -458,7 +458,7 @@ where
     T2: Reflected,
 {
     fn fields() -> &'static [Field] {
-        static TUPLE_FIELDS: SyncOnceCell<StaticTypeMap<[Field; 3]>> = SyncOnceCell::new();
+        static TUPLE_FIELDS: OnceCell<StaticTypeMap<[Field; 3]>> = OnceCell::new();
 
         TUPLE_FIELDS
             .get_or_init(StaticTypeMap::new)

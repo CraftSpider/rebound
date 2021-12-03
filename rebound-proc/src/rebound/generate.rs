@@ -2,7 +2,7 @@ use super::utils::*;
 use super::{Config, Result};
 
 use std::collections::HashMap;
-use std::lazy::SyncOnceCell;
+use once_cell::sync::OnceCell;
 use std::sync::RwLock;
 
 use proc_macro2::TokenStream;
@@ -391,7 +391,7 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
     ))
 }
 
-static IMPLS_PER_TY: SyncOnceCell<RwLock<HashMap<String, u8>>> = SyncOnceCell::new();
+static IMPLS_PER_TY: OnceCell<RwLock<HashMap<String, u8>>> = OnceCell::new();
 
 pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenStream> {
     if item.trait_.is_some() {
@@ -563,6 +563,7 @@ pub fn generate_reflect_type(cfg: &Config, item: &Item) -> Result<TokenStream> {
     let (reflect_impl_bounds, reflect_where_bounds) = item.reflect_bounds(cfg);
     let (out_impl_bounds, out_where_bounds) = item.outlives_bounds(cfg);
     let name = item.name(cfg, NameTy::Path);
+    let lifetime_name = item.name(cfg, NameTy::LifetimePath);
     let static_name = item.name(cfg, NameTy::StaticPath);
     let rebound_name = item.name(cfg, NameTy::ReboundName);
     let new_fn = item.new_fn_name();
@@ -580,9 +581,14 @@ pub fn generate_reflect_type(cfg: &Config, item: &Item) -> Result<TokenStream> {
             }
         }
 
-        // For each T, need `T: NotOutlives<'a>, 'b: 'a`
-        // TODO: Add impl bounds lifetime to name
-        unsafe impl #out_impl_bounds #crate_name::value::NotOutlives<'no> for #name #out_where_bounds {}
+        // NotOutlives bound generation:
+        //   Impl for NotOutlives<'no>
+        //   where:
+        //     'no: 't0 .. 'tn + 'l0 .. 'ln
+        //     T0: NotOutlives<'t0>
+        //     ...
+        //     TN: NotOutlives<'tn>
+        unsafe impl #out_impl_bounds #crate_name::value::NotOutlives<'no> for #lifetime_name #out_where_bounds {}
     ))
 }
 

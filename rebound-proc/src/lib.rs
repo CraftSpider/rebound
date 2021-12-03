@@ -1,4 +1,4 @@
-#![feature(once_cell, proc_macro_diagnostic)]
+#![feature(proc_macro_diagnostic)]
 
 use proc_macro::TokenStream;
 use quote::quote;

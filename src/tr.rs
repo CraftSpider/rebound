@@ -5,10 +5,10 @@
 use crate::info::*;
 
 use std::collections::HashMap;
-use std::lazy::SyncOnceCell;
+use once_cell::sync::OnceCell;
 use std::sync::RwLock;
 
-static REFLECTED_TRAITS: SyncOnceCell<RwLock<HashMap<String, Box<Trait>>>> = SyncOnceCell::new();
+static REFLECTED_TRAITS: OnceCell<RwLock<HashMap<String, Box<Trait>>>> = OnceCell::new();
 
 #[derive(Debug)]
 struct Trait {

@@ -6,7 +6,7 @@ use crate::{AssocConst, AssocFn, Error, Field, Type, Value, Variant};
 
 use core::ptr;
 use rebound_proc::impl_find;
-use std::lazy::SyncOnceCell;
+use once_cell::sync::OnceCell;
 
 /// A trait representing any reflected [`Type`]. Supports operations common to all Types,
 /// such as retrieving its qualified name or impl information.
@@ -19,7 +19,7 @@ pub trait Reflected {
 
     /// Get all the associated functions for this Type that rebound is aware of
     fn assoc_fns() -> &'static [AssocFn] {
-        static ASSOC_FNS: SyncOnceCell<StaticTypeMap<Vec<AssocFn>>> = SyncOnceCell::new();
+        static ASSOC_FNS: OnceCell<StaticTypeMap<Vec<AssocFn>>> = OnceCell::new();
 
         ASSOC_FNS
             .get_or_init(StaticTypeMap::new)
@@ -32,7 +32,7 @@ pub trait Reflected {
 
     /// Get all the associated constants for this Type that rebound is aware of
     fn assoc_consts() -> &'static [AssocConst] {
-        static ASSOC_CONSTS: SyncOnceCell<StaticTypeMap<Vec<AssocConst>>> = SyncOnceCell::new();
+        static ASSOC_CONSTS: OnceCell<StaticTypeMap<Vec<AssocConst>>> = OnceCell::new();
 
         ASSOC_CONSTS
             .get_or_init(StaticTypeMap::new)

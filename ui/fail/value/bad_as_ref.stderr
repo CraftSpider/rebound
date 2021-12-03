@@ -2,7 +2,7 @@ error[E0502]: cannot borrow `v` as mutable because it is also borrowed as immuta
   --> $DIR/bad_as_ref.rs:9:5
    |
 6  |     let v2 = v.as_ref()
-   |              - immutable borrow occurs here
+   |              ---------- immutable borrow occurs here
 ...
 9  |     v.borrow_mut::<i32>();
    |     ^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here

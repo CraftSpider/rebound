@@ -4,13 +4,13 @@ use crate::Reflected;
 
 use std::any::TypeId;
 use std::collections::HashMap;
-use std::lazy::SyncOnceCell;
+use once_cell::sync::OnceCell;
 use std::sync::RwLock;
 
 /// A helper for making `static` variables in a generic which are unique per type used in the
 /// generic.
 pub struct StaticTypeMap<T: 'static> {
-    map: RwLock<HashMap<TypeId, &'static SyncOnceCell<T>>>,
+    map: RwLock<HashMap<TypeId, &'static OnceCell<T>>>,
 }
 
 impl<T: 'static> StaticTypeMap<T> {
@@ -44,7 +44,7 @@ impl<T: 'static> StaticTypeMap<T> {
         let cell = {
             let mut writer = self.map.write().unwrap();
             let cell = writer.entry(TypeId::of::<Ty::Key>()).or_insert_with(|| {
-                let boxed = Box::new(SyncOnceCell::new());
+                let boxed = Box::new(OnceCell::new());
                 Box::leak(boxed)
             });
             *cell
