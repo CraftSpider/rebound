@@ -1,5 +1,5 @@
-use std::ptr::NonNull;
 use rebound::{rebound, Type, Value};
+use std::ptr::NonNull;
 
 #[rebound]
 struct TestStruct {}

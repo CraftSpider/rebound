@@ -1,11 +1,11 @@
 //! Dynamically typed, lifetime safe values
 
-use crate::{Error, Reflected, Type};
 use crate::ty::CommonTypeInfo;
+use crate::{Error, Reflected, Type};
 
 use core::marker::PhantomData;
-use core::{mem, fmt};
 use core::ptr::NonNull;
+use core::{fmt, mem};
 
 use craft_eraser::{ErasedBox, ErasedNonNull};
 
@@ -79,7 +79,7 @@ impl<'a> Value<'a> {
         match &self.value {
             ValueKind::Owned(b) => b.raw_meta_ptr(),
             ValueKind::Borrowed(p) => p.raw_meta_ptr(),
-            ValueKind::Moved => unreachable!()
+            ValueKind::Moved => unreachable!(),
         }
     }
 
@@ -89,7 +89,7 @@ impl<'a> Value<'a> {
         match &self.value {
             ValueKind::Owned(b) => b.raw_ptr(),
             ValueKind::Borrowed(p) => p.raw_ptr(),
-            ValueKind::Moved => unreachable!()
+            ValueKind::Moved => unreachable!(),
         }
     }
 
@@ -182,7 +182,8 @@ impl<'a> Value<'a> {
     /// See [`Value::try_cast`]
     pub unsafe fn try_borrow_unsafe<T: ?Sized + Reflected>(&self) -> Result<&T, Error> {
         if Type::from::<T>() == self.ty() {
-            let ptr = NonNull::<T>::from_raw_parts(self.raw_ptr(), *self.raw_meta().cast().as_ref());
+            let ptr =
+                NonNull::<T>::from_raw_parts(self.raw_ptr(), *self.raw_meta().cast().as_ref());
             Ok(ptr.as_ref())
         } else {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
@@ -258,7 +259,8 @@ impl<'a> Value<'a> {
     /// See [`Value::try_cast`]
     pub unsafe fn try_borrow_unsafe_mut<T: ?Sized + Reflected>(&mut self) -> Result<&mut T, Error> {
         if Type::from::<T>() == self.ty() {
-            let mut ptr = NonNull::<T>::from_raw_parts(self.raw_ptr(), *self.raw_meta().cast().as_ref());
+            let mut ptr =
+                NonNull::<T>::from_raw_parts(self.raw_ptr(), *self.raw_meta().cast().as_ref());
             Ok(ptr.as_mut())
         } else {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
