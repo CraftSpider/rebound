@@ -27,7 +27,7 @@ fn static_or_anon(life: &Lifetime) -> Lifetime {
     if life.ident == "static" {
         life.clone()
     } else {
-        Lifetime::new("'_", life.span())
+        Lifetime::new("'_", <Lifetime as Spanned>::span(life))
     }
 }
 
