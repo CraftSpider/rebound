@@ -16,7 +16,7 @@ jobs:
         with:
           toolchain: nightly
           override: true
-          components: rustfmt, clippy, miri
+          components: rustfmt, clippy
 
       - name: Run rustfmt
         uses: actions-rs/cargo@v1
@@ -40,13 +40,28 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
-      - name: Run tests
+          components: miri
+
+      - name: Run test (no features)
+        uses: actiosn-rs/cargo@v1
+        with:
+          command: test
+          args: --no-default-features
+
+      - name: Run tests (all features)
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --all-features
+
+      - name: Run miri (all features)
+        uses: actions-rs/cargo@v1
+        with:
+          command: miri
+          args: test --all-features
