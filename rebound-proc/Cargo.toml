@@ -1,6 +1,6 @@
 [package]
 name = "rebound-proc"
-version = "0.2.0"
+version = "0.3.0"
 description = "Proc macros associated with the rebound crate"
 keywords = ["reflection", "reflect", "proc-macro"]
 repository = "https://github.com/CraftSpider/rebound"
@@ -13,7 +13,7 @@ edition = "2018"
 proc-macro = true
 
 [dependencies]
-quote = "^1.0"
-syn = { version = "^1.0", features = ["full"] }
-proc-macro2 = "^1.0"
-once_cell = "^1.8"
+quote = "1.0"
+syn = { version = "1.0", features = ["full"] }
+proc-macro2 = "1.0"
+once_cell = "1.8"
