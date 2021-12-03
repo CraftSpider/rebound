@@ -2,9 +2,9 @@
 
 use crate::Reflected;
 
+use once_cell::sync::OnceCell;
 use std::any::TypeId;
 use std::collections::HashMap;
-use once_cell::sync::OnceCell;
 use std::sync::RwLock;
 
 /// A helper for making `static` variables in a generic which are unique per type used in the

@@ -27,7 +27,12 @@ fn drop_impl<T: ?Sized + Reflected>(meta: *mut (), ptr: *mut ()) {
 /// If this was allowed, one could create a value containing a reference with a lifetime of `'a`,
 /// then when they call `borrow`, the compiler would allow the creation of an output reference with
 /// a lifetime of `'static`, which would be immediately unsound.
-pub unsafe trait NotOutlives<'a> {}
+///
+/// # Safety
+///
+/// Any implementation must ensure that all generics (lifetimes or types) in the type being
+/// implemented on are correctly bounded to not outlive `'no`
+pub unsafe trait NotOutlives<'no> {}
 
 /// A Value represents a value with an erased type. It may be owned or borrowed.
 /// The Value will have at most the lifetime of the value it was created from.

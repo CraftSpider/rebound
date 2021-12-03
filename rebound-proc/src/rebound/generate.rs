@@ -1,8 +1,8 @@
 use super::utils::*;
 use super::{Config, Result};
 
-use std::collections::HashMap;
 use once_cell::sync::OnceCell;
+use std::collections::HashMap;
 use std::sync::RwLock;
 
 use proc_macro2::TokenStream;

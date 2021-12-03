@@ -5,8 +5,8 @@ use crate::utils::StaticTypeMap;
 use crate::{AssocConst, AssocFn, Error, Field, Type, Value, Variant};
 
 use core::ptr;
-use rebound_proc::impl_find;
 use once_cell::sync::OnceCell;
+use rebound_proc::impl_find;
 
 /// A trait representing any reflected [`Type`]. Supports operations common to all Types,
 /// such as retrieving its qualified name or impl information.

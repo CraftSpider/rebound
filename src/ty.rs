@@ -7,12 +7,12 @@ use crate::{Error, Value};
 
 use core::fmt;
 use core::hash::{Hash, Hasher};
+use once_cell::sync::OnceCell;
 use std::any::TypeId;
 use std::collections::HashMap;
-use once_cell::sync::OnceCell;
 use std::sync::RwLock;
 
-/// Implement CommonTypeInfo for a given struct
+/// Implement `CommonTypeInfo` for a given struct
 macro_rules! impl_common {
     ($ty:ty) => {
         impl CommonTypeInfo for $ty {

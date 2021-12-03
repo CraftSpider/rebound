@@ -21,11 +21,7 @@
 #![feature(specialization, ptr_metadata)]
 // Features used just to implement reflection for their stuff
 #![cfg_attr(feature = "never-type", feature(never_type))]
-#![feature(
-    associated_type_bounds,
-    allocator_api,
-    ptr_internals
-)]
+#![feature(associated_type_bounds, allocator_api, ptr_internals)]
 
 #[doc(hidden)]
 pub use rebound_proc::rebound;

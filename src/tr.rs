@@ -4,8 +4,8 @@
 
 use crate::info::*;
 
-use std::collections::HashMap;
 use once_cell::sync::OnceCell;
+use std::collections::HashMap;
 use std::sync::RwLock;
 
 static REFLECTED_TRAITS: OnceCell<RwLock<HashMap<String, Box<Trait>>>> = OnceCell::new();

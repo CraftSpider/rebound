@@ -538,9 +538,11 @@ fn outlives_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, Toke
 
     generics.params.iter().for_each(|param| match param {
         syn::GenericParam::Lifetime(param) => {
-            clauses.iter_mut().for_each(|clause| if let syn::WherePredicate::Lifetime(life) = clause {
-                if life.lifetime == base_lifetime {
-                    life.bounds.push(param.lifetime.clone())
+            clauses.iter_mut().for_each(|clause| {
+                if let syn::WherePredicate::Lifetime(life) = clause {
+                    if life.lifetime == base_lifetime {
+                        life.bounds.push(param.lifetime.clone())
+                    }
                 }
             });
 

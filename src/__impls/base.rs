@@ -6,8 +6,8 @@ use crate::utils::StaticTypeMap;
 use crate::value::NotOutlives;
 use crate::{AssocConst, AssocFn, Field, Type};
 
-use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
 use once_cell::sync::OnceCell;
+use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
 
 macro_rules! reflect_prims {
     ($($ty:ty),+ $(,)?) => {
