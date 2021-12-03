@@ -21,7 +21,8 @@ jobs:
       - name: Check (no features)
         uses: actions-rs/cargo@v1
         with:
-          command: check --no-default-features
+          command: check
+          args: --no-default-features
 
       - name: Check (default features)
         uses: actions-rs/cargo@v1
@@ -31,7 +32,8 @@ jobs:
       - name: Check (all features)
         uses: actions-rs/cargo@v1
         with:
-          command: check --all-features
+          command: check
+          args: --all-features
 
   lints:
     name: Rebound Lints
