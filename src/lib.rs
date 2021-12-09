@@ -25,6 +25,8 @@
 
 #[doc(hidden)]
 pub use rebound_proc::rebound;
+#[doc(hidden)]
+pub use rebound_proc::post_wire;
 
 pub use error::Error;
 pub use info::{AssocConst, AssocFn, Field, FieldKind, UnionField, Variant};
