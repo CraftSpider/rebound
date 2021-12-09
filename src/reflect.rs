@@ -5,7 +5,6 @@ use crate::utils::StaticTypeMap;
 use crate::{AssocConst, AssocFn, Error, Field, Type, Value, Variant};
 
 use once_cell::sync::OnceCell;
-use rebound_proc::impl_find;
 use std::ptr::NonNull;
 
 /// A trait representing any reflected [`Type`]. Supports operations common to all Types,
@@ -24,9 +23,7 @@ pub trait Reflected {
         ASSOC_FNS
             .get_or_init(StaticTypeMap::new)
             .call_once::<Self, _>(|| {
-                let mut sum = Vec::new();
-                impl_find!(assoc_fns);
-                sum
+                <Self as ReflectedImpl<0>>::assoc_fns()
             })
     }
 
@@ -37,9 +34,7 @@ pub trait Reflected {
         ASSOC_CONSTS
             .get_or_init(StaticTypeMap::new)
             .call_once::<Self, _>(|| {
-                let mut sum = Vec::new();
-                impl_find!(assoc_consts);
-                sum
+                <Self as ReflectedImpl<0>>::assoc_consts()
             })
     }
 
