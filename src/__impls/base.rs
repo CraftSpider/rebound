@@ -29,40 +29,6 @@ macro_rules! reflect_prims {
     };
 }
 
-// macro_rules! reflect_tuples {
-//     () => {};
-//     // We need to be left-recursive to avoid parsing ambiguity, but the last element of a tuple
-//     // is special to we make it the distinct one.
-//     ($last:tt $($generics:tt)*) => {
-//         impl<$($generics,)* $last> Reflected for ($($generics,)* $last,)
-//         where
-//             $($generics: Reflected,)*
-//             $($generics::Key: Sized,)*
-//             $last: Reflected,
-//         {
-//             type Key = ($($generics::Key,)* $last::Key,);
-//
-//             fn name() -> String {
-//                 let mut out = "(".to_string();
-//
-//                 $(
-//                 out += &format!("{}, ", $generics::name());
-//                 )*
-//                 out += &format!("{},", $last::name());
-//
-//                 out += ")";
-//                 out
-//             }
-//
-//             unsafe fn init() {
-//                 Type::new_tuple::<($($generics,)* $last,)>()
-//             }
-//         }
-//
-//         reflect_tuples! { $($generics)* }
-//     };
-// }
-
 // Integers
 reflect_prims! {
     u8,
@@ -85,10 +51,6 @@ reflect_prims! {
     char,
     str,
 }
-
-// reflect_tuples! {
-//     A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
-// }
 
 impl ReflectedImpl<0> for u8 {
     fn assoc_fns() -> Vec<AssocFn> {
@@ -392,6 +354,7 @@ where
 
         TUPLE_FIELDS
             .get_or_init(StaticTypeMap::new)
+            // SAFETY: In `fields` implementation and we're the trusted implementation
             .call_once::<Self, _>(|| unsafe {
                 [Field::new_tuple(
                     Some(__make_ref_accessor!((T0,), 0)),
@@ -439,6 +402,7 @@ where
 
         TUPLE_FIELDS
             .get_or_init(StaticTypeMap::new)
+            // SAFETY: In `fields` implementation and we're the trusted implementation
             .call_once::<Self, _>(|| unsafe {
                 [
                     Field::new_tuple(
@@ -500,6 +464,7 @@ where
 
         TUPLE_FIELDS
             .get_or_init(StaticTypeMap::new)
+            // SAFETY: In `fields` implementation and we're the trusted implementation
             .call_once::<Self, _>(|| unsafe {
                 [
                     Field::new_tuple(

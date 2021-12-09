@@ -26,6 +26,7 @@ where
     T: ?Sized + Reflected,
 {
     fn fields() -> Vec<Field> {
+        // SAFETY: In `fields` implementation and we're the trusted implementation
         unsafe {
             vec![Field::new_named(
                 None,
