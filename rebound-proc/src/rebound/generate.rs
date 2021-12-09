@@ -393,6 +393,73 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
 
 static IMPLS_PER_TY: OnceCell<RwLock<HashMap<String, u8>>> = OnceCell::new();
 
+pub fn generate_post_wire(item: &mut syn::ItemImpl) {
+    let t = &item.trait_.as_ref().unwrap().1;
+    let self_ty = &*item.self_ty;
+
+    let next_t = {
+        let mut next = t.clone();
+        next.segments.last_mut().map(|seg| {
+            if let syn::PathArguments::AngleBracketed(a) = &mut seg.arguments {
+                let e = if let syn::GenericArgument::Const(e) = &mut a.args[0] {
+                    e
+                } else {
+                    unreachable!()
+                };
+
+                let l = if let syn::Expr::Lit(l) = e {
+                    l
+                } else {
+                    unreachable!()
+                };
+
+                let i = if let syn::Lit::Int(i) = &mut l.lit {
+                    i
+                } else {
+                    unreachable!()
+                };
+
+                let count = i.base10_parse::<usize>().unwrap();
+                let gen = IMPLS_PER_TY.get()
+                    .unwrap()
+                    .read()
+                    .unwrap()
+                    .get(&ty_id(self_ty).unwrap())
+                    .cloned()
+                    .unwrap_or(0);
+
+                if count >= (gen as usize) {
+                    return;
+                }
+
+                *i = syn::LitInt::new(
+                    &(count + 1).to_string(),
+                    i.span(),
+                );
+            }
+        });
+        next
+    };
+
+    let s = &*item.self_ty;
+
+    for f in &mut item.items {
+        let m = if let syn::ImplItem::Method(m) = f {
+            m
+        } else {
+            continue;
+        };
+
+        let ident = &mut m.sig.ident;
+
+        let stmt: syn::Stmt = syn::parse2(quote!(
+            out.extend(<#s as #next_t>::#ident());
+        )).unwrap();
+
+        m.block.stmts.insert(1, stmt);
+    }
+}
+
 pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenStream> {
     if item.trait_.is_some() {
         return Err(
@@ -445,21 +512,24 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
     }
 
     let out = quote!(
+        #[#crate_name::post_wire]
         impl #crate_name::reflect::ReflectedImpl<#num> for #self_ty {
             fn assoc_fns() -> ::std::vec::Vec<#crate_name::AssocFn> {
-                unsafe {
+                let mut out = unsafe {
                     ::std::vec![
                         #(#impl_fns,)*
                     ]
-                }
+                };
+                out
             }
 
             fn assoc_consts() -> ::std::vec::Vec<#crate_name::AssocConst> {
-                unsafe {
+                let mut out = unsafe {
                     ::std::vec![
                         #(#impl_consts,)*
                     ]
-                }
+                };
+                out
             }
         }
     );

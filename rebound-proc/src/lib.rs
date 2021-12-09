@@ -34,6 +34,11 @@ pub fn extern_assoc_consts(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
+pub fn post_wire(_: TokenStream, input: TokenStream) -> TokenStream {
+    rebound::post_wire(input.into()).into()
+}
+
+#[proc_macro_attribute]
 pub fn rebound(attrs: TokenStream, item: TokenStream) -> TokenStream {
     rebound::rebound(attrs.into(), item.into()).into()
 }

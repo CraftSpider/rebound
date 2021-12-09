@@ -305,6 +305,13 @@ pub fn extern_assoc_consts(input: TokenStream) -> TokenStream {
     quote!(unsafe { ::std::vec![ #(#output,)* ] })
 }
 
+pub fn post_wire(input: TokenStream) -> TokenStream {
+    let mut item: syn::ItemImpl = syn::parse2(input)
+        .unwrap();
+    generate_post_wire(&mut item);
+    quote!( #item )
+}
+
 fn rebound_impl(attrs: TokenStream, item: TokenStream) -> Result<TokenStream> {
     let orig_item = item.clone();
     let cfg = parse_attrs(attrs)?;
