@@ -364,6 +364,7 @@ impl Type {
     pub fn from<T: ?Sized + Reflected>() -> Type {
         static INIT: OnceCell<StaticTypeMap<()>> = OnceCell::new();
         INIT.get_or_init(StaticTypeMap::new).call_once::<T, _>(|| {
+            // SAFETY: Inside a `call_once`, and we're the privileged implementation
             unsafe { T::init() };
         });
 

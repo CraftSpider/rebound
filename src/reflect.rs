@@ -45,6 +45,7 @@ pub trait Reflected {
     ///
     /// Should only ever be called once during a single execution of the program, and should not
     /// be called by consumers of this library.
+    #[doc(hidden)]
     unsafe fn init();
 }
 
@@ -148,30 +149,36 @@ pub(crate) trait Ref: Reflected {
 
 impl<T: ?Sized + Reflected> Ref for T {
     default fn ref_val<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error> {
+        // SAFETY: The bounds on this function prevent invalid lifetimes
+        let val = unsafe { Value::from(val.borrow_unsafe::<Self>()) };
+        // SAFETY: See comment above impls
         unsafe {
-            Ok(core::mem::transmute::<Value<'_>, Value<'_>>(Value::from(
-                val.borrow_unsafe::<Self>(),
-            )))
+            Ok(core::mem::transmute::<Value<'_>, Value<'_>>(val))
         }
     }
 
     default fn mut_val<'a>(val: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
+        // SAFETY: The bounds on this function prevent invalid lifetimes
+        let val = unsafe { Value::from(val.borrow_unsafe_mut::<Self>()) };
+        // SAFETY: See comment above impls
         unsafe {
-            Ok(core::mem::transmute::<Value<'_>, Value<'_>>(Value::from(
-                val.borrow_unsafe_mut::<Self>(),
-            )))
+            Ok(core::mem::transmute::<Value<'_>, Value<'_>>(val))
         }
     }
 }
 
 impl<T: ?Sized + Reflected> Ref for &T {
     fn ref_val<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error> {
+        // SAFETY: Meta pointer guaranteed to point to a valid instance of `T::Metadata`
+        let meta = unsafe { *val.raw_meta().cast().as_ref() };
+        // SAFETY: Value pointer guaranteed to point to an instance of the contained type
+        let new_ref = unsafe { NonNull::<T>::from_raw_parts(val.raw_ptr(), meta).as_ref() };
+
+        let val = Value::from(new_ref);
+
+        // SAFETY: See comment above impls
         unsafe {
-            let meta = *val.raw_meta().cast().as_ref();
-            let new_ref = NonNull::<T>::from_raw_parts(val.raw_ptr(), meta).as_ref();
-            Ok(core::mem::transmute::<Value<'_>, Value<'_>>(Value::from(
-                new_ref,
-            )))
+            Ok(core::mem::transmute::<Value<'_>, Value<'_>>(val))
         }
     }
 

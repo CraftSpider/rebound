@@ -16,7 +16,8 @@
     clippy::doc_markdown,
     clippy::ptr_as_ptr,
     clippy::cloned_instead_of_copied,
-    clippy::unreadable_literal
+    clippy::unreadable_literal,
+    clippy::undocumented_unsafe_blocks
 )]
 #![feature(specialization, ptr_metadata)]
 // Features used just to implement reflection for their stuff

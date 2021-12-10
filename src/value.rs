@@ -152,6 +152,7 @@ impl<'a> Value<'a> {
     /// - This will fail if the Value is Borrowed with an [`Error::BorrowedValue`]
     /// - This will fail if the T isn't the same as the type of this value with [`Error::WrongType`]
     pub fn try_cast<T: Reflected + NotOutlives<'a>>(self) -> Result<T, (Self, Error)> {
+        // SAFETY: Lifetimes are guaranteed safe by the `NotOutlives` bound
         unsafe { self.try_cast_unsafe() }
     }
 
@@ -223,6 +224,7 @@ impl<'a> Value<'a> {
     pub fn try_borrow<'b, T: ?Sized + Reflected + NotOutlives<'a>>(
         &'b self,
     ) -> Result<&'b T, Error> {
+        // SAFETY: Lifetimes are guaranteed safe by the `NotOutlives` bound
         unsafe { self.try_borrow_unsafe() }
     }
 
@@ -306,6 +308,7 @@ impl<'a> Value<'a> {
     pub fn try_borrow_mut<'b, T: ?Sized + Reflected + NotOutlives<'a>>(
         &'b mut self,
     ) -> Result<&'b mut T, Error> {
+        // SAFETY: Lifetimes are guaranteed safe by the `NotOutlives` bound
         unsafe { self.try_borrow_unsafe_mut() }
     }
 
