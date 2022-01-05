@@ -1,4 +1,3 @@
-use impl_trait_for_tuples::impl_for_tuples;
 use crate::reflect::{
     Reflected, ReflectedArray, ReflectedFunction, ReflectedImpl, ReflectedPointer,
     ReflectedReference, ReflectedSlice, ReflectedTuple,
@@ -7,6 +6,7 @@ use crate::utils::StaticTypeMap;
 use crate::value::NotOutlives;
 use crate::{AssocConst, AssocFn, Field, Type};
 
+use impl_trait_for_tuples::impl_for_tuples;
 use once_cell::sync::OnceCell;
 use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
 
@@ -340,7 +340,7 @@ impl Reflected for Tuple {
     for_tuples!( where #(Tuple::Key: Sized)* );
 
     fn name() -> String {
-        let names = [ for_tuples!( #(Tuple::name()),* ) ];
+        let names = [for_tuples!( #(Tuple::name()),* )];
         format!("({})", names.join(", "))
     }
 
@@ -360,16 +360,15 @@ impl ReflectedTuple for Tuple {
         TUPLE_FIELDS
             .get_or_init(StaticTypeMap::new)
             .call_once::<Self, _>(|| {
-                use crate::value::Value;
                 use crate::info::{AccessHelper, SetHelper};
+                use crate::value::Value;
 
                 let mut idx_count = 0;
 
                 // HACK: idx_count used because the macro provides no easy way to get the current
                 //       index.
                 #[allow(clippy::eval_order_dependence)]
-                Vec::from([
-                    for_tuples!( #( {
+                Vec::from([for_tuples!( #( {
                         let get_ptr: Option<AccessHelper> = Some(|this| {
                             // SAFETY: We know we won't borrow the item past the lifetime of the
                             //         containing value
@@ -397,8 +396,7 @@ impl ReflectedTuple for Tuple {
                         // SAFETY: We're the privileged implementation
                         unsafe { Field::new_tuple(get_ptr, set_ptr, idx, assoc_ty, field_ty) }
 
-                    } ),* )
-                ])
+                    } ),* )])
             })
     }
 }

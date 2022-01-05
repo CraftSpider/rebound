@@ -157,18 +157,14 @@ impl<T: ?Sized + Reflected> Ref for T {
         // SAFETY: The bounds on this function prevent invalid lifetimes
         let val = unsafe { Value::from(val.borrow_unsafe::<Self>()) };
         // SAFETY: See comment above impls
-        unsafe {
-            Ok(core::mem::transmute::<Value<'_>, Value<'_>>(val))
-        }
+        unsafe { Ok(core::mem::transmute::<Value<'_>, Value<'_>>(val)) }
     }
 
     default fn mut_val<'a>(val: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
         // SAFETY: The bounds on this function prevent invalid lifetimes
         let val = unsafe { Value::from(val.borrow_unsafe_mut::<Self>()) };
         // SAFETY: See comment above impls
-        unsafe {
-            Ok(core::mem::transmute::<Value<'_>, Value<'_>>(val))
-        }
+        unsafe { Ok(core::mem::transmute::<Value<'_>, Value<'_>>(val)) }
     }
 }
 
@@ -182,9 +178,7 @@ impl<T: ?Sized + Reflected> Ref for &T {
         let val = Value::from(new_ref);
 
         // SAFETY: See comment above impls
-        unsafe {
-            Ok(core::mem::transmute::<Value<'_>, Value<'_>>(val))
-        }
+        unsafe { Ok(core::mem::transmute::<Value<'_>, Value<'_>>(val)) }
     }
 
     fn mut_val<'a>(_: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
