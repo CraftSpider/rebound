@@ -246,7 +246,7 @@ pub fn extern_assoc_fns(input: TokenStream) -> TokenStream {
         }
     }
 
-    quote!(unsafe { ::std::vec![ #(#output,)* ] })
+    quote!(::std::vec![ #(#output,)* ])
 }
 
 #[allow(dead_code)]
@@ -302,7 +302,7 @@ pub fn extern_assoc_consts(input: TokenStream) -> TokenStream {
         }
     }
 
-    quote!(unsafe { ::std::vec![ #(#output,)* ] })
+    quote!(::std::vec![ #(#output,)* ])
 }
 
 fn rebound_impl(attrs: TokenStream, item: TokenStream) -> Result<TokenStream> {

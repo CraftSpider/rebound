@@ -139,7 +139,7 @@ impl<'a> Value<'a> {
     ///
     /// # Safety
     ///
-    /// See [`Value::try_cast`]
+    /// See [`Value::try_cast_unsafe`]
     pub unsafe fn cast_unsafe<T: Reflected>(self) -> T {
         self.try_cast_unsafe()
             .unwrap_or_else(|_| panic!("Couldn't cast Value into type {}", T::name()))
@@ -180,7 +180,7 @@ impl<'a> Value<'a> {
     ///
     /// # Safety
     ///
-    /// See [`Value::try_cast`]
+    /// See [`Value::try_cast_unsafe`]
     pub unsafe fn try_borrow_unsafe<T: ?Sized + Reflected>(&self) -> Result<&T, Error> {
         if Type::from::<T>() == self.ty() {
             let ptr =
@@ -200,7 +200,7 @@ impl<'a> Value<'a> {
     ///
     /// # Safety
     ///
-    /// See [`Value::try_cast`]
+    /// See [`Value::try_cast_unsafe`]
     pub unsafe fn borrow_unsafe<T: ?Sized + Reflected>(&self) -> &T {
         self.try_borrow_unsafe()
             .unwrap_or_else(|_| panic!("Couldn't borrow Value as type {}", T::name()))
@@ -258,7 +258,7 @@ impl<'a> Value<'a> {
     ///
     /// # Safety
     ///
-    /// See [`Value::try_cast`]
+    /// See [`Value::try_cast_unsafe`]
     pub unsafe fn try_borrow_unsafe_mut<T: ?Sized + Reflected>(&mut self) -> Result<&mut T, Error> {
         if Type::from::<T>() == self.ty() {
             let mut ptr =
@@ -279,7 +279,7 @@ impl<'a> Value<'a> {
     ///
     /// # Safety
     ///
-    /// See [`Value::try_cast`]
+    /// See [`Value::try_cast_unsafe`]
     pub unsafe fn borrow_unsafe_mut<T: ?Sized + Reflected>(&mut self) -> &mut T {
         self.try_borrow_unsafe_mut()
             .unwrap_or_else(|_| panic!("Couldn't mutably borrow Value as type {}", T::name()))

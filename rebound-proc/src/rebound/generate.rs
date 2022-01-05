@@ -54,40 +54,57 @@ pub fn generate_assoc_fn(
             unreachable!()
         };
 
-        Ok(quote!(
-            #crate_name::AssocFn::new_dynamic(
-                #[allow(unused_mut, unused_variables)]
-                |this, mut args| {
-                    use ::core::convert::From;
-                    let v = #crate_name::Value::from( <#self_ty>::#fn_name(this.cast_unsafe::<#receiver>(), #( args.remove(0).cast_unsafe::<#args>(), )* ) );
-                    // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
-                    //         As such, we know that the lifetimes here should never be violated.
-                    unsafe { ::core::mem::transmute::<#crate_name::Value<'_>, #crate_name::Value<'_>>(v) }
-                },
-                stringify!(#fn_name),
-                #crate_name::Type::from::<#self_ty>(),
-                #crate_name::Type::from::<#receiver>(),
-                &[#( #crate_name::Type::from::<#args>(), )*],
-                #crate_name::Type::from::<#ret_ty>(),
-            )
-        ))
+        Ok(quote!({
+            #[allow(unused_mut, unused_variables)]
+            let call = |this: #crate_name::Value<'_>, mut args: ::std::vec::Vec<#crate_name::Value<'_>>| {
+                use ::core::convert::From;
+                // SAFETY: TODO
+                let v = unsafe {
+                    #crate_name::Value::from(
+                        <#self_ty>::#fn_name(
+                            this.cast_unsafe::<#receiver>(),
+                            #( args.remove(0).cast_unsafe::<#args>(), )*
+                        )
+                    )
+                };
+                // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
+                //         As such, we know that the lifetimes here should never be violated.
+                unsafe { ::core::mem::transmute::<#crate_name::Value<'_>, #crate_name::Value<'_>>(v) }
+            };
+            let name = stringify!(#fn_name);
+            let assoc_ty = #crate_name::Type::from::<#self_ty>();
+            let self_ty = #crate_name::Type::from::<#receiver>();
+            let args = &[#( #crate_name::Type::from::<#args>(), )*];
+            let ret = #crate_name::Type::from::<#ret_ty>();
+
+            // SAFETY: Generated implementation is assured correct
+            unsafe { #crate_name::AssocFn::new_dynamic(call, name, assoc_ty, self_ty, args, ret) }
+        }))
     } else {
-        Ok(quote!(
-            #crate_name::AssocFn::new_static(
-                #[allow(unused_mut, unused_variables)]
-                |mut args| {
-                    use ::core::convert::From;
-                    let v = #crate_name::Value::from( <#self_ty>::#fn_name( #( args.remove(0).cast_unsafe::<#args>(), )* ) );
-                    // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
-                    //         As such, we know that the lifetimes here should never be violated.
-                    unsafe { ::core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v) }
-                },
-                stringify!(#fn_name),
-                #crate_name::Type::from::<#self_ty>(),
-                &[#( #crate_name::Type::from::<#args>(), )*],
-                #crate_name::Type::from::<#ret_ty>(),
-            )
-        ))
+        Ok(quote!({
+            #[allow(unused_mut, unused_variables)]
+            let call = |mut args: ::std::vec::Vec<#crate_name::Value<'_>>| {
+                use ::core::convert::From;
+                // SAFETY: TODO
+                let v = unsafe {
+                    #crate_name::Value::from(
+                        <#self_ty>::#fn_name(
+                            #( args.remove(0).cast_unsafe::<#args>(), )*
+                        )
+                    )
+                };
+                // SAFETY: Value cannot be safely constructed with a `'a` that outlives the T.
+                //         As such, we know that the lifetimes here should never be violated.
+                unsafe { ::core::mem::transmute::<#crate_name::Value, #crate_name::Value>(v) }
+            };
+            let name = stringify!(#fn_name);
+            let assoc_ty = #crate_name::Type::from::<#self_ty>();
+            let args = &[#( #crate_name::Type::from::<#args>(), )*];
+            let ret = #crate_name::Type::from::<#ret_ty>();
+
+            // SAFETY: Generated implementation is assured correct
+            unsafe { #crate_name::AssocFn::new_static(call, name, assoc_ty, args, ret) }
+        }))
     }
 }
 
@@ -99,17 +116,17 @@ pub fn generate_assoc_const(
 ) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
 
-    Ok(quote!(
-        #crate_name::AssocConst::new(
-            ::std::boxed::Box::new(|| {
-                use ::core::convert::From;
-                #crate_name::Value::from(<#self_ty>::#const_name)
-            }),
-            stringify!(#const_name),
-            #crate_name::Type::from::<#self_ty>(),
-            #crate_name::Type::from::<#const_ty>(),
-        )
-    ))
+    Ok(quote!({
+        let ptr: ::std::boxed::Box<fn() -> _> = ::std::boxed::Box::new(|| {
+            use ::core::convert::From;
+            #crate_name::Value::from(<#self_ty>::#const_name)
+        });
+        let name = stringify!(#const_name);
+        let assoc_ty = #crate_name::Type::from::<#self_ty>();
+        let ty = #crate_name::Type::from::<#const_ty>();
+
+        unsafe { #crate_name::AssocConst::new(ptr, name, assoc_ty, ty) }
+    }))
 }
 
 pub fn generate_struct_field(
@@ -526,9 +543,7 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
         }
     }
 
-    Ok(quote!(
-        #struct_impl
-    ))
+    Ok(struct_impl)
 }
 
 pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<TokenStream> {
