@@ -1,3 +1,4 @@
+use impl_trait_for_tuples::impl_for_tuples;
 use crate::reflect::{
     Reflected, ReflectedArray, ReflectedFunction, ReflectedImpl, ReflectedPointer,
     ReflectedReference, ReflectedSlice, ReflectedTuple,
@@ -312,6 +313,7 @@ impl ReflectedImpl<0> for str {
 }
 
 // Tuple reflections
+
 impl Reflected for () {
     type Key = ();
 
@@ -330,177 +332,97 @@ impl ReflectedTuple for () {
     }
 }
 
-impl<T0> Reflected for (T0,)
-where
-    T0: Reflected,
-{
-    type Key = (T0::Key,);
+unsafe impl<'a> NotOutlives<'a> for () {}
+
+#[impl_for_tuples(1, 26)]
+impl Reflected for Tuple {
+    for_tuples!( type Key = ( #( Tuple::Key ),* ); );
+    for_tuples!( where #(Tuple::Key: Sized)* );
 
     fn name() -> String {
-        format!("({},)", T0::name())
+        let names = [ for_tuples!( #(Tuple::name()),* ) ];
+        format!("({})", names.join(", "))
     }
 
     unsafe fn init() {
-        Type::new_tuple::<(T0,)>()
+        Type::new_tuple::<Self>()
     }
 }
 
-impl<T0> ReflectedTuple for (T0,)
-where
-    T0: Reflected,
-{
+#[impl_for_tuples(1, 26)]
+#[tuple_types_custom_trait_bound(Reflected)]
+impl ReflectedTuple for Tuple {
+    for_tuples!( where #( Tuple::Key: Sized )* );
+
     fn fields() -> &'static [Field] {
-        static TUPLE_FIELDS: OnceCell<StaticTypeMap<[Field; 1]>> = OnceCell::new();
+        static TUPLE_FIELDS: OnceCell<StaticTypeMap<Vec<Field>>> = OnceCell::new();
 
         TUPLE_FIELDS
             .get_or_init(StaticTypeMap::new)
-            // SAFETY: In `fields` implementation and we're the trusted implementation
-            .call_once::<Self, _>(|| unsafe {
-                [Field::new_tuple(
-                    Some(__make_ref_accessor!((T0,), 0)),
-                    Some(__make_setter!((T0,), 0)),
-                    0,
-                    Type::from::<(T0,)>(),
-                    Type::from::<T0>(),
-                )]
+            .call_once::<Self, _>(|| {
+                use crate::value::Value;
+                use crate::info::{AccessHelper, SetHelper};
+
+                let mut idx_count = 0;
+
+                // HACK: idx_count used because the macro provides no easy way to get the current
+                //       index.
+                #[allow(clippy::eval_order_dependence)]
+                Vec::from([
+                    for_tuples!( #( {
+                        let get_ptr: Option<AccessHelper> = Some(|this| {
+                            // SAFETY: We know we won't borrow the item past the lifetime of the
+                            //         containing value
+                            let inner = unsafe { this.borrow_unsafe::<Self>() };
+                            let v = Value::from_ref(&inner.Tuple);
+                            // SAFETY: See rebound::ty::Ref
+                            unsafe { core::mem::transmute::<Value<'_>, Value<'_>>(v) }
+                        });
+
+                        let set_ptr: Option<SetHelper> = Some(|this, value| {
+                            // SAFETY: We know we won't borrow the item past the lifetimes off the
+                            //         containing value
+                            let inner = unsafe { this.borrow_unsafe_mut::<Self>() };
+                            // SAFETY: The passed value is expected to be static, so we can only
+                            //         cast the lifetime lower here
+                            inner.Tuple = unsafe { value.cast_unsafe::<Tuple>() };
+                        });
+
+                        let idx = idx_count;
+                        idx_count += 1;
+
+                        let assoc_ty = Type::from::<Self>();
+                        let field_ty = Type::from::<Tuple>();
+
+                        // SAFETY: We're the privileged implementation
+                        unsafe { Field::new_tuple(get_ptr, set_ptr, idx, assoc_ty, field_ty) }
+
+                    } ),* )
+                ])
             })
     }
 }
 
-unsafe impl<'a0, 'b, T0> NotOutlives<'b> for (T0,)
-where
-    'b: 'a0,
-    T0: NotOutlives<'a0>,
-{
+macro_rules! tuple_no {
+    ($first:ident $first_lt:lifetime $($remaining:ident $remaining_lt:lifetime)*) => {
+        unsafe impl<'no, $first_lt, $($remaining_lt,)* $first, $($remaining,)*> NotOutlives<'no> for ($first, $($remaining),*)
+        where
+            'no: $first_lt $(+ $remaining_lt)*,
+            $first: NotOutlives<$first_lt>,
+            $(
+            $remaining: NotOutlives<$remaining_lt>,
+            )*
+        {}
+
+        tuple_no!($($remaining $remaining_lt)*);
+    };
+    () => {};
 }
 
-impl<T0, T1> Reflected for (T0, T1)
-where
-    T0: Reflected,
-    T0::Key: Sized,
-    T1: Reflected,
-{
-    type Key = (T0::Key, T1::Key);
-
-    fn name() -> String {
-        format!("({}, {})", T0::name(), T1::name())
-    }
-
-    unsafe fn init() {
-        Type::new_tuple::<(T0, T1)>()
-    }
-}
-
-impl<T0, T1> ReflectedTuple for (T0, T1)
-where
-    T0: Reflected,
-    T0::Key: Sized,
-    T1: Reflected,
-{
-    fn fields() -> &'static [Field] {
-        static TUPLE_FIELDS: OnceCell<StaticTypeMap<[Field; 2]>> = OnceCell::new();
-
-        TUPLE_FIELDS
-            .get_or_init(StaticTypeMap::new)
-            // SAFETY: In `fields` implementation and we're the trusted implementation
-            .call_once::<Self, _>(|| unsafe {
-                [
-                    Field::new_tuple(
-                        Some(__make_ref_accessor!((T0, T1), 0)),
-                        Some(__make_setter!((T0, T1), 0)),
-                        0,
-                        Type::from::<(T0, T1)>(),
-                        Type::from::<T0>(),
-                    ),
-                    Field::new_tuple(
-                        Some(__make_ref_accessor!((T0, T1), 1)),
-                        Some(__make_setter!((T0, T1), 1)),
-                        1,
-                        Type::from::<(T0, T1)>(),
-                        Type::from::<T1>(),
-                    ),
-                ]
-            })
-    }
-}
-
-unsafe impl<'a0, 'a1, 'b, T0, T1> NotOutlives<'b> for (T0, T1)
-where
-    'b: 'a0 + 'a1,
-    T0: NotOutlives<'a0>,
-    T1: NotOutlives<'a1>,
-{
-}
-
-impl<T0, T1, T2> Reflected for (T0, T1, T2)
-where
-    T0: Reflected,
-    T0::Key: Sized,
-    T1: Reflected,
-    T1::Key: Sized,
-    T2: Reflected,
-{
-    type Key = (T0::Key, T1::Key, T2::Key);
-
-    fn name() -> String {
-        format!("({}, {}, {})", T0::name(), T1::name(), T2::name())
-    }
-
-    unsafe fn init() {
-        Type::new_tuple::<(T0, T1, T2)>()
-    }
-}
-
-impl<T0, T1, T2> ReflectedTuple for (T0, T1, T2)
-where
-    T0: Reflected,
-    T0::Key: Sized,
-    T1: Reflected,
-    T1::Key: Sized,
-    T2: Reflected,
-{
-    fn fields() -> &'static [Field] {
-        static TUPLE_FIELDS: OnceCell<StaticTypeMap<[Field; 3]>> = OnceCell::new();
-
-        TUPLE_FIELDS
-            .get_or_init(StaticTypeMap::new)
-            // SAFETY: In `fields` implementation and we're the trusted implementation
-            .call_once::<Self, _>(|| unsafe {
-                [
-                    Field::new_tuple(
-                        Some(__make_ref_accessor!((T0, T1, T2), 0)),
-                        Some(__make_setter!((T0, T1, T2), 0)),
-                        0,
-                        Type::from::<(T0, T1, T2)>(),
-                        Type::from::<T0>(),
-                    ),
-                    Field::new_tuple(
-                        Some(__make_ref_accessor!((T0, T1, T2), 1)),
-                        Some(__make_setter!((T0, T1, T2), 1)),
-                        1,
-                        Type::from::<(T0, T1, T2)>(),
-                        Type::from::<T1>(),
-                    ),
-                    Field::new_tuple(
-                        Some(__make_ref_accessor!((T0, T1, T2), 2)),
-                        Some(__make_setter!((T0, T1, T2), 2)),
-                        2,
-                        Type::from::<(T0, T1, T2)>(),
-                        Type::from::<T1>(),
-                    ),
-                ]
-            })
-    }
-}
-
-unsafe impl<'a0, 'a1, 'a2, 'b, T0, T1, T2> NotOutlives<'b> for (T0, T1, T2)
-where
-    'b: 'a0 + 'a1 + 'a2,
-    T0: NotOutlives<'a0>,
-    T1: NotOutlives<'a1>,
-    T2: NotOutlives<'a2>,
-{
-}
+tuple_no!(
+    A 'a B 'b C 'c D 'd E 'e F 'f G 'g H 'h I 'i J 'j K 'k L 'l M 'm N 'n O 'o P 'p Q 'q R 'r S 's
+    T 't U 'u V 'v W 'w X 'x Y 'y Z 'z
+);
 
 // Arrays/Slices
 impl<T, const N: usize> Reflected for [T; N]

@@ -16,5 +16,5 @@ pub use fns::AssocFn;
 pub use union_fields::UnionField;
 pub use variants::{StructVariant, TupleVariant, UnitVariant, Variant};
 
-type AccessHelper = for<'a, 'b> fn(&'a Value<'b>) -> Value<'a>;
-type SetHelper = fn(&mut Value<'_>, Value<'static>);
+pub(crate) type AccessHelper = for<'a, 'b> fn(&'a Value<'b>) -> Value<'a>;
+pub(crate) type SetHelper = fn(&mut Value<'_>, Value<'static>);
