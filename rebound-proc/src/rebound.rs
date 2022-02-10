@@ -1,31 +1,66 @@
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, TokenStreamExt};
-use syn::parse::{Parse, ParseBuffer};
+use quote::{quote, TokenStreamExt, ToTokens};
+use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{Item, Token};
+
+use crate::error::{Error, Result};
+use crate::extension::{LitExtension, LitType, PathExtension};
 
 mod generate;
 mod utils;
 
 use generate::*;
-use utils::*;
-
-type Result<T> = core::result::Result<T, String>;
 
 struct AttrInput {
     values: Punctuated<syn::NestedMeta, Token![,]>,
 }
 
 impl Parse for AttrInput {
-    fn parse(input: &ParseBuffer) -> syn::Result<Self> {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let values = Punctuated::parse_terminated(input)?;
 
         Ok(AttrInput { values })
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum CrateName {
+    Crate(syn::token::Crate),
+    Ident(syn::Ident),
+}
+
+impl CrateName {
+    fn local() -> CrateName {
+        CrateName::Crate(Token![crate](Span::call_site()))
+    }
+
+    fn external() -> CrateName {
+        CrateName::Ident(syn::Ident::new("rebound", Span::call_site()))
+    }
+}
+
+impl Parse for CrateName {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        if input.peek(Token![crate]) {
+            Ok(CrateName::Crate(input.parse()?))
+        } else {
+            Ok(CrateName::Ident(input.parse()?))
+        }
+    }
+}
+
+impl ToTokens for CrateName {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            CrateName::Crate(t) => t.to_tokens(tokens),
+            CrateName::Ident(i) => i.to_tokens(tokens),
+        }
+    }
+}
+
 pub struct Config {
-    crate_name: syn::Ident,
+    crate_name: CrateName,
     name_replace: Option<(String, String)>,
     debug_out: bool,
     no_get: bool,
@@ -35,7 +70,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            crate_name: syn::Ident::new("rebound", Span::call_site()),
+            crate_name: CrateName::external(),
             name_replace: None,
             debug_out: false,
             no_get: false,
@@ -45,7 +80,7 @@ impl Default for Config {
 }
 
 fn parse_attrs(attrs: TokenStream) -> Result<Config> {
-    let args: AttrInput = syn::parse2(attrs).map_err(|err| err.to_string())?;
+    let args: AttrInput = syn::parse2(attrs)?;
 
     let mut crate_name = None;
     let mut name_replace = None;
@@ -57,27 +92,35 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
     for i in args.values {
         match i {
             syn::NestedMeta::Meta(meta) => match meta {
-                syn::Meta::List(..) => return Err("Found unexpected list element".to_string()),
+                syn::Meta::List(..) => return Err(Error::Simple("Found unexpected list element".to_string())),
                 syn::Meta::NameValue(nv) => {
-                    let str = path_to_string(&nv.path);
+                    let str = nv.path.as_simple_str()
+                        .ok_or(Error::Simple("Expected a simple path without generics".to_string()))?;
 
                     if str == "crate_name" {
-                        crate_name = Some(lit_as_str(&nv.lit)?);
+                        crate_name = Some(
+                            nv.lit
+                                .as_str()
+                                .ok_or(Error::InvalidLiteral(nv.lit.ty(), LitType::String))?
+                        );
                     } else if str == "name_replace" {
-                        let str = lit_as_str(&nv.lit)?;
+                        let str = nv.lit
+                            .as_str()
+                            .ok_or(Error::InvalidLiteral(nv.lit.ty(), LitType::String))?;
                         let (pat, replace) = str.split_once("/").ok_or_else(|| {
-                            "name_replace should be a / delimited pair of patterns".to_string()
+                            Error::Simple("name_replace should be a / delimited pair of patterns".to_string())
                         })?;
                         name_replace = Some((pat.to_owned(), replace.to_owned()));
                     } else {
-                        return Err(format!(
+                        return Err(Error::Simple(format!(
                             "Found unexpected name/value pair {}",
-                            path_to_string(&nv.path)
-                        ));
+                            str,
+                        )));
                     }
                 }
                 syn::Meta::Path(path) => {
-                    let str = path_to_string(&path);
+                    let str = path.as_simple_str()
+                        .ok_or(Error::Simple("Expected a simple path without generics".to_string()))?;
 
                     if str == "debug_out" {
                         debug_out = true;
@@ -86,21 +129,22 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
                     } else if str == "no_set" {
                         no_set = true;
                     } else {
-                        return Err(format!(
+                        return Err(Error::Simple(format!(
                             "Found unexpected path element {}",
-                            path_to_string(&path)
-                        ));
+                            str
+                        )));
                     }
                 }
             },
-            syn::NestedMeta::Lit(..) => return Err("Found unexpected literal argument".to_string()),
+            syn::NestedMeta::Lit(..) => return Err(Error::Simple("Found unexpected literal argument".to_string())),
         }
     }
 
-    let crate_name = syn::Ident::new(
-        &crate_name.unwrap_or_else(|| "rebound".to_string()),
-        Span::call_site(),
-    );
+    let crate_name = crate_name.unwrap_or_else(|| "rebound".to_string());
+
+    let crate_name =
+        syn::parse_str::<CrateName>(&crate_name)
+            .map_err(|_| Error::InvalidIdent(crate_name))?;
 
     Ok(Config {
         crate_name,
@@ -112,10 +156,7 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
 }
 
 fn verify_item(input: TokenStream) -> Result<Item> {
-    let item = syn::parse2(input).map_err(|err| {
-        eprintln!("SYN PARSE ERROR");
-        err.to_string()
-    })?;
+    let item = syn::parse2(input)?;
 
     let err = match &item {
         Item::Enum(..) | Item::Impl(..) | Item::Struct(..) | Item::Trait(..) | Item::Union(..) => {
@@ -138,7 +179,7 @@ fn verify_item(input: TokenStream) -> Result<Item> {
     };
 
     match err {
-        Some(name) => Err(format!("#[rebound] can only be applied to a struct, enum, trait, or impl block. Instead got {}", name)),
+        Some(name) => Err(Error::InvalidItem(name.to_string())),
         None => Ok(item)
     }
 }
@@ -147,8 +188,8 @@ struct Items {
     items: Vec<syn::Item>,
 }
 
-impl syn::parse::Parse for Items {
-    fn parse(parser: syn::parse::ParseStream) -> syn::Result<Items> {
+impl Parse for Items {
+    fn parse(parser: ParseStream<'_>) -> syn::Result<Items> {
         Ok(Items {
             items: {
                 let mut items = Vec::new();
@@ -163,7 +204,7 @@ impl syn::parse::Parse for Items {
 
 pub fn extern_items(input: TokenStream) -> TokenStream {
     let config = Config {
-        crate_name: syn::Ident::new("crate", Span::call_site()),
+        crate_name: CrateName::local(),
         name_replace: Some(("rebound::__impls::".into(), "".into())),
         no_get: true,
         no_set: true,
@@ -171,7 +212,7 @@ pub fn extern_items(input: TokenStream) -> TokenStream {
     };
 
     let item = syn::parse2(input)
-        .map_err(|err| err.to_string())
+        .map_err(Error::from)
         .and_then(|Items { items }| {
             items
                 .into_iter()
@@ -192,18 +233,17 @@ pub fn extern_items(input: TokenStream) -> TokenStream {
             }
             ts
         }
-        Err(msg) => quote!(compile_error!(#msg)),
+        Err(msg) => msg.to_compile_error(),
     }
 }
 
-#[allow(dead_code)]
 struct FnSig {
     attrs: Vec<syn::Attribute>,
     sig: syn::Signature,
 }
 
-impl syn::parse::Parse for FnSig {
-    fn parse(parser: syn::parse::ParseStream) -> syn::Result<FnSig> {
+impl Parse for FnSig {
+    fn parse(parser: ParseStream<'_>) -> syn::Result<FnSig> {
         Ok(FnSig {
             attrs: syn::Attribute::parse_outer(parser)?,
             sig: parser.parse()?,
@@ -213,16 +253,15 @@ impl syn::parse::Parse for FnSig {
 
 struct AssocFnSigs {
     ty: syn::Type,
-    #[allow(dead_code)]
-    at: Token![@],
+    _at: Token![@],
     defs: Punctuated<FnSig, Token![;]>,
 }
 
-impl syn::parse::Parse for AssocFnSigs {
-    fn parse(parser: syn::parse::ParseStream) -> syn::Result<AssocFnSigs> {
+impl Parse for AssocFnSigs {
+    fn parse(parser: ParseStream<'_>) -> syn::Result<AssocFnSigs> {
         Ok(AssocFnSigs {
             ty: parser.parse()?,
-            at: parser.parse()?,
+            _at: parser.parse()?,
             defs: parser.parse_terminated(FnSig::parse)?,
         })
     }
@@ -230,7 +269,7 @@ impl syn::parse::Parse for AssocFnSigs {
 
 pub fn extern_assoc_fns(input: TokenStream) -> TokenStream {
     let config = Config {
-        crate_name: syn::Ident::new("crate", Span::call_site()),
+        crate_name: CrateName::local(),
         ..Default::default()
     };
 
@@ -242,44 +281,42 @@ pub fn extern_assoc_fns(input: TokenStream) -> TokenStream {
         let afn = generate_assoc_fn(&config, &input.ty, &sig.sig);
         match afn {
             Ok(ts) => output.push(quote!(#(#attrs)* #ts)),
-            Err(msg) => return quote!(compile_error!(#msg)),
+            Err(msg) => return msg.to_compile_error(),
         }
     }
 
     quote!(::std::vec![ #(#output,)* ])
 }
 
-#[allow(dead_code)]
 struct IdentType {
     attrs: Vec<syn::Attribute>,
     ident: Box<syn::Ident>,
-    colon_token: Token![:],
+    _colon_token: Token![:],
     ty: Box<syn::Type>,
 }
 
-impl syn::parse::Parse for IdentType {
-    fn parse(parser: syn::parse::ParseStream) -> syn::Result<IdentType> {
+impl Parse for IdentType {
+    fn parse(parser: ParseStream<'_>) -> syn::Result<IdentType> {
         Ok(IdentType {
             attrs: syn::Attribute::parse_outer(parser)?,
             ident: parser.parse()?,
-            colon_token: parser.parse()?,
+            _colon_token: parser.parse()?,
             ty: parser.parse()?,
         })
     }
 }
 
-#[allow(dead_code)]
 struct AssocConstSigs {
     ty: syn::Type,
-    at: Token![@],
+    _at: Token![@],
     defs: Punctuated<IdentType, Token![;]>,
 }
 
-impl syn::parse::Parse for AssocConstSigs {
-    fn parse(parser: syn::parse::ParseStream) -> syn::Result<AssocConstSigs> {
+impl Parse for AssocConstSigs {
+    fn parse(parser: ParseStream<'_>) -> syn::Result<AssocConstSigs> {
         Ok(AssocConstSigs {
             ty: parser.parse()?,
-            at: parser.parse()?,
+            _at: parser.parse()?,
             defs: parser.parse_terminated(IdentType::parse)?,
         })
     }
@@ -287,7 +324,7 @@ impl syn::parse::Parse for AssocConstSigs {
 
 pub fn extern_assoc_consts(input: TokenStream) -> TokenStream {
     let config = Config {
-        crate_name: syn::Ident::new("crate", Span::call_site()),
+        crate_name: CrateName::local(),
         ..Default::default()
     };
 
@@ -295,10 +332,11 @@ pub fn extern_assoc_consts(input: TokenStream) -> TokenStream {
 
     let mut output = Vec::new();
     for sig in &input.defs {
+        let attrs = &sig.attrs;
         let aconst = generate_assoc_const(&config, &input.ty, &sig.ident, &sig.ty);
         match aconst {
-            Ok(ts) => output.push(ts),
-            Err(msg) => return quote!(compile_error!(#msg)),
+            Ok(ts) => output.push(quote!(#(#attrs)* #ts)),
+            Err(msg) => return msg.to_compile_error(),
         }
     }
 
@@ -329,6 +367,6 @@ pub fn rebound(attrs: TokenStream, item: TokenStream) -> TokenStream {
 
     match res {
         Ok(ts) => ts,
-        Err(msg) => quote!( compile_error!(#msg); ),
+        Err(msg) => msg.to_compile_error(),
     }
 }

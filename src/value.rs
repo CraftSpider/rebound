@@ -210,16 +210,20 @@ impl<'a> Value<'a> {
     ///
     /// This will fail if the T isn't the same as the type of this value with [`Error::WrongType`]
     ///
-    /// # Example
+    /// # Examples
     ///
-    /// ```no_run
+    /// Successful usage
+    /// ```
     /// # use rebound::Value;
     /// let int = Value::from(1);
+    /// assert!(int.try_borrow::<i32>().is_ok());
+    /// ```
     ///
-    /// // Succeeds
-    /// let i = int.try_borrow::<i32>();
-    /// // Fails
-    /// let i = int.try_borrow::<&str>();
+    /// Example failure
+    /// ```
+    /// # use rebound::Value;
+    /// let int = Value::from(1);
+    /// assert!(int.try_borrow::<&str>().is_err());
     /// ```
     pub fn try_borrow<'b, T: ?Sized + Reflected + NotOutlives<'a>>(
         &'b self,
@@ -238,14 +242,18 @@ impl<'a> Value<'a> {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// Successful usage
+    /// ```
     /// # use rebound::Value;
     /// let bool = Value::from(true);
+    /// let _ = bool.borrow::<bool>();
+    /// ```
     ///
-    /// // Succeeds
-    /// let b = bool.borrow::<bool>();
-    /// // Panics
-    /// let b = bool.borrow::<char>();
+    /// Example failure
+    /// ```should_panic
+    /// # use rebound::Value;
+    /// let bool = Value::from(true);
+    /// let _ = bool.borrow::<char>();
     /// ```
     pub fn borrow<'b, T: ?Sized + Reflected + NotOutlives<'a>>(&'b self) -> &'b T {
         self.try_borrow()
@@ -291,15 +299,19 @@ impl<'a> Value<'a> {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// Successful usage
+    /// ```
     /// # use rebound::Value;
     /// let mut char = Value::from('a');
-    ///
-    /// // Succeeds
     /// let c = char.try_borrow_mut::<char>()
     ///     .unwrap();
     /// *c = 'b';
-    /// // Fails
+    /// ```
+    ///
+    /// Example failure
+    /// ```should_panic
+    /// # use rebound::Value;
+    /// let mut char = Value::from('a');
     /// let c = char.try_borrow_mut::<i32>()
     ///     .unwrap();
     /// *c = 2;
@@ -322,14 +334,18 @@ impl<'a> Value<'a> {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// Successful usage
+    /// ```
     /// # use rebound::Value;
     /// let mut str = Value::from("a string");
+    /// let _ = str.borrow_mut::<&str>();
+    /// ```
     ///
-    /// // Succeeds
-    /// let s = str.borrow_mut::<&str>();
-    /// // Fails
-    /// let s = str.borrow_mut::<&i32>();
+    /// Example failure
+    /// ```should_panic
+    /// # use rebound::Value;
+    /// let mut str = Value::from("a string");
+    /// let _ = str.borrow_mut::<&i32>();
     /// ```
     pub fn borrow_mut<'b, T: ?Sized + Reflected + NotOutlives<'a>>(&'b mut self) -> &'b mut T {
         self.try_borrow_mut()

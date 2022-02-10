@@ -1,27 +1,10 @@
 use super::Config;
 
-use std::iter::FromIterator;
-
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{Lifetime, Token};
-
-pub fn path_to_string(path: &syn::Path) -> String {
-    path.segments
-        .iter()
-        .map(|seg| seg.to_token_stream().to_string())
-        .collect::<Vec<_>>()
-        .join("::")
-}
-
-pub fn lit_as_str(lit: &syn::Lit) -> Result<String, String> {
-    match lit {
-        syn::Lit::Str(str) => Ok(str.value()),
-        _ => Err("Expected valid identifier for literal".to_string()),
-    }
-}
+use syn::{Lifetime, parse2, Token};
 
 fn static_or_anon(life: &Lifetime) -> Lifetime {
     if life.ident == "static" {
@@ -326,22 +309,11 @@ fn is_maybe(bound: &syn::TypeParamBound) -> bool {
 }
 
 fn reflect_bound(cfg: &Config) -> syn::TypeParamBound {
-    syn::TypeParamBound::Trait(syn::TraitBound {
-        paren_token: None,
-        modifier: syn::TraitBoundModifier::None,
-        lifetimes: None,
-        path: syn::Path {
-            leading_colon: None,
-            segments: Punctuated::from_iter(
-                vec![
-                    cfg.crate_name.clone(),
-                    syn::Ident::new("Reflected", Span::call_site()),
-                ]
-                .into_iter()
-                .map(syn::PathSegment::from),
-            ),
-        },
-    })
+    let crate_name = &cfg.crate_name;
+
+    parse2::<syn::TypeParamBound>(quote!(
+        #crate_name::Reflected
+    )).unwrap()
 }
 
 fn reflect_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, TokenStream) {
@@ -491,31 +463,11 @@ fn reflect_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, Token
 }
 
 fn not_outlives_bound(cfg: &Config, lifetime: Lifetime) -> syn::TypeParamBound {
-    syn::TypeParamBound::Trait(syn::TraitBound {
-        paren_token: None,
-        modifier: syn::TraitBoundModifier::None,
-        lifetimes: None,
-        path: syn::Path {
-            leading_colon: None,
-            segments: Punctuated::from_iter(vec![
-                cfg.crate_name.clone().into(),
-                syn::Ident::new("value", Span::call_site()).into(),
-                syn::PathSegment {
-                    ident: syn::Ident::new("NotOutlives", Span::call_site()),
-                    arguments: syn::PathArguments::AngleBracketed(
-                        syn::AngleBracketedGenericArguments {
-                            colon2_token: Some(syn::token::Colon2::default()),
-                            lt_token: syn::token::Lt::default(),
-                            args: Punctuated::from_iter(
-                                vec![syn::GenericArgument::Lifetime(lifetime)].into_iter(),
-                            ),
-                            gt_token: syn::token::Gt::default(),
-                        },
-                    ),
-                },
-            ]),
-        },
-    })
+    let crate_name = &cfg.crate_name;
+
+    parse2::<syn::TypeParamBound>(quote!(
+        #crate_name::value::NotOutlives::<#lifetime>
+    )).unwrap()
 }
 
 fn outlives_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, TokenStream) {
@@ -671,17 +623,23 @@ fn outlives_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, Toke
     (quote!(<#impl_bounds>), quote!(where #clauses))
 }
 
-pub fn ty_id(ty: &syn::Type) -> Result<String, String> {
+pub fn ty_id(ty: &syn::Type) -> String {
     match ty {
-        syn::Type::Tuple(ty) => Ok(format!(
+        syn::Type::Array(ty) => format!(
+            "[{}; {}]",
+            ty_id(&ty.elem), ty.len.to_token_stream().to_string()
+        ),
+        syn::Type::Group(ty) => ty_id(&ty.elem),
+        syn::Type::Paren(ty) => ty_id(&ty.elem),
+        syn::Type::Path(ty) => ty.to_token_stream().to_string(),
+        syn::Type::Tuple(ty) => format!(
             "({})",
             ty.elems
                 .iter()
                 .map(|ty| ty_id(ty))
-                .collect::<Result<Vec<_>, String>>()?
+                .collect::<Vec<_>>()
                 .join(", ")
-        )),
-        syn::Type::Path(ty) => Ok(ty.to_token_stream().to_string()),
-        _ => Err("Unrecognized / unsupported type for impl block".to_string()),
+        ),
+        _ => unimplemented!(),
     }
 }

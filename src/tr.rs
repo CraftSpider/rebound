@@ -58,6 +58,12 @@ impl Trait {
 // TODO: How are traits reflected? This is needed to support cloning Values, as well as
 //       things like formatting. Can't assume things will be `dyn`able
 
+// Traits can be reflected by generating a function alongside them with the same name, which
+// returns the necessary info for reflection. A macro is dangerous as it's much more common to have
+// a macro with the same name as a trait, as that's the derive convention.
+// This can break down if the user also wants a function with that name, but it's the best we have
+// currently.
+
 // #[rebound]
 // trait Foo: Sized {
 //     type Assoc: Sized;

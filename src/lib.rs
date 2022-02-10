@@ -1,6 +1,6 @@
 //! A crate aiming to implement 'full' reflection in Rust.
 
-#![allow(incomplete_features, clippy::nonstandard_macro_braces)]
+#![allow(incomplete_features)]
 #![warn(
     missing_docs,
     elided_lifetimes_in_paths,
@@ -16,8 +16,7 @@
     clippy::doc_markdown,
     clippy::ptr_as_ptr,
     clippy::cloned_instead_of_copied,
-    clippy::unreadable_literal,
-    clippy::undocumented_unsafe_blocks
+    clippy::unreadable_literal
 )]
 #![feature(specialization, ptr_metadata)]
 // Features used just to implement reflection for their stuff
