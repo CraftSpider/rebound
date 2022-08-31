@@ -80,7 +80,7 @@ impl fmt::Debug for TypeVTable {
 }
 
 impl TypeVTable {
-    fn new<T: ?Sized + Reflected>() -> TypeVTable {
+    const fn new<T: ?Sized + Reflected>() -> TypeVTable {
         TypeVTable {
             name: T::name,
             assoc_fns: T::assoc_fns,
@@ -130,7 +130,7 @@ pub enum Type {
 }
 
 /// Generate unwrap functions for each of the variants of ty
-macro_rules! ty_unwraps {
+macro_rules! ty_meths {
     ($($var:ident),+) => {
         paste::paste! {
             $(
@@ -143,6 +143,11 @@ macro_rules! ty_unwraps {
                         panic!(concat!("Attempted to unwrap non-", stringify!($var:lower), " Type as ", stringify!($var:lower)))
                     }
                 }
+
+                #[doc = "Return whether this Type is a [`" $var "Info`]"]
+                pub fn [<is_ $var:snake>](&self) -> bool {
+                    matches!(self, Type::$var(_))
+                }
             )*
         }
     }
@@ -152,7 +157,7 @@ impl Type {
     fn add_ty_erased(ty: Type, id: TypeId) {
         let mut map = REFLECTED_TYS
             .write()
-            .expect("REFLECTED_TYS not initialized correctly");
+            .expect("Couldn't get write lock on Reflection mapping - lock poisoned");
 
         if map.contains_key(&id) {
             panic!("Type {} already registered", ty.name());
@@ -166,83 +171,62 @@ impl Type {
     }
 
     /// Internal function used by generated code to initialize a Type for primitives
-    #[doc(hidden)]
-    pub unsafe fn new_prim<T: ?Sized + Reflected>() {
-        let ty = Type::Primitive(PrimitiveInfo {
+    pub(crate) const fn new_prim<T: ?Sized + Reflected>() -> Type {
+        Type::Primitive(PrimitiveInfo {
             vtable: TypeVTable::new::<T>(),
-        });
-
-        Type::add_ty::<T>(ty);
+        })
     }
 
     /// Internal function used by generated code to initialize a Type for tuples
-    #[doc(hidden)]
-    pub unsafe fn new_tuple<T: ?Sized + ReflectedTuple>() {
-        let ty = Type::Tuple(TupleInfo {
+    pub(crate) const fn new_tuple<T: ?Sized + ReflectedTuple>() -> Type {
+        Type::Tuple(TupleInfo {
             vtable: TypeVTable::new::<T>(),
-            fields: T::fields,
-        });
-
-        Type::add_ty::<T>(ty);
+            fields: || T::FIELDS,
+        })
     }
 
     /// Internal function used by generated code to initialize a Type for arrays
-    #[doc(hidden)]
-    pub unsafe fn new_array<T: ?Sized + ReflectedArray>() {
-        let ty = Type::Array(ArrayInfo {
+    pub(crate) const fn new_array<T: ?Sized + ReflectedArray>() -> Type {
+        Type::Array(ArrayInfo {
             vtable: TypeVTable::new::<T>(),
-            element: T::element,
-            length: T::length(),
-        });
-
-        Type::add_ty::<T>(ty);
+            element: || T::ELEMENT,
+            length: T::LENGTH,
+        })
     }
 
     /// Internal function used by generated code to initialize a Type for slices
-    #[doc(hidden)]
-    pub unsafe fn new_slice<T: ?Sized + ReflectedSlice>() {
-        let ty = Type::Slice(SliceInfo {
+    pub(crate) const fn new_slice<T: ?Sized + ReflectedSlice>() -> Type {
+        Type::Slice(SliceInfo {
             vtable: TypeVTable::new::<T>(),
-            element: T::element,
-        });
-
-        Type::add_ty::<T>(ty);
+            element: || T::ELEMENT,
+        })
     }
 
     /// Internal function used by generated code to initialize a Type for pointers
-    #[doc(hidden)]
-    pub unsafe fn new_ptr<T: ReflectedPointer>() {
-        let ty = Type::Pointer(PointerInfo {
+    pub(crate) const fn new_ptr<T: ReflectedPointer>() -> Type {
+        Type::Pointer(PointerInfo {
             vtable: TypeVTable::new::<T>(),
-            element: T::element,
-            mutability: T::mutability(),
-        });
-
-        Type::add_ty::<T>(ty);
+            element: || T::ELEMENT,
+            mutability: T::MUTABILITY,
+        })
     }
 
     /// Internal function used by generated code to initialize a Type for references
-    #[doc(hidden)]
-    pub unsafe fn new_ref<T: ReflectedReference>() {
-        let ty = Type::Reference(ReferenceInfo {
+    pub(crate) const fn new_ref<T: ReflectedReference>() -> Type {
+        Type::Reference(ReferenceInfo {
             vtable: TypeVTable::new::<T>(),
-            element: T::element,
-            mutability: T::mutability(),
-        });
-
-        Type::add_ty::<T>(ty);
+            element: || T::ELEMENT,
+            mutability: T::MUTABILITY,
+        })
     }
 
     /// Internal function used by generated code to initialize a Type for function pointers
-    #[doc(hidden)]
-    pub unsafe fn new_fn<T: ReflectedFunction>() {
-        let ty = Type::Function(FunctionInfo {
+    pub(crate) const fn new_fn<T: ReflectedFunction>() -> Type {
+        Type::Function(FunctionInfo {
             vtable: TypeVTable::new::<T>(),
-            args: T::args,
-            ret: T::ret,
-        });
-
-        Type::add_ty::<T>(ty);
+            args: || T::ARGS,
+            ret: || T::RET,
+        })
     }
 
     /// Internal function used by generated code to initialize a Type for structs
@@ -250,68 +234,42 @@ impl Type {
     /// # Safety
     ///
     /// Should only be called inside a [`Reflected`] type's `init` impl
-    pub unsafe fn new_struct<T: ?Sized + ReflectedStruct>() {
-        let ty = Type::Struct(StructInfo {
+    pub const fn new_struct<T: ?Sized + ReflectedStruct>() -> Type {
+        Type::Struct(StructInfo {
             vtable: TypeVTable::new::<T>(),
             fields: T::fields,
-        });
-
-        Type::add_ty::<T>(ty);
+        })
     }
 
     /// Internal function used by generated code to initialize a Type for tuple structs
-    ///
-    /// # Safety
-    ///
-    /// Should only be called inside a [`Reflected`] type's `init` impl
-    pub unsafe fn new_tuple_struct<T: ReflectedTupleStruct>() {
-        let ty = Type::TupleStruct(TupleStructInfo {
+    pub const fn new_tuple_struct<T: ReflectedTupleStruct>() -> Type {
+        Type::TupleStruct(TupleStructInfo {
             vtable: TypeVTable::new::<T>(),
             fields: T::fields,
-        });
-
-        Type::add_ty::<T>(ty);
+        })
     }
 
     /// Internal function used by generated code to initialize a Type for unit structs
-    ///
-    /// # Safety
-    ///
-    /// Should only be called inside a [`Reflected`] type's `init` impl
-    pub unsafe fn new_unit_struct<T: ReflectedUnitStruct>() {
-        let ty = Type::UnitStruct(UnitStructInfo {
+    pub const fn new_unit_struct<T: ReflectedUnitStruct>() -> Type {
+        Type::UnitStruct(UnitStructInfo {
             vtable: TypeVTable::new::<T>(),
-        });
-
-        Type::add_ty::<T>(ty);
+        })
     }
 
     /// Internal function used by generated code to initialize a Type for enums
-    ///
-    /// # Safety
-    ///
-    /// Should only be called inside a [`Reflected`] type's `init` impl
-    pub unsafe fn new_enum<T: ReflectedEnum>() {
-        let ty = Type::Enum(EnumInfo {
+    pub const fn new_enum<T: ReflectedEnum>() -> Type {
+        Type::Enum(EnumInfo {
             vtable: TypeVTable::new::<T>(),
             variants: T::variants,
-        });
-
-        Type::add_ty::<T>(ty);
+        })
     }
 
     /// Internal function used by generated code to initialize a Type for unions
-    ///
-    /// # Safety
-    ///
-    /// Should only be called inside a [`Reflected`] type's `init` impl
-    pub unsafe fn new_union<T: ReflectedUnion>() {
-        let ty = Type::Union(UnionInfo {
+    pub const fn new_union<T: ReflectedUnion>() -> Type {
+        Type::Union(UnionInfo {
             vtable: TypeVTable::new::<T>(),
             fields: T::fields,
-        });
-
-        Type::add_ty::<T>(ty);
+        })
     }
 
     /// Get a Type instance by name, assuming it has been instantiated beforehand.
@@ -336,7 +294,9 @@ impl Type {
     /// This function is in no way memory unsafe, however, the format used for type names is an
     /// implementation detail, and thus may change even across patch versions.
     pub unsafe fn from_name(name: &str) -> Option<Type> {
-        let ref_tys = REFLECTED_TYS.read().unwrap();
+        let ref_tys = REFLECTED_TYS
+            .read()
+            .expect("Couldn't get read lock on Reflection mapping - lock poisoned");
         for ty in ref_tys.values() {
             if ty.name() == name {
                 return Some(*ty);
@@ -351,7 +311,7 @@ impl Type {
     pub fn from_id(ty_id: &TypeId) -> Option<Type> {
         REFLECTED_TYS
             .read()
-            .expect("Couldn't get read lock on Reflection mapping")
+            .expect("Couldn't get read lock on Reflection mapping - lock poisoned")
             .get(ty_id)
             .copied()
     }
@@ -359,15 +319,14 @@ impl Type {
     /// Get a Type instance from any reflected type, instantiating it if necessary.
     pub fn from<T: ?Sized + Reflected>() -> Type {
         static INIT: StaticTypeMap<()> = StaticTypeMap::new();
-        INIT.call_once::<T, _>(|| {
-            // SAFETY: Inside a `call_once`, and we're the privileged implementation
-            unsafe { T::init() };
+        INIT.call_once::<T, fn() -> ()>(|| {
+            Type::add_ty::<T>(T::TYPE);
         });
 
         Type::from_id(&TypeId::of::<T::Key>()).expect("Type not initialized")
     }
 
-    fn as_inner(&self) -> &dyn CommonTypeInfo {
+    const fn as_inner(&self) -> &dyn CommonTypeInfo {
         match self {
             Type::Primitive(i) => i,
             Type::Tuple(i) => i,
@@ -385,7 +344,7 @@ impl Type {
         }
     }
 
-    ty_unwraps!(
+    ty_meths!(
         Primitive,
         Tuple,
         Array,
@@ -548,13 +507,13 @@ impl_common!(ReferenceInfo);
 #[derive(Debug, Copy, Clone)]
 pub struct FunctionInfo {
     vtable: TypeVTable,
-    args: fn() -> Vec<Type>,
+    args: fn() -> &'static [Type],
     ret: fn() -> Type,
 }
 
 impl FunctionInfo {
     /// Get the argument [`Types`](Type) of this Function
-    pub fn arg_tys(&self) -> Vec<Type> {
+    pub fn arg_tys(&self) -> &'static [Type] {
         (self.args)()
     }
 

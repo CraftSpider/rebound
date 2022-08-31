@@ -70,7 +70,7 @@ impl Field {
     /// # Safety
     ///
     /// Should only be called within a Reflected item's `fields` implementation
-    pub unsafe fn new_tuple(
+    pub const unsafe fn new_tuple(
         get_ptr: Option<AccessHelper>,
         set_ptr: Option<SetHelper>,
         idx: usize,

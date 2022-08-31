@@ -6,6 +6,7 @@ use crate::{Error, Reflected, Type};
 use core::marker::PhantomData;
 use core::ptr::NonNull;
 use core::{fmt, mem};
+use std::hint::unreachable_unchecked;
 
 use craft_eraser::{ErasedBox, ErasedNonNull};
 
@@ -183,9 +184,11 @@ impl<'a> Value<'a> {
     /// See [`Value::try_cast_unsafe`]
     pub unsafe fn try_borrow_unsafe<T: ?Sized + Reflected>(&self) -> Result<&T, Error> {
         if Type::from::<T>() == self.ty() {
-            let ptr =
-                NonNull::<T>::from_raw_parts(self.raw_ptr(), *self.raw_meta().cast().as_ref());
-            Ok(ptr.as_ref())
+            Ok(match &self.value {
+                ValueKind::Owned(b) => b.reify_ref(),
+                ValueKind::Borrowed(n) => n.reify_ptr().as_ref(),
+                ValueKind::Moved => unreachable_unchecked(),
+            })
         } else {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         }
@@ -269,9 +272,11 @@ impl<'a> Value<'a> {
     /// See [`Value::try_cast_unsafe`]
     pub unsafe fn try_borrow_unsafe_mut<T: ?Sized + Reflected>(&mut self) -> Result<&mut T, Error> {
         if Type::from::<T>() == self.ty() {
-            let mut ptr =
-                NonNull::<T>::from_raw_parts(self.raw_ptr(), *self.raw_meta().cast().as_ref());
-            Ok(ptr.as_mut())
+            Ok(match &mut self.value {
+                ValueKind::Owned(b) => b.reify_mut(),
+                ValueKind::Borrowed(n) => n.reify_ptr().as_mut(),
+                ValueKind::Moved => unreachable_unchecked(),
+            })
         } else {
             Err(Error::wrong_type(Type::from::<T>(), self.ty()))
         }

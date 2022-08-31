@@ -16,9 +16,13 @@ use std::ptr::NonNull;
 ///
 /// More specifically, unsafe code is allowed to assume that:
 /// - The Key type is equivalent to `Self` where all lifetimes are replaced with `'static`
+/// - The TYPE constant is the result of calling `Type::new_*::<Self>()`
 pub unsafe trait Reflected {
     /// The static key type used for the backing [`TypeId`](core::any::TypeId) of a Type
     type Key: ?Sized + 'static;
+
+    /// The [`Type`] instance associated with this Type
+    const TYPE: Type;
 
     /// Get the qualified name of this Type
     fn name() -> String;
@@ -27,77 +31,72 @@ pub unsafe trait Reflected {
     fn assoc_fns() -> &'static [AssocFn] {
         static ASSOC_FNS: StaticTypeMap<Vec<AssocFn>> = StaticTypeMap::new();
 
-        ASSOC_FNS.call_once::<Self, _>(|| {
-            let mut sum = Vec::new();
-            impl_find!(assoc_fns);
-            sum
-        })
+        ASSOC_FNS
+            .call_once::<Self, fn() -> _>(|| {
+                let mut sum = Vec::new();
+                impl_find!(assoc_fns);
+                sum
+            })
     }
 
     /// Get all the associated constants for this Type that rebound is aware of
     fn assoc_consts() -> &'static [AssocConst] {
         static ASSOC_CONSTS: StaticTypeMap<Vec<AssocConst>> = StaticTypeMap::new();
 
-        ASSOC_CONSTS.call_once::<Self, _>(|| {
-            let mut sum = Vec::new();
-            impl_find!(assoc_consts);
-            sum
-        })
+        ASSOC_CONSTS
+            .call_once::<Self, fn() -> _>(|| {
+                let mut sum = Vec::new();
+                impl_find!(assoc_consts);
+                sum
+            })
     }
-
-    /// Internal Function used to initialize this Type, making it accessible by name and ready
-    /// for use in reflection.
-    ///
-    /// # Safety
-    ///
-    /// Should only ever be called once during a single execution of the program, and should not
-    /// be called by consumers of this library.
-    #[doc(hidden)]
-    unsafe fn init();
 }
 
 /// A trait representing a reflected tuple. Supports operations specific to tuples
 pub trait ReflectedTuple: Reflected {
-    /// Retrieve the fields of this Tuple
-    fn fields() -> &'static [Field];
+    /// The fields of this Tuple
+    const FIELDS: &'static [Field];
 }
 
 /// A trait representing a reflected slice. Supports operations specific to slices
 pub trait ReflectedSlice: Reflected {
     /// Retrieve the element type of this Slice
-    fn element() -> Type;
+    const ELEMENT: Type;
 }
 
 /// A trait representing a reflected array. Supports operations specific to arrays
 pub trait ReflectedArray: Reflected {
+    /// The length of this array
+    const LENGTH: usize;
+
     /// Retrieve the element type of this Array
-    fn element() -> Type;
-    /// Retrieve the length of this Array
-    fn length() -> usize;
+    const ELEMENT: Type;
 }
 
 /// A trait representing a reflected pointer. Supports operations specific to pointers
 pub trait ReflectedPointer: Reflected {
+    /// The mutability of this pointer
+    const MUTABILITY: bool;
+
     /// Retrieve the element type of this Pointer
-    fn element() -> Type;
-    /// Retrieve the mutability of this Pointer
-    fn mutability() -> bool;
+    const ELEMENT: Type;
 }
 
 /// A trait representing a reflected reference. Supports operations specific to references
 pub trait ReflectedReference: Reflected {
-    /// Retrieve the element type of this Reference
-    fn element() -> Type;
-    /// Retrieve the mutability of this Reference
-    fn mutability() -> bool;
+    /// The mutability of this reference
+    const MUTABILITY: bool;
+
+    /// The element type of this Reference
+    const ELEMENT: Type;
 }
 
 /// A trait representing a reflected function. Supports operations specific to functions
 pub trait ReflectedFunction: Reflected {
     /// Retrieve the argument types of this function
-    fn args() -> Vec<Type>;
+    const ARGS: &'static [Type];
     /// Retrieve the return type of this function
-    fn ret() -> Type;
+    const RET: Type;
 }
 
 /// A trait representing a reflected struct. Supports operations specific to structs
@@ -128,14 +127,14 @@ pub trait ReflectedUnion: Reflected {
 }
 
 /// A trait representing a reflected impl for a type.
-pub trait ReflectedImpl<const N: u8>: Reflected {
+pub trait ReflectedImpl<const N: u8> {
     /// Associated function defined in this impl
     fn assoc_fns() -> Vec<AssocFn>;
     /// Associated consts defined in this impl
     fn assoc_consts() -> Vec<AssocConst>;
 }
 
-impl<T: ?Sized + Reflected, const N: u8> ReflectedImpl<N> for T {
+impl<T: ?Sized, const N: u8> ReflectedImpl<N> for T {
     default fn assoc_fns() -> Vec<AssocFn> {
         vec![]
     }

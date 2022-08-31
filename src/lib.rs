@@ -18,7 +18,10 @@
     clippy::cloned_instead_of_copied,
     clippy::unreadable_literal
 )]
+// Features required for implementation of the API
 #![feature(specialization, ptr_metadata, const_btree_new)]
+// Features required for const-ness of stuff
+#![feature(const_mut_refs)]
 // Features used just to implement reflection for their stuff
 #![cfg_attr(feature = "never-type", feature(never_type))]
 #![feature(associated_type_bounds, allocator_api, ptr_internals)]
@@ -45,11 +48,11 @@ pub mod value;
 pub mod utils;
 
 /// Pre-initialize some common primitive types
-pub fn init_base() {
+/*pub fn init_base() {
     init_tys!(
         bool, char, str, u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64,
     );
-}
+}*/
 
 /// Generate code to pre-initialize types, including references and pointers to the type
 #[macro_export]

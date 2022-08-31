@@ -12,12 +12,10 @@ where
 {
     type Key = ManuallyDrop<T::Key>;
 
+    const TYPE: Type = Type::new_struct::<ManuallyDrop<T>>();
+
     fn name() -> String {
         format!("core::mem::ManuallyDrop<{}>", T::name())
-    }
-
-    unsafe fn init() {
-        Type::new_struct::<ManuallyDrop<T>>()
     }
 }
 

@@ -2,7 +2,6 @@ use crate::reflect::{
     Reflected, ReflectedArray, ReflectedFunction, ReflectedImpl, ReflectedPointer,
     ReflectedReference, ReflectedSlice, ReflectedTuple,
 };
-use crate::utils::StaticTypeMap;
 use crate::value::NotOutlives;
 use crate::{AssocConst, AssocFn, Field, Type};
 
@@ -15,12 +14,10 @@ macro_rules! reflect_prims {
         unsafe impl Reflected for $ty {
             type Key = $ty;
 
+            const TYPE: Type = Type::new_prim::<$ty>();
+
             fn name() -> String {
                 stringify!($ty).into()
-            }
-
-            unsafe fn init() {
-                Type::new_prim::<$ty>()
             }
         }
 
@@ -316,19 +313,15 @@ impl ReflectedImpl<0> for str {
 unsafe impl Reflected for () {
     type Key = ();
 
+    const TYPE: Type = Type::new_tuple::<()>();
+
     fn name() -> String {
         "()".into()
-    }
-
-    unsafe fn init() {
-        Type::new_tuple::<()>()
     }
 }
 
 impl ReflectedTuple for () {
-    fn fields() -> &'static [Field] {
-        &[]
-    }
+    const FIELDS: &'static [Field] = &[];
 }
 
 unsafe impl<'a> NotOutlives<'a> for () {}
@@ -338,13 +331,11 @@ unsafe impl Reflected for Tuple {
     for_tuples!( type Key = ( #( Tuple::Key ),* ); );
     for_tuples!( where #(Tuple::Key: Sized)* );
 
+    const TYPE: Type = Type::new_tuple::<Self>();
+
     fn name() -> String {
         let names = [for_tuples!( #(Tuple::name()),* )];
         format!("({})", names.join(", "))
-    }
-
-    unsafe fn init() {
-        Type::new_tuple::<Self>()
     }
 }
 
@@ -353,49 +344,41 @@ unsafe impl Reflected for Tuple {
 impl ReflectedTuple for Tuple {
     for_tuples!( where #( Tuple::Key: Sized )* );
 
-    fn fields() -> &'static [Field] {
-        static TUPLE_FIELDS: StaticTypeMap<Vec<Field>> = StaticTypeMap::new();
+    const FIELDS: &'static [Field] = {
+        use crate::info::{AccessHelper, SetHelper};
+        use crate::value::Value;
 
-        TUPLE_FIELDS.call_once::<Self, _>(|| {
-            use crate::info::{AccessHelper, SetHelper};
-            use crate::value::Value;
+        let mut idx_count = 0;
 
-            let mut idx_count = 0;
+        &[for_tuples!( #( {
+            let get_ptr: Option<AccessHelper> = Some(|this| {
+                // SAFETY: We know we won't borrow the item past the lifetime of the
+                //         containing value
+                let inner = unsafe { this.borrow_unsafe::<Self>() };
+                let v = Value::from_ref(&inner.Tuple);
+                // SAFETY: See rebound::ty::Ref
+                unsafe { core::mem::transmute::<Value<'_>, Value<'_>>(v) }
+            });
 
-            // HACK: idx_count used because the macro provides no easy way to get the current
-            //       index.
-            #[allow(clippy::mixed_read_write_in_expression)]
-            Vec::from([for_tuples!( #( {
-                let get_ptr: Option<AccessHelper> = Some(|this| {
-                    // SAFETY: We know we won't borrow the item past the lifetime of the
-                    //         containing value
-                    let inner = unsafe { this.borrow_unsafe::<Self>() };
-                    let v = Value::from_ref(&inner.Tuple);
-                    // SAFETY: See rebound::ty::Ref
-                    unsafe { core::mem::transmute::<Value<'_>, Value<'_>>(v) }
-                });
+            let set_ptr: Option<SetHelper> = Some(|this, value| {
+                // SAFETY: We know we won't borrow the item past the lifetimes off the
+                //         containing value
+                let inner = unsafe { this.borrow_unsafe_mut::<Self>() };
+                // SAFETY: The passed value is expected to be static, so we can only
+                //         cast the lifetime lower here
+                inner.Tuple = unsafe { value.cast_unsafe::<Tuple>() };
+            });
 
-                let set_ptr: Option<SetHelper> = Some(|this, value| {
-                    // SAFETY: We know we won't borrow the item past the lifetimes off the
-                    //         containing value
-                    let inner = unsafe { this.borrow_unsafe_mut::<Self>() };
-                    // SAFETY: The passed value is expected to be static, so we can only
-                    //         cast the lifetime lower here
-                    inner.Tuple = unsafe { value.cast_unsafe::<Tuple>() };
-                });
+            let idx = idx_count;
+            idx_count += 1;
 
-                let idx = idx_count;
-                idx_count += 1;
+            let assoc_ty = <Self as Reflected>::TYPE;
+            let field_ty = <Tuple as Reflected>::TYPE;
 
-                let assoc_ty = Type::from::<Self>();
-                let field_ty = Type::from::<Tuple>();
-
-                // SAFETY: We're the privileged implementation
-                unsafe { Field::new_tuple(get_ptr, set_ptr, idx, assoc_ty, field_ty) }
-
-            } ),* )])
-        })
-    }
+            // SAFETY: We're the privileged implementation
+            unsafe { Field::new_tuple(get_ptr, set_ptr, idx, assoc_ty, field_ty) }
+        } ),* )]
+    };
 }
 
 macro_rules! tuple_no {
@@ -427,12 +410,10 @@ where
 {
     type Key = [T::Key; N];
 
+    const TYPE: Type = Type::new_array::<[T; N]>();
+
     fn name() -> String {
         format!("[{}; {}]", T::name(), N)
-    }
-
-    unsafe fn init() {
-        Type::new_array::<[T; N]>()
     }
 }
 
@@ -441,13 +422,9 @@ where
     T: Reflected,
     T::Key: Sized,
 {
-    fn element() -> Type {
-        Type::from::<T>()
-    }
+    const LENGTH: usize = N;
 
-    fn length() -> usize {
-        N
-    }
+    const ELEMENT: Type = T::TYPE;
 }
 
 unsafe impl<'a, T, const N: usize> NotOutlives<'a> for [T; N] where T: NotOutlives<'a> {}
@@ -459,12 +436,10 @@ where
 {
     type Key = [T::Key];
 
+    const TYPE: Type = Type::new_slice::<[T]>();
+
     fn name() -> String {
         format!("[{}]", T::name())
-    }
-
-    unsafe fn init() {
-        Type::new_slice::<[T]>()
     }
 }
 
@@ -473,9 +448,7 @@ where
     T: Reflected,
     T::Key: Sized,
 {
-    fn element() -> Type {
-        Type::from::<T>()
-    }
+    const ELEMENT: Type = T::TYPE;
 }
 
 unsafe impl<'a, 'b, T> NotOutlives<'b> for [T]
@@ -711,23 +684,17 @@ impl ReflectedImpl<8> for [u8] {
 unsafe impl<T: ?Sized + Reflected> Reflected for *const T {
     type Key = *const T::Key;
 
+    const TYPE: Type = Type::new_ptr::<*const T>();
+
     fn name() -> String {
         format!("*const {}", T::name())
-    }
-
-    unsafe fn init() {
-        Type::new_ptr::<*const T>();
     }
 }
 
 impl<T: ?Sized + Reflected> ReflectedPointer for *const T {
-    fn element() -> Type {
-        Type::from::<T>()
-    }
+    const MUTABILITY: bool = false;
 
-    fn mutability() -> bool {
-        false
-    }
+    const ELEMENT: Type = T::TYPE;
 }
 
 unsafe impl<'a, T> NotOutlives<'a> for *const T where T: NotOutlives<'a> {}
@@ -786,23 +753,17 @@ impl<T: Reflected + 'static> ReflectedImpl<2> for *const T {
 unsafe impl<T: ?Sized + Reflected> Reflected for *mut T {
     type Key = *mut T::Key;
 
+    const TYPE: Type = Type::new_ptr::<*mut T>();
+
     fn name() -> String {
         format!("*mut {}", T::name())
-    }
-
-    unsafe fn init() {
-        Type::new_ptr::<*mut T>();
     }
 }
 
 impl<T: ?Sized + Reflected> ReflectedPointer for *mut T {
-    fn element() -> Type {
-        Type::from::<T>()
-    }
+    const MUTABILITY: bool = true;
 
-    fn mutability() -> bool {
-        true
-    }
+    const ELEMENT: Type = T::TYPE;
 }
 
 unsafe impl<'a, T> NotOutlives<'a> for *mut T where T: NotOutlives<'a> {}
@@ -811,23 +772,17 @@ unsafe impl<'a, T> NotOutlives<'a> for *mut T where T: NotOutlives<'a> {}
 unsafe impl<T: ?Sized + Reflected> Reflected for &T {
     type Key = &'static T::Key;
 
+    const TYPE: Type = Type::new_ref::<&T>();
+
     fn name() -> String {
         format!("&{}", T::name())
-    }
-
-    unsafe fn init() {
-        Type::new_ref::<&T>();
     }
 }
 
 impl<T: ?Sized + Reflected> ReflectedReference for &T {
-    fn element() -> Type {
-        Type::from::<T>()
-    }
+    const MUTABILITY: bool = false;
 
-    fn mutability() -> bool {
-        false
-    }
+    const ELEMENT: Type = T::TYPE;
 }
 
 unsafe impl<'a, 'b, T: ?Sized> NotOutlives<'b> for &'b T
@@ -840,23 +795,16 @@ where
 unsafe impl<T: ?Sized + Reflected> Reflected for &mut T {
     type Key = &'static mut T::Key;
 
+    const TYPE: Type = Type::new_ref::<&mut T>();
+
     fn name() -> String {
         format!("&mut {}", T::name())
-    }
-
-    unsafe fn init() {
-        Type::new_ref::<&mut T>();
     }
 }
 
 impl<T: ?Sized + Reflected> ReflectedReference for &mut T {
-    fn element() -> Type {
-        Type::from::<T>()
-    }
-
-    fn mutability() -> bool {
-        true
-    }
+    const MUTABILITY: bool = true;
+    const ELEMENT: Type = T::TYPE;
 }
 
 unsafe impl<'a, 'b, T: ?Sized> NotOutlives<'b> for &'b mut T
@@ -867,102 +815,66 @@ where
 }
 
 // Function pointers
-unsafe impl<T: Reflected> Reflected for fn() -> T {
-    type Key = fn() -> T::Key;
 
-    fn name() -> String {
-        format!("fn() -> {}", T::name())
-    }
+macro_rules! impl_for_fn {
+    ( $( $extern:literal ( $first:ident $(, $args:ident)* $(,)? ) );+ $(;)? ) => {
+        $(
+        unsafe impl<Ret: Reflected, $first: Reflected, $($args: Reflected),*> Reflected for extern $extern fn($first, $( $args ),*) -> Ret {
+            type Key = fn($first::Key, $($args::Key),*) -> Ret::Key;
 
-    unsafe fn init() {
-        Type::new_fn::<fn() -> T>()
-    }
+            const TYPE: Type = Type::new_fn::<Self>();
+
+            fn name() -> String {
+                let names = [ $first::name(), $( $args::name() ),* ];
+                format!("extern \"{}\" fn({}) -> {}", $extern, names.join(", "), Ret::name())
+            }
+        }
+
+        impl<Ret: Reflected, $first: Reflected, $( $args: Reflected ),*> ReflectedFunction for extern $extern fn($first, $( $args ),*) -> Ret {
+            const ARGS: &'static [Type] = &[
+                $first::TYPE,
+                $($args::TYPE),*
+            ];
+
+            const RET: Type = Ret::TYPE;
+        }
+        )*
+
+        impl_for_fn! {
+            $( $extern( $($args),* ); )*
+        }
+    };
+    ( $( $extern:literal ( ) );+ $(;)? ) => {
+        $(
+        unsafe impl<Ret: Reflected> Reflected for extern $extern fn() -> Ret {
+            type Key = fn() -> Ret::Key;
+
+            const TYPE: Type = Type::new_fn::<Self>();
+
+            fn name() -> String {
+                format!("extern \"{}\" fn() -> {}", $extern, Ret::name())
+            }
+        }
+
+        impl<Ret: Reflected> ReflectedFunction for extern $extern fn() -> Ret {
+            const ARGS: &'static [Type] = &[];
+
+            const RET: Type = Ret::TYPE;
+        }
+        )*
+    };
 }
 
-impl<T: Reflected> ReflectedFunction for fn() -> T {
-    fn args() -> Vec<Type> {
-        vec![]
-    }
-
-    fn ret() -> Type {
-        Type::from::<T>()
-    }
+impl_for_fn! {
+    "Rust"(A0, A1, A2, A3, A4, A5, A6, A7);
+    "C"(A0, A1, A2, A3, A4, A5, A6, A7);
 }
 
-unsafe impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T {
-    type Key = fn(A0::Key) -> T::Key;
-
-    fn name() -> String {
-        format!("fn({}) -> {}", A0::name(), T::name())
-    }
-
-    unsafe fn init() {
-        Type::new_fn::<fn(A0) -> T>()
-    }
-}
-
-impl<T: Reflected, A0: Reflected> ReflectedFunction for fn(A0) -> T {
-    fn args() -> Vec<Type> {
-        vec![Type::from::<A0>()]
-    }
-
-    fn ret() -> Type {
-        Type::from::<T>()
-    }
-}
-
-unsafe impl<T: Reflected, A0: Reflected, A1: Reflected> Reflected for fn(A0, A1) -> T {
-    type Key = fn(A0::Key, A1::Key) -> T::Key;
-
-    fn name() -> String {
-        format!("fn({}, {}) -> {}", A0::name(), A1::name(), T::name())
-    }
-
-    unsafe fn init() {
-        Type::new_fn::<fn(A0, A1) -> T>()
-    }
-}
-
-impl<T: Reflected, A0: Reflected, A1: Reflected> ReflectedFunction for fn(A0, A1) -> T {
-    fn args() -> Vec<Type> {
-        vec![Type::from::<A0>(), Type::from::<A1>()]
-    }
-
-    fn ret() -> Type {
-        Type::from::<T>()
-    }
-}
-
-unsafe impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected
-    for fn(A0, A1, A2) -> T
-{
-    type Key = fn(A0::Key, A1::Key, A2::Key) -> T::Key;
-
-    fn name() -> String {
-        format!(
-            "fn({}, {}, {}) -> {}",
-            A0::name(),
-            A1::name(),
-            A2::name(),
-            T::name()
-        )
-    }
-
-    unsafe fn init() {
-        Type::new_fn::<fn(A0, A1, A2) -> T>()
-    }
-}
-
-impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> ReflectedFunction
-    for fn(A0, A1, A2) -> T
-{
-    fn args() -> Vec<Type> {
-        vec![Type::from::<A0>(), Type::from::<A1>(), Type::from::<A2>()]
-    }
-
-    fn ret() -> Type {
-        Type::from::<T>()
-    }
+#[cfg(windows)]
+impl_for_fn! {
+    "stdcall"(A0, A1, A2, A3, A4, A5, A6, A7);
+    "system"(A0, A1, A2, A3, A4, A5, A6, A7);
+    "cdecl"(A0, A1, A2, A3, A4, A5, A6, A7);
 }
 
 // Never type
@@ -970,11 +882,9 @@ impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> ReflectedFunctio
 unsafe impl Reflected for ! {
     type Key = !;
 
+    const TYPE: Type = Type::new_prim::<!>();
+
     fn name() -> String {
         "!".into()
-    }
-
-    unsafe fn init() {
-        Type::new_prim::<!>()
     }
 }

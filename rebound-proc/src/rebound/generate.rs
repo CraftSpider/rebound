@@ -449,7 +449,9 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
         return Err(Error::NotSupported("generic impls".to_string()));
     }
 
-    let mut impls = IMPLS_PER_TY.write().expect("IMPLS_PER_TY was poisoned");
+    let mut impls = IMPLS_PER_TY
+        .write()
+        .expect("IMPLS_PER_TY was poisoned");
 
     let crate_name = &cfg.crate_name;
     let self_ty = &item.self_ty;
@@ -575,12 +577,10 @@ pub fn generate_reflect_type(cfg: &Config, item: &Item) -> Result<TokenStream> {
         unsafe impl #reflect_impl_bounds #crate_name::reflect::Reflected for #name #reflect_where_bounds {
             type Key = #static_name;
 
+            const TYPE: #crate_name::Type = #crate_name::Type::#new_fn::<#name>();
+
             fn name() -> ::std::string::String {
                 #rebound_name
-            }
-
-            unsafe fn init() {
-                #crate_name::Type::#new_fn::<#name>();
             }
         }
 

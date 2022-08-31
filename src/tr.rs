@@ -7,7 +7,7 @@ use crate::info::*;
 use std::collections::BTreeMap;
 use std::sync::RwLock;
 
-static REFLECTED_TRAITS: RwLock<HashMap<String, Box<Trait>>> = RwLock::new(BTreeMap::new());
+static REFLECTED_TRAITS: RwLock<BTreeMap<String, Box<Trait>>> = RwLock::new(BTreeMap::new());
 
 #[derive(Debug)]
 struct Trait {
@@ -19,7 +19,6 @@ struct Trait {
 impl Trait {
     fn add_trait(tr: Trait) {
         let mut map = REFLECTED_TRAITS
-            .get_or_init(|| RwLock::new(HashMap::new()))
             .write()
             .expect("REFLECTED_TRAITS not initialized correctly");
 

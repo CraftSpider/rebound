@@ -92,7 +92,7 @@ impl AssocFn {
     }
 
     /// Get the Types of the arguments to this function
-    pub fn arg_tys(&self) -> &Vec<Type> {
+    pub fn arg_tys(&self) -> &[Type] {
         &self.args
     }
 
