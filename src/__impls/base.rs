@@ -366,34 +366,34 @@ impl ReflectedTuple for Tuple {
             //       index.
             #[allow(clippy::mixed_read_write_in_expression)]
             Vec::from([for_tuples!( #( {
-                        let get_ptr: Option<AccessHelper> = Some(|this| {
-                            // SAFETY: We know we won't borrow the item past the lifetime of the
-                            //         containing value
-                            let inner = unsafe { this.borrow_unsafe::<Self>() };
-                            let v = Value::from_ref(&inner.Tuple);
-                            // SAFETY: See rebound::ty::Ref
-                            unsafe { core::mem::transmute::<Value<'_>, Value<'_>>(v) }
-                        });
+                let get_ptr: Option<AccessHelper> = Some(|this| {
+                    // SAFETY: We know we won't borrow the item past the lifetime of the
+                    //         containing value
+                    let inner = unsafe { this.borrow_unsafe::<Self>() };
+                    let v = Value::from_ref(&inner.Tuple);
+                    // SAFETY: See rebound::ty::Ref
+                    unsafe { core::mem::transmute::<Value<'_>, Value<'_>>(v) }
+                });
 
-                        let set_ptr: Option<SetHelper> = Some(|this, value| {
-                            // SAFETY: We know we won't borrow the item past the lifetimes off the
-                            //         containing value
-                            let inner = unsafe { this.borrow_unsafe_mut::<Self>() };
-                            // SAFETY: The passed value is expected to be static, so we can only
-                            //         cast the lifetime lower here
-                            inner.Tuple = unsafe { value.cast_unsafe::<Tuple>() };
-                        });
+                let set_ptr: Option<SetHelper> = Some(|this, value| {
+                    // SAFETY: We know we won't borrow the item past the lifetimes off the
+                    //         containing value
+                    let inner = unsafe { this.borrow_unsafe_mut::<Self>() };
+                    // SAFETY: The passed value is expected to be static, so we can only
+                    //         cast the lifetime lower here
+                    inner.Tuple = unsafe { value.cast_unsafe::<Tuple>() };
+                });
 
-                        let idx = idx_count;
-                        idx_count += 1;
+                let idx = idx_count;
+                idx_count += 1;
 
-                        let assoc_ty = Type::from::<Self>();
-                        let field_ty = Type::from::<Tuple>();
+                let assoc_ty = Type::from::<Self>();
+                let field_ty = Type::from::<Tuple>();
 
-                        // SAFETY: We're the privileged implementation
-                        unsafe { Field::new_tuple(get_ptr, set_ptr, idx, assoc_ty, field_ty) }
+                // SAFETY: We're the privileged implementation
+                unsafe { Field::new_tuple(get_ptr, set_ptr, idx, assoc_ty, field_ty) }
 
-                    } ),* )])
+            } ),* )])
         })
     }
 }
