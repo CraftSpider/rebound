@@ -85,6 +85,8 @@ jobs:
 
       - name: Run miri (all features)
         uses: actions-rs/cargo@v1
+        env:
+          MIRIFLAGS: -Zmiri-strict-provenance -Zmiri-symbolic-alignment-check -Zmiri-retag-fields
         with:
           command: miri
           args: test --all-features
