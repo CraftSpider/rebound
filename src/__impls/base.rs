@@ -356,17 +356,16 @@ impl ReflectedTuple for Tuple {
     fn fields() -> &'static [Field] {
         static TUPLE_FIELDS: StaticTypeMap<Vec<Field>> = StaticTypeMap::new();
 
-        TUPLE_FIELDS
-            .call_once::<Self, _>(|| {
-                use crate::info::{AccessHelper, SetHelper};
-                use crate::value::Value;
+        TUPLE_FIELDS.call_once::<Self, _>(|| {
+            use crate::info::{AccessHelper, SetHelper};
+            use crate::value::Value;
 
-                let mut idx_count = 0;
+            let mut idx_count = 0;
 
-                // HACK: idx_count used because the macro provides no easy way to get the current
-                //       index.
-                #[allow(clippy::eval_order_dependence)]
-                Vec::from([for_tuples!( #( {
+            // HACK: idx_count used because the macro provides no easy way to get the current
+            //       index.
+            #[allow(clippy::mixed_read_write_in_expression)]
+            Vec::from([for_tuples!( #( {
                         let get_ptr: Option<AccessHelper> = Some(|this| {
                             // SAFETY: We know we won't borrow the item past the lifetime of the
                             //         containing value
@@ -395,7 +394,7 @@ impl ReflectedTuple for Tuple {
                         unsafe { Field::new_tuple(get_ptr, set_ptr, idx, assoc_ty, field_ty) }
 
                     } ),* )])
-            })
+        })
     }
 }
 
@@ -934,7 +933,9 @@ impl<T: Reflected, A0: Reflected, A1: Reflected> ReflectedFunction for fn(A0, A1
     }
 }
 
-unsafe impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected for fn(A0, A1, A2) -> T {
+unsafe impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected
+    for fn(A0, A1, A2) -> T
+{
     type Key = fn(A0::Key, A1::Key, A2::Key) -> T::Key;
 
     fn name() -> String {

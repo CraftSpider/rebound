@@ -13,15 +13,15 @@
     clippy::doc_markdown,
     clippy::ptr_as_ptr,
     clippy::cloned_instead_of_copied,
-    clippy::unreadable_literal,
+    clippy::unreadable_literal
 )]
 
 use proc_macro::TokenStream;
 use quote::quote;
 
-mod rebound;
-mod extension;
 mod error;
+mod extension;
+mod rebound;
 
 #[proc_macro]
 pub fn impl_find(input: TokenStream) -> TokenStream {

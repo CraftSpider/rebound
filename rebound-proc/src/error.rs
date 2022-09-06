@@ -1,8 +1,7 @@
-
 use core::fmt;
 
-use quote::quote;
 use proc_macro2::TokenStream;
+use quote::quote;
 
 use crate::extension::LitType;
 
@@ -31,7 +30,7 @@ impl From<syn::Error> for Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-         match self {
+        match self {
              Error::ParseError(err) => write!(f, "Parse Error: {}", err),
              Error::NotSupported(what) => write!(f, "Rebound does not support {}, this may work in a future version", what),
              Error::InvalidLiteral(actual, expected) => write!(f, "Expected a `{:?}` literal, got `{:?}`", expected, actual),

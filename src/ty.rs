@@ -336,9 +336,7 @@ impl Type {
     /// This function is in no way memory unsafe, however, the format used for type names is an
     /// implementation detail, and thus may change even across patch versions.
     pub unsafe fn from_name(name: &str) -> Option<Type> {
-        let ref_tys = REFLECTED_TYS
-            .read()
-            .unwrap();
+        let ref_tys = REFLECTED_TYS.read().unwrap();
         for ty in ref_tys.values() {
             if ty.name() == name {
                 return Some(*ty);

@@ -1,5 +1,5 @@
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, TokenStreamExt, ToTokens};
+use quote::{quote, ToTokens, TokenStreamExt};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{Item, Token};
@@ -92,23 +92,29 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
     for i in args.values {
         match i {
             syn::NestedMeta::Meta(meta) => match meta {
-                syn::Meta::List(..) => return Err(Error::Simple("Found unexpected list element".to_string())),
+                syn::Meta::List(..) => {
+                    return Err(Error::Simple("Found unexpected list element".to_string()))
+                }
                 syn::Meta::NameValue(nv) => {
-                    let str = nv.path.as_simple_str()
-                        .ok_or(Error::Simple("Expected a simple path without generics".to_string()))?;
+                    let str = nv.path.as_simple_str().ok_or(Error::Simple(
+                        "Expected a simple path without generics".to_string(),
+                    ))?;
 
                     if str == "crate_name" {
                         crate_name = Some(
                             nv.lit
                                 .as_str()
-                                .ok_or(Error::InvalidLiteral(nv.lit.ty(), LitType::String))?
+                                .ok_or(Error::InvalidLiteral(nv.lit.ty(), LitType::String))?,
                         );
                     } else if str == "name_replace" {
-                        let str = nv.lit
+                        let str = nv
+                            .lit
                             .as_str()
                             .ok_or(Error::InvalidLiteral(nv.lit.ty(), LitType::String))?;
                         let (pat, replace) = str.split_once("/").ok_or_else(|| {
-                            Error::Simple("name_replace should be a / delimited pair of patterns".to_string())
+                            Error::Simple(
+                                "name_replace should be a / delimited pair of patterns".to_string(),
+                            )
                         })?;
                         name_replace = Some((pat.to_owned(), replace.to_owned()));
                     } else {
@@ -119,8 +125,9 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
                     }
                 }
                 syn::Meta::Path(path) => {
-                    let str = path.as_simple_str()
-                        .ok_or(Error::Simple("Expected a simple path without generics".to_string()))?;
+                    let str = path.as_simple_str().ok_or(Error::Simple(
+                        "Expected a simple path without generics".to_string(),
+                    ))?;
 
                     if str == "debug_out" {
                         debug_out = true;
@@ -136,15 +143,18 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
                     }
                 }
             },
-            syn::NestedMeta::Lit(..) => return Err(Error::Simple("Found unexpected literal argument".to_string())),
+            syn::NestedMeta::Lit(..) => {
+                return Err(Error::Simple(
+                    "Found unexpected literal argument".to_string(),
+                ))
+            }
         }
     }
 
     let crate_name = crate_name.unwrap_or_else(|| "rebound".to_string());
 
     let crate_name =
-        syn::parse_str::<CrateName>(&crate_name)
-            .map_err(|_| Error::InvalidIdent(crate_name))?;
+        syn::parse_str::<CrateName>(&crate_name).map_err(|_| Error::InvalidIdent(crate_name))?;
 
     Ok(Config {
         crate_name,
@@ -180,7 +190,7 @@ fn verify_item(input: TokenStream) -> Result<Item> {
 
     match err {
         Some(name) => Err(Error::InvalidItem(name.to_string())),
-        None => Ok(item)
+        None => Ok(item),
     }
 }
 

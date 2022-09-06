@@ -27,24 +27,22 @@ pub unsafe trait Reflected {
     fn assoc_fns() -> &'static [AssocFn] {
         static ASSOC_FNS: StaticTypeMap<Vec<AssocFn>> = StaticTypeMap::new();
 
-        ASSOC_FNS
-            .call_once::<Self, _>(|| {
-                let mut sum = Vec::new();
-                impl_find!(assoc_fns);
-                sum
-            })
+        ASSOC_FNS.call_once::<Self, _>(|| {
+            let mut sum = Vec::new();
+            impl_find!(assoc_fns);
+            sum
+        })
     }
 
     /// Get all the associated constants for this Type that rebound is aware of
     fn assoc_consts() -> &'static [AssocConst] {
         static ASSOC_CONSTS: StaticTypeMap<Vec<AssocConst>> = StaticTypeMap::new();
 
-        ASSOC_CONSTS
-            .call_once::<Self, _>(|| {
-                let mut sum = Vec::new();
-                impl_find!(assoc_consts);
-                sum
-            })
+        ASSOC_CONSTS.call_once::<Self, _>(|| {
+            let mut sum = Vec::new();
+            impl_find!(assoc_consts);
+            sum
+        })
     }
 
     /// Internal Function used to initialize this Type, making it accessible by name and ready

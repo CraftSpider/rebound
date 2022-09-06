@@ -4,7 +4,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{Lifetime, parse2, Token};
+use syn::{parse2, Lifetime, Token};
 
 fn static_or_anon(life: &Lifetime) -> Lifetime {
     if life.ident == "static" {
@@ -313,7 +313,8 @@ fn reflect_bound(cfg: &Config) -> syn::TypeParamBound {
 
     parse2::<syn::TypeParamBound>(quote!(
         #crate_name::Reflected
-    )).unwrap()
+    ))
+    .unwrap()
 }
 
 fn reflect_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, TokenStream) {
@@ -467,7 +468,8 @@ fn not_outlives_bound(cfg: &Config, lifetime: Lifetime) -> syn::TypeParamBound {
 
     parse2::<syn::TypeParamBound>(quote!(
         #crate_name::value::NotOutlives::<#lifetime>
-    )).unwrap()
+    ))
+    .unwrap()
 }
 
 fn outlives_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, TokenStream) {
@@ -627,7 +629,8 @@ pub fn ty_id(ty: &syn::Type) -> String {
     match ty {
         syn::Type::Array(ty) => format!(
             "[{}; {}]",
-            ty_id(&ty.elem), ty.len.to_token_stream().to_string()
+            ty_id(&ty.elem),
+            ty.len.to_token_stream().to_string()
         ),
         syn::Type::Group(ty) => ty_id(&ty.elem),
         syn::Type::Paren(ty) => ty_id(&ty.elem),

@@ -8,8 +8,8 @@ use std::sync::RwLock;
 
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
-use syn::Item;
 use syn::spanned::Spanned;
+use syn::Item;
 
 pub fn generate_assoc_fn(
     cfg: &Config,
@@ -17,9 +17,7 @@ pub fn generate_assoc_fn(
     sig: &syn::Signature,
 ) -> Result<TokenStream> {
     if !sig.generics.params.is_empty() {
-        return Err(
-            Error::NotSupported("generic functions".to_string())
-        );
+        return Err(Error::NotSupported("generic functions".to_string()));
     }
 
     let crate_name = &cfg.crate_name;
@@ -36,7 +34,7 @@ pub fn generate_assoc_fn(
         .collect::<Vec<_>>();
 
     let ret_ty = match output {
-        syn::ReturnType::Default => quote!( () ),
+        syn::ReturnType::Default => quote!(()),
         syn::ReturnType::Type(_, ty) => quote!(#ty),
     };
 
@@ -112,7 +110,9 @@ pub fn generate_assoc_const(
     const_ty: &syn::Type,
 ) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
-    let span = const_name.span().join(const_ty.span())
+    let span = const_name
+        .span()
+        .join(const_ty.span())
         .unwrap_or_else(|| const_name.span());
 
     Ok(quote_spanned!(span => {
@@ -154,7 +154,7 @@ pub fn generate_struct_field(
             (
                 quote!(#access),
                 syn::Ident::new("new_tuple", Span::call_site()),
-                quote!(#idx)
+                quote!(#idx),
             )
         }
     };
@@ -380,7 +380,8 @@ pub fn generate_variant(
     let fields = match variant.ty() {
         StructType::Unit => None,
         _ => {
-            let fields = variant.fields()
+            let fields = variant
+                .fields()
                 .into_iter()
                 .enumerate()
                 .map(|(idx, field)| generate_enum_field(cfg, item, var_name, idx, field))
@@ -448,9 +449,7 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
         return Err(Error::NotSupported("generic impls".to_string()));
     }
 
-    let mut impls = IMPLS_PER_TY
-        .write()
-        .expect("IMPLS_PER_TY was poisoned");
+    let mut impls = IMPLS_PER_TY.write().expect("IMPLS_PER_TY was poisoned");
 
     let crate_name = &cfg.crate_name;
     let self_ty = &item.self_ty;
@@ -530,7 +529,7 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
                     ::std::vec![ #( #fields, )* ]
                 }
             ))
-        },
+        }
     };
 
     Ok(quote_spanned!(item.span() =>

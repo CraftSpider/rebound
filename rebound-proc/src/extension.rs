@@ -1,4 +1,3 @@
-
 #[derive(Debug)]
 pub enum LitType {
     String,
@@ -51,12 +50,15 @@ pub trait PathExtension {
 
 impl PathExtension for syn::Path {
     fn as_simple_str(&self) -> Option<String> {
-        let out = self.segments
+        let out = self
+            .segments
             .iter()
-            .map(|seg| if seg.arguments.is_empty() {
-                Some(seg.ident.to_string())
-            } else {
-                None
+            .map(|seg| {
+                if seg.arguments.is_empty() {
+                    Some(seg.ident.to_string())
+                } else {
+                    None
+                }
             })
             .collect::<Option<Vec<_>>>()?
             .join("::");
