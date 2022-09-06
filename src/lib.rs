@@ -18,7 +18,7 @@
     clippy::cloned_instead_of_copied,
     clippy::unreadable_literal
 )]
-#![feature(specialization, ptr_metadata)]
+#![feature(specialization, ptr_metadata, const_btree_new)]
 // Features used just to implement reflection for their stuff
 #![cfg_attr(feature = "never-type", feature(never_type))]
 #![feature(associated_type_bounds, allocator_api, ptr_internals)]
@@ -38,7 +38,7 @@ mod __impls;
 pub mod error;
 pub mod info;
 pub mod reflect;
-pub mod tr;
+// pub mod tr;
 pub mod ty;
 pub mod value;
 

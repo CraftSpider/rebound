@@ -6,7 +6,7 @@ use core::mem::*;
 
 // TODO: Support custom unsized impls in extern_items!
 
-impl<T> Reflected for ManuallyDrop<T>
+unsafe impl<T> Reflected for ManuallyDrop<T>
 where
     T: ?Sized + Reflected,
 {

@@ -3,11 +3,10 @@ use super::Config;
 use crate::error::{Error, Result};
 use crate::extension::{StructExtension, StructType, VariantExtension};
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::RwLock;
 
 use proc_macro2::{Span, TokenStream};
-use once_cell::sync::OnceCell;
 use quote::{quote, quote_spanned};
 use syn::Item;
 use syn::spanned::Spanned;
@@ -439,7 +438,7 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
     ))
 }
 
-static IMPLS_PER_TY: OnceCell<RwLock<HashMap<String, u8>>> = OnceCell::new();
+static IMPLS_PER_TY: RwLock<BTreeMap<String, u8>> = RwLock::new(BTreeMap::new());
 
 pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenStream> {
     if item.trait_.is_some() {
@@ -450,7 +449,6 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
     }
 
     let mut impls = IMPLS_PER_TY
-        .get_or_init(|| RwLock::new(HashMap::new()))
         .write()
         .expect("IMPLS_PER_TY was poisoned");
 
@@ -575,7 +573,7 @@ pub fn generate_reflect_type(cfg: &Config, item: &Item) -> Result<TokenStream> {
     let new_fn = item.new_fn_name();
 
     Ok(quote_spanned!(item.span() =>
-        impl #reflect_impl_bounds #crate_name::reflect::Reflected for #name #reflect_where_bounds {
+        unsafe impl #reflect_impl_bounds #crate_name::reflect::Reflected for #name #reflect_where_bounds {
             type Key = #static_name;
 
             fn name() -> ::std::string::String {

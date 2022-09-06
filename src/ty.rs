@@ -7,9 +7,8 @@ use crate::{Error, Value};
 
 use core::fmt;
 use core::hash::{Hash, Hasher};
-use once_cell::sync::OnceCell;
 use std::any::TypeId;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::RwLock;
 
 /// Implement `CommonTypeInfo` for a given struct
@@ -40,7 +39,7 @@ macro_rules! impl_common {
 }
 
 // SAFETY: *do not touch these if you don't know what you're doing*
-static REFLECTED_TYS: OnceCell<RwLock<HashMap<TypeId, Type>>> = OnceCell::new();
+static REFLECTED_TYS: RwLock<BTreeMap<TypeId, Type>> = RwLock::new(BTreeMap::new());
 
 /// Common information / operations between all types
 pub trait CommonTypeInfo {
@@ -150,19 +149,20 @@ macro_rules! ty_unwraps {
 }
 
 impl Type {
-    fn add_ty<T: ?Sized + Reflected>(ty: Type) {
+    fn add_ty_erased(ty: Type, id: TypeId) {
         let mut map = REFLECTED_TYS
-            .get_or_init(|| RwLock::new(HashMap::new()))
             .write()
             .expect("REFLECTED_TYS not initialized correctly");
 
-        let type_id = TypeId::of::<T::Key>();
-
-        if map.contains_key(&type_id) {
+        if map.contains_key(&id) {
             panic!("Type {} already registered", ty.name());
         }
 
-        map.insert(type_id, ty);
+        map.insert(id, ty);
+    }
+
+    fn add_ty<T: ?Sized + Reflected>(ty: Type) {
+        Type::add_ty_erased(ty, TypeId::of::<T::Key>())
     }
 
     /// Internal function used by generated code to initialize a Type for primitives
@@ -337,7 +337,6 @@ impl Type {
     /// implementation detail, and thus may change even across patch versions.
     pub unsafe fn from_name(name: &str) -> Option<Type> {
         let ref_tys = REFLECTED_TYS
-            .get_or_init(|| RwLock::new(HashMap::new()))
             .read()
             .unwrap();
         for ty in ref_tys.values() {
@@ -353,7 +352,6 @@ impl Type {
     /// beforehand.
     pub fn from_id(ty_id: &TypeId) -> Option<Type> {
         REFLECTED_TYS
-            .get_or_init(|| RwLock::new(HashMap::new()))
             .read()
             .expect("Couldn't get read lock on Reflection mapping")
             .get(ty_id)
@@ -362,8 +360,8 @@ impl Type {
 
     /// Get a Type instance from any reflected type, instantiating it if necessary.
     pub fn from<T: ?Sized + Reflected>() -> Type {
-        static INIT: OnceCell<StaticTypeMap<()>> = OnceCell::new();
-        INIT.get_or_init(StaticTypeMap::new).call_once::<T, _>(|| {
+        static INIT: StaticTypeMap<()> = StaticTypeMap::new();
+        INIT.call_once::<T, _>(|| {
             // SAFETY: Inside a `call_once`, and we're the privileged implementation
             unsafe { T::init() };
         });

@@ -4,11 +4,10 @@
 
 use crate::info::*;
 
-use once_cell::sync::OnceCell;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::RwLock;
 
-static REFLECTED_TRAITS: OnceCell<RwLock<HashMap<String, Box<Trait>>>> = OnceCell::new();
+static REFLECTED_TRAITS: RwLock<HashMap<String, Box<Trait>>> = RwLock::new(BTreeMap::new());
 
 #[derive(Debug)]
 struct Trait {

@@ -4,13 +4,19 @@ use crate::info::UnionField;
 use crate::utils::StaticTypeMap;
 use crate::{AssocConst, AssocFn, Error, Field, Type, Value, Variant};
 
-use once_cell::sync::OnceCell;
 use rebound_proc::impl_find;
 use std::ptr::NonNull;
 
 /// A trait representing any reflected [`Type`]. Supports operations common to all Types,
 /// such as retrieving its qualified name or impl information.
-pub trait Reflected {
+///
+/// # Safety
+///
+/// This trait should only be implemented through usage of the `#[rebound]` proc-macro.
+///
+/// More specifically, unsafe code is allowed to assume that:
+/// - The Key type is equivalent to `Self` where all lifetimes are replaced with `'static`
+pub unsafe trait Reflected {
     /// The static key type used for the backing [`TypeId`](core::any::TypeId) of a Type
     type Key: ?Sized + 'static;
 
@@ -19,10 +25,9 @@ pub trait Reflected {
 
     /// Get all the associated functions for this Type that rebound is aware of
     fn assoc_fns() -> &'static [AssocFn] {
-        static ASSOC_FNS: OnceCell<StaticTypeMap<Vec<AssocFn>>> = OnceCell::new();
+        static ASSOC_FNS: StaticTypeMap<Vec<AssocFn>> = StaticTypeMap::new();
 
         ASSOC_FNS
-            .get_or_init(StaticTypeMap::new)
             .call_once::<Self, _>(|| {
                 let mut sum = Vec::new();
                 impl_find!(assoc_fns);
@@ -32,10 +37,9 @@ pub trait Reflected {
 
     /// Get all the associated constants for this Type that rebound is aware of
     fn assoc_consts() -> &'static [AssocConst] {
-        static ASSOC_CONSTS: OnceCell<StaticTypeMap<Vec<AssocConst>>> = OnceCell::new();
+        static ASSOC_CONSTS: StaticTypeMap<Vec<AssocConst>> = StaticTypeMap::new();
 
         ASSOC_CONSTS
-            .get_or_init(StaticTypeMap::new)
             .call_once::<Self, _>(|| {
                 let mut sum = Vec::new();
                 impl_find!(assoc_consts);
@@ -170,12 +174,10 @@ impl<T: ?Sized + Reflected> Ref for T {
 
 impl<T: ?Sized + Reflected> Ref for &T {
     fn ref_val<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error> {
-        // SAFETY: Meta pointer guaranteed to point to a valid instance of `T::Metadata`
-        let meta = unsafe { *val.raw_meta().cast().as_ref() };
         // SAFETY: Value pointer guaranteed to point to an instance of the contained type
-        let new_ref = unsafe { NonNull::<T>::from_raw_parts(val.raw_ptr(), meta).as_ref() };
+        let new_ref = unsafe { NonNull::<&T>::from_raw_parts(val.raw_ptr(), ()).as_ref() };
 
-        let val = Value::from(new_ref);
+        let val = Value::from(*new_ref);
 
         // SAFETY: See comment above impls
         unsafe { Ok(core::mem::transmute::<Value<'_>, Value<'_>>(val)) }

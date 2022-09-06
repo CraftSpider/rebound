@@ -7,13 +7,12 @@ use crate::value::NotOutlives;
 use crate::{AssocConst, AssocFn, Field, Type};
 
 use impl_trait_for_tuples::impl_for_tuples;
-use once_cell::sync::OnceCell;
 use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
 
 macro_rules! reflect_prims {
     ($($ty:ty),+ $(,)?) => {
         $(
-        impl Reflected for $ty {
+        unsafe impl Reflected for $ty {
             type Key = $ty;
 
             fn name() -> String {
@@ -314,7 +313,7 @@ impl ReflectedImpl<0> for str {
 
 // Tuple reflections
 
-impl Reflected for () {
+unsafe impl Reflected for () {
     type Key = ();
 
     fn name() -> String {
@@ -335,7 +334,7 @@ impl ReflectedTuple for () {
 unsafe impl<'a> NotOutlives<'a> for () {}
 
 #[impl_for_tuples(1, 26)]
-impl Reflected for Tuple {
+unsafe impl Reflected for Tuple {
     for_tuples!( type Key = ( #( Tuple::Key ),* ); );
     for_tuples!( where #(Tuple::Key: Sized)* );
 
@@ -355,10 +354,9 @@ impl ReflectedTuple for Tuple {
     for_tuples!( where #( Tuple::Key: Sized )* );
 
     fn fields() -> &'static [Field] {
-        static TUPLE_FIELDS: OnceCell<StaticTypeMap<Vec<Field>>> = OnceCell::new();
+        static TUPLE_FIELDS: StaticTypeMap<Vec<Field>> = StaticTypeMap::new();
 
         TUPLE_FIELDS
-            .get_or_init(StaticTypeMap::new)
             .call_once::<Self, _>(|| {
                 use crate::info::{AccessHelper, SetHelper};
                 use crate::value::Value;
@@ -423,7 +421,7 @@ tuple_no!(
 );
 
 // Arrays/Slices
-impl<T, const N: usize> Reflected for [T; N]
+unsafe impl<T, const N: usize> Reflected for [T; N]
 where
     T: Reflected,
     T::Key: Sized,
@@ -455,7 +453,7 @@ where
 
 unsafe impl<'a, T, const N: usize> NotOutlives<'a> for [T; N] where T: NotOutlives<'a> {}
 
-impl<T> Reflected for [T]
+unsafe impl<T> Reflected for [T]
 where
     T: Reflected,
     T::Key: Sized,
@@ -711,7 +709,7 @@ impl ReflectedImpl<8> for [u8] {
 }
 
 // Pointers
-impl<T: ?Sized + Reflected> Reflected for *const T {
+unsafe impl<T: ?Sized + Reflected> Reflected for *const T {
     type Key = *const T::Key;
 
     fn name() -> String {
@@ -786,7 +784,7 @@ impl<T: Reflected + 'static> ReflectedImpl<2> for *const T {
     }
 }
 
-impl<T: ?Sized + Reflected> Reflected for *mut T {
+unsafe impl<T: ?Sized + Reflected> Reflected for *mut T {
     type Key = *mut T::Key;
 
     fn name() -> String {
@@ -811,7 +809,7 @@ impl<T: ?Sized + Reflected> ReflectedPointer for *mut T {
 unsafe impl<'a, T> NotOutlives<'a> for *mut T where T: NotOutlives<'a> {}
 
 // References
-impl<T: ?Sized + Reflected> Reflected for &T {
+unsafe impl<T: ?Sized + Reflected> Reflected for &T {
     type Key = &'static T::Key;
 
     fn name() -> String {
@@ -840,7 +838,7 @@ where
 {
 }
 
-impl<T: ?Sized + Reflected> Reflected for &mut T {
+unsafe impl<T: ?Sized + Reflected> Reflected for &mut T {
     type Key = &'static mut T::Key;
 
     fn name() -> String {
@@ -870,7 +868,7 @@ where
 }
 
 // Function pointers
-impl<T: Reflected> Reflected for fn() -> T {
+unsafe impl<T: Reflected> Reflected for fn() -> T {
     type Key = fn() -> T::Key;
 
     fn name() -> String {
@@ -892,7 +890,7 @@ impl<T: Reflected> ReflectedFunction for fn() -> T {
     }
 }
 
-impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T {
+unsafe impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T {
     type Key = fn(A0::Key) -> T::Key;
 
     fn name() -> String {
@@ -914,7 +912,7 @@ impl<T: Reflected, A0: Reflected> ReflectedFunction for fn(A0) -> T {
     }
 }
 
-impl<T: Reflected, A0: Reflected, A1: Reflected> Reflected for fn(A0, A1) -> T {
+unsafe impl<T: Reflected, A0: Reflected, A1: Reflected> Reflected for fn(A0, A1) -> T {
     type Key = fn(A0::Key, A1::Key) -> T::Key;
 
     fn name() -> String {
@@ -936,7 +934,7 @@ impl<T: Reflected, A0: Reflected, A1: Reflected> ReflectedFunction for fn(A0, A1
     }
 }
 
-impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected for fn(A0, A1, A2) -> T {
+unsafe impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected for fn(A0, A1, A2) -> T {
     type Key = fn(A0::Key, A1::Key, A2::Key) -> T::Key;
 
     fn name() -> String {
@@ -968,7 +966,7 @@ impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> ReflectedFunctio
 
 // Never type
 #[cfg(feature = "never-type")]
-impl Reflected for ! {
+unsafe impl Reflected for ! {
     type Key = !;
 
     fn name() -> String {

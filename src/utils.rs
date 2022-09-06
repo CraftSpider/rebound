@@ -4,20 +4,20 @@ use crate::Reflected;
 
 use once_cell::sync::OnceCell;
 use std::any::TypeId;
-use std::collections::HashMap;
 use std::sync::RwLock;
+use std::collections::BTreeMap;
 
 /// A helper for making `static` variables in a generic which are unique per type used in the
 /// generic.
 pub struct StaticTypeMap<T: 'static> {
-    map: RwLock<HashMap<TypeId, &'static OnceCell<T>>>,
+    map: RwLock<BTreeMap<TypeId, &'static OnceCell<T>>>,
 }
 
 impl<T: 'static> StaticTypeMap<T> {
     /// Initialize a new `StaticTypeMap`
-    pub fn new() -> StaticTypeMap<T> {
+    pub const fn new() -> StaticTypeMap<T> {
         StaticTypeMap {
-            map: RwLock::new(HashMap::new()),
+            map: RwLock::new(BTreeMap::new()),
         }
     }
 

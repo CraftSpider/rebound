@@ -1,4 +1,4 @@
-#![feature(proc_macro_diagnostic)]
+#![feature(proc_macro_diagnostic, const_btree_new)]
 #![warn(
     elided_lifetimes_in_paths,
     explicit_outlives_requirements,
