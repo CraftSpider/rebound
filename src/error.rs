@@ -9,7 +9,7 @@ use std::error;
 /// An error during a reflection operation. Note that during, for example, a call that *returns*
 /// an Error, this will not represent the call returning an error. It would instead represent the
 /// call failing to occur, or panicking and that panic being caught.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Error {
     /// A [`Value`](crate::Value) with an incorrect [`Type`] was passed to an operation
     WrongType {
@@ -39,6 +39,10 @@ pub enum Error {
     /// Attempted to perform an operation on a [`Value`](crate::Value) that requires the Value to be
     /// Owned, but it was Borrowed.
     BorrowedValue,
+
+    /// Attempted to perform an operation on a [`Value`](crate::Value) that requires the Value to be
+    /// mutable (Owned or Borrowed mutably), but it wasn't
+    ImmutableValue,
 
     /// Attempted to perform an operation on an [`AssocFn`](crate::AssocFn) or
     /// [`Field`](crate::Field), which isn't supported by that item.
@@ -106,6 +110,10 @@ impl fmt::Display for Error {
             Error::BorrowedValue => write!(
                 f,
                 "Reflection Error: This operation requires an Owned Value, but the provided Value was Borrowed"
+            ),
+            Error::ImmutableValue => write!(
+                f,
+                "Reflection Error: This operation requires a mutable Value, but the provided Value was borrowed immutably"
             ),
             Error::UnsupportedOperation => write!(
                 f,

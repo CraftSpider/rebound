@@ -73,8 +73,8 @@ impl fmt::Debug for TypeVTable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "TypeVTable {{ name: {:?}, assoc_fns: {:?}, assoc_consts: {:?}, as_ref: {:p} }}",
-            self.name, self.assoc_fns, self.assoc_consts, self.as_ref as *const ()
+            "TypeVTable {{ name: {:?}, assoc_fns: {:?}, assoc_consts: {:?}, as_ref: {:p}, as_mut: {:p} }}",
+            self.name, self.assoc_fns, self.assoc_consts, self.as_ref as *const (), self.as_mut as *const (),
         )
     }
 }
@@ -129,8 +129,8 @@ pub enum Type {
     Union(UnionInfo),
 }
 
-/// Generate unwrap functions for each of the variants of ty
-macro_rules! ty_unwraps {
+/// Generate common functions for each of the variants of ty
+macro_rules! ty_common {
     ($($var:ident),+) => {
         paste::paste! {
             $(
@@ -142,6 +142,11 @@ macro_rules! ty_unwraps {
                     } else {
                         panic!(concat!("Attempted to unwrap non-", stringify!($var:lower), " Type as ", stringify!($var:lower)))
                     }
+                }
+
+                #[doc = "Check whether this Type is a [`" $var "Info`]"]
+                pub fn [<is_ $var:snake>](&self) -> bool {
+                    matches!(self, Type::$var(_))
                 }
             )*
         }
@@ -385,7 +390,7 @@ impl Type {
         }
     }
 
-    ty_unwraps!(
+    ty_common!(
         Primitive,
         Tuple,
         Array,

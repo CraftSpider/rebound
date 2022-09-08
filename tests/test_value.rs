@@ -1,5 +1,6 @@
-use rebound::{rebound, Type, Value};
+use rebound::{Error, rebound, Type, Value};
 use std::ptr::NonNull;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[rebound]
 struct TestStruct {}
@@ -19,8 +20,30 @@ fn test_value_ty() {
 }
 
 #[test]
+fn test_value_cast() {
+    let val = Value::from(-1i32);
+    assert_eq!(val.cast::<i32>(), -1);
+}
+
+#[test]
+fn test_value_cast_err() {
+    let val = Value::from(-1i32);
+    let (_, err) = val.try_cast::<f32>().unwrap_err();
+    assert_eq!(err, Error::WrongType { wrong_ty: Type::from::<f32>(), right_ty: Type::from::<i32>() });
+
+    let val = Value::from_ref(&1i32);
+    let (_, err) = val.try_cast::<i32>().unwrap_err();
+    assert_eq!(err, Error::BorrowedValue);
+
+    let mut temp = 1i32;
+    let val = Value::from_mut(&mut temp);
+    let (_, err) = val.try_cast::<i32>().unwrap_err();
+    assert_eq!(err, Error::BorrowedValue);
+}
+
+#[test]
 fn test_value_borrow() {
-    let mut val = Value::from(1);
+    let val = Value::from(1i32);
 
     let borrow1 = val.borrow::<i32>();
     let borrow2 = val.borrow::<i32>();
@@ -28,14 +51,82 @@ fn test_value_borrow() {
     assert_eq!(*borrow1, 1);
     assert_eq!(*borrow1, *borrow2);
 
-    let mut_borrow = val.borrow_mut::<i32>();
+    let val = Value::from_ref(&1i32);
 
+    let borrow1 = val.borrow::<i32>();
+    let borrow2 = val.borrow::<i32>();
+
+    assert_eq!(*borrow1, 1);
+    assert_eq!(*borrow1, *borrow2);
+
+    let mut temp = 1i32;
+    let val = Value::from_mut(&mut temp);
+
+    let borrow1 = val.borrow::<i32>();
+    let borrow2 = val.borrow::<i32>();
+
+    assert_eq!(*borrow1, 1);
+    assert_eq!(*borrow1, *borrow2);
+}
+
+#[test]
+fn test_value_borrow_err() {
+    let val = Value::from(1i32);
+
+    let err = val.try_borrow::<f32>().unwrap_err();
+    assert_eq!(err, Error::WrongType { wrong_ty: Type::from::<f32>(), right_ty: Type::from::<i32>() });
+
+    let val = Value::from_ref(&1i32);
+
+    let err = val.try_borrow::<f32>().unwrap_err();
+    assert_eq!(err, Error::WrongType { wrong_ty: Type::from::<f32>(), right_ty: Type::from::<i32>() });
+
+    let mut temp = 1i32;
+    let val = Value::from_mut(&mut temp);
+
+    let err = val.try_borrow::<f32>().unwrap_err();
+    assert_eq!(err, Error::WrongType { wrong_ty: Type::from::<f32>(), right_ty: Type::from::<i32>() });
+}
+
+#[test]
+fn test_value_borrow_mut() {
+    let mut val = Value::from(1i32);
+
+    let mut_borrow = val.borrow_mut::<i32>();
     assert_eq!(*mut_borrow, 1);
     *mut_borrow = 2;
 
     let norm_borrow = val.borrow::<i32>();
-
     assert_eq!(*norm_borrow, 2);
+
+    let mut temp = 1i32;
+    let mut val = Value::from_mut(&mut temp);
+
+    let mut_borrow = val.borrow_mut::<i32>();
+    assert_eq!(*mut_borrow, 1);
+    *mut_borrow = 2;
+
+    let norm_borrow = val.borrow::<i32>();
+    assert_eq!(*norm_borrow, 2);
+}
+
+#[test]
+fn test_value_borrow_mut_err() {
+    let mut val = Value::from(1i32);
+
+    let err = val.try_borrow_mut::<f32>().unwrap_err();
+    assert_eq!(err, Error::WrongType { wrong_ty: Type::from::<f32>(), right_ty: Type::from::<i32>() });
+
+    let mut val = Value::from_ref(&1i32);
+
+    let err = val.try_borrow_mut::<i32>().unwrap_err();
+    assert_eq!(err, Error::ImmutableValue);
+
+    let mut temp = 1i32;
+    let mut val = Value::from_mut(&mut temp);
+
+    let err = val.try_borrow_mut::<f32>().unwrap_err();
+    assert_eq!(err, Error::WrongType { wrong_ty: Type::from::<f32>(), right_ty: Type::from::<i32>() });
 }
 
 #[test]
@@ -74,24 +165,24 @@ fn test_slice_value() {
     assert_eq!(r[2], 3);
 }
 
-static mut DROP_FLAG: bool = false;
-
 #[test]
 fn test_value_drop() {
+    static DROP_FLAG: AtomicBool = AtomicBool::new(false);
+
     #[rebound]
     struct Foo;
 
     impl Drop for Foo {
         fn drop(&mut self) {
-            unsafe { DROP_FLAG = true };
+            DROP_FLAG.store(true, Ordering::SeqCst);
         }
     }
 
     let val = Value::from(Foo);
 
-    assert_eq!(unsafe { DROP_FLAG }, false);
+    assert_eq!(DROP_FLAG.load(Ordering::SeqCst), false);
 
     drop(val);
 
-    assert_eq!(unsafe { DROP_FLAG }, true);
+    assert_eq!(DROP_FLAG.load(Ordering::SeqCst), true);
 }

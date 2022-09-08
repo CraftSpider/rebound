@@ -7,12 +7,27 @@ use core::marker::PhantomData;
 use core::ptr::NonNull;
 use core::{fmt, mem};
 
-use craft_eraser::{ErasedBox, ErasedNonNull};
+use craft_eraser::{ErasedBox, ErasedMut, ErasedRef};
+
+#[cfg(debug_assertions)]
+macro_rules! debug_unreachable {
+    ($($tt:tt)*) => {
+        unreachable!($($tt)*)
+    }
+}
+
+#[cfg(not(debug_assertions))]
+macro_rules! debug_unreachable {
+    ($($tt:tt)*) => {
+        unsafe { ::core::hint::unreachable_unchecked() }
+    }
+}
 
 #[derive(Debug)]
-enum ValueKind {
+enum ValueKind<'a> {
     Owned(ErasedBox),
-    Borrowed(ErasedNonNull),
+    Borrowed(ErasedRef<'a>),
+    BorrowedMut(ErasedMut<'a>),
     Moved,
 }
 
@@ -39,7 +54,7 @@ pub unsafe trait NotOutlives<'no> {}
 /// as a type not the same as the input type will result in a failure at runtime.
 #[derive(Debug)]
 pub struct Value<'a> {
-    value: ValueKind,
+    value: ValueKind<'a>,
     ty: Type,
     _phantom: PhantomData<&'a ()>,
 }
@@ -67,7 +82,17 @@ impl<'a> Value<'a> {
     /// provided reference.
     pub fn from_ref<T: ?Sized + Reflected>(val: &T) -> Value<'_> {
         Value {
-            value: ValueKind::Borrowed(ErasedNonNull::from(val)),
+            value: ValueKind::Borrowed(ErasedRef::new(val)),
+            ty: Type::from::<T>(),
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Create a new borrowe Value form a mutable reference, with a lifetime no greater than that of
+    /// the provided reference.
+    pub fn from_mut<T: ?Sized + Reflected>(val: &mut T) -> Value<'_> {
+        Value {
+            value: ValueKind::BorrowedMut(ErasedMut::new(val)),
             ty: Type::from::<T>(),
             _phantom: PhantomData,
         }
@@ -78,8 +103,9 @@ impl<'a> Value<'a> {
     pub fn raw_meta(&self) -> NonNull<()> {
         match &self.value {
             ValueKind::Owned(b) => b.raw_meta_ptr(),
-            ValueKind::Borrowed(p) => p.raw_meta_ptr(),
-            ValueKind::Moved => unreachable!(),
+            ValueKind::Borrowed(p) => p.as_ptr().raw_meta_ptr(),
+            ValueKind::BorrowedMut(p) => p.as_ptr().raw_meta_ptr(),
+            ValueKind::Moved => debug_unreachable!(),
         }
     }
 
@@ -88,8 +114,9 @@ impl<'a> Value<'a> {
     pub fn raw_ptr(&self) -> NonNull<()> {
         match &self.value {
             ValueKind::Owned(b) => b.raw_ptr(),
-            ValueKind::Borrowed(p) => p.raw_ptr(),
-            ValueKind::Moved => unreachable!(),
+            ValueKind::Borrowed(p) => p.as_ptr().raw_ptr(),
+            ValueKind::BorrowedMut(p) => p.as_ptr().raw_ptr(),
+            ValueKind::Moved => debug_unreachable!(),
         }
     }
 
@@ -268,6 +295,10 @@ impl<'a> Value<'a> {
     ///
     /// See [`Value::try_cast_unsafe`]
     pub unsafe fn try_borrow_unsafe_mut<T: ?Sized + Reflected>(&mut self) -> Result<&mut T, Error> {
+        if let ValueKind::Borrowed(_) = self.value {
+            return Err(Error::ImmutableValue);
+        }
+
         if Type::from::<T>() == self.ty() {
             let mut ptr =
                 NonNull::<T>::from_raw_parts(self.raw_ptr(), *self.raw_meta().cast().as_ref());
