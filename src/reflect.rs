@@ -5,7 +5,6 @@ use crate::utils::StaticTypeMap;
 use crate::{AssocConst, AssocFn, Error, Field, Type, Value, Variant};
 
 use rebound_proc::impl_find;
-use std::ptr::NonNull;
 
 /// A trait representing any reflected [`Type`]. Supports operations common to all Types,
 /// such as retrieving its qualified name or impl information.
@@ -16,9 +15,14 @@ use std::ptr::NonNull;
 ///
 /// More specifically, unsafe code is allowed to assume that:
 /// - The Key type is equivalent to `Self` where all lifetimes are replaced with `'static`
+/// - This trait is **exempt from semver** in terms of internal methods. Methods may be added,
+///   removed, or have their signature changed at the whim of the implementation.
 pub unsafe trait Reflected {
     /// The static key type used for the backing [`TypeId`](core::any::TypeId) of a Type
     type Key: ?Sized + 'static;
+
+    /// Get the `Type` associated with this implementor
+    fn ty() -> Type;
 
     /// Get the qualified name of this Type
     fn name() -> String;
@@ -45,15 +49,21 @@ pub unsafe trait Reflected {
         })
     }
 
-    /// Internal Function used to initialize this Type, making it accessible by name and ready
-    /// for use in reflection.
-    ///
-    /// # Safety
-    ///
-    /// Should only ever be called once during a single execution of the program, and should not
-    /// be called by consumers of this library.
     #[doc(hidden)]
-    unsafe fn init();
+    fn take_ref<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error> {
+        let new_val = unsafe { val.try_borrow_unsafe::<Self>().map(Value::from) }?;
+        // SAFETY: Value cannot be safely constructed with a lifetime that outlives the contained object.
+        //         As such, we know getting a ref to the internal object will always be valid.
+        //         The transmute just conveys this to the rust compiler, converting the lifetime.
+        Ok(unsafe { core::mem::transmute::<Value<'_>, Value<'_>>(new_val) })
+    }
+
+    #[doc(hidden)]
+    fn take_mut<'a>(val: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
+        let new_val = unsafe { val.try_borrow_unsafe_mut::<Self>().map(Value::from) }?;
+        // SAFETY: See comment on take_ref
+        Ok(unsafe { core::mem::transmute::<Value<'_>, Value<'_>>(new_val) })
+    }
 }
 
 /// A trait representing a reflected tuple. Supports operations specific to tuples
@@ -141,57 +151,5 @@ impl<T: ?Sized + Reflected, const N: u8> ReflectedImpl<N> for T {
     }
     default fn assoc_consts() -> Vec<AssocConst> {
         vec![]
-    }
-}
-
-// Crate-private auto impls
-pub(crate) trait Ref: Reflected {
-    fn ref_val<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error>;
-    fn mut_val<'a>(val: &'a mut Value<'_>) -> Result<Value<'a>, Error>;
-}
-
-// SAFETY: Value cannot be safely constructed with a lifetime that outlives the contained object.
-//         As such, we know getting a ref to the internal object will always be valid.
-//         The transmute just conveys this to the rust compiler, converting the lifetime.
-
-impl<T: ?Sized + Reflected> Ref for T {
-    default fn ref_val<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error> {
-        // SAFETY: The bounds on this function prevent invalid lifetimes
-        let val = unsafe { Value::from(val.borrow_unsafe::<Self>()) };
-        // SAFETY: See comment above impls
-        unsafe { Ok(core::mem::transmute::<Value<'_>, Value<'_>>(val)) }
-    }
-
-    default fn mut_val<'a>(val: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
-        // SAFETY: The bounds on this function prevent invalid lifetimes
-        let val = unsafe { Value::from(val.borrow_unsafe_mut::<Self>()) };
-        // SAFETY: See comment above impls
-        unsafe { Ok(core::mem::transmute::<Value<'_>, Value<'_>>(val)) }
-    }
-}
-
-impl<T: ?Sized + Reflected> Ref for &T {
-    fn ref_val<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error> {
-        // SAFETY: Value pointer guaranteed to point to an instance of the contained type
-        let new_ref = unsafe { NonNull::<&T>::from_raw_parts(val.raw_ptr(), ()).as_ref() };
-
-        let val = Value::from(*new_ref);
-
-        // SAFETY: See comment above impls
-        unsafe { Ok(core::mem::transmute::<Value<'_>, Value<'_>>(val)) }
-    }
-
-    fn mut_val<'a>(_: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
-        Err(Error::CantReborrow)
-    }
-}
-
-impl<T: ?Sized + Reflected> Ref for &mut T {
-    fn ref_val<'a>(_: &'a Value<'_>) -> Result<Value<'a>, Error> {
-        Err(Error::CantReborrow)
-    }
-
-    fn mut_val<'a>(_: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
-        Err(Error::CantReborrow)
     }
 }

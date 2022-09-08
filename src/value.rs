@@ -20,7 +20,7 @@ macro_rules! debug_unreachable {
 macro_rules! debug_unreachable {
     ($($tt:tt)*) => {
         unsafe { ::core::hint::unreachable_unchecked() }
-    }
+    };
 }
 
 #[derive(Debug)]

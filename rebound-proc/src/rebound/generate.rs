@@ -575,12 +575,12 @@ pub fn generate_reflect_type(cfg: &Config, item: &Item) -> Result<TokenStream> {
         unsafe impl #reflect_impl_bounds #crate_name::reflect::Reflected for #name #reflect_where_bounds {
             type Key = #static_name;
 
-            fn name() -> ::std::string::String {
-                #rebound_name
+            fn ty() -> #crate_name::ty::Type {
+                #crate_name::Type::#new_fn::<#name>()
             }
 
-            unsafe fn init() {
-                #crate_name::Type::#new_fn::<#name>();
+            fn name() -> ::std::string::String {
+                #rebound_name
             }
         }
 

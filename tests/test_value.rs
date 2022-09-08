@@ -1,4 +1,4 @@
-use rebound::{Error, rebound, Type, Value};
+use rebound::{rebound, Error, Type, Value};
 use std::ptr::NonNull;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -29,7 +29,13 @@ fn test_value_cast() {
 fn test_value_cast_err() {
     let val = Value::from(-1i32);
     let (_, err) = val.try_cast::<f32>().unwrap_err();
-    assert_eq!(err, Error::WrongType { wrong_ty: Type::from::<f32>(), right_ty: Type::from::<i32>() });
+    assert_eq!(
+        err,
+        Error::WrongType {
+            wrong_ty: Type::from::<f32>(),
+            right_ty: Type::from::<i32>()
+        }
+    );
 
     let val = Value::from_ref(&1i32);
     let (_, err) = val.try_cast::<i32>().unwrap_err();
@@ -74,18 +80,36 @@ fn test_value_borrow_err() {
     let val = Value::from(1i32);
 
     let err = val.try_borrow::<f32>().unwrap_err();
-    assert_eq!(err, Error::WrongType { wrong_ty: Type::from::<f32>(), right_ty: Type::from::<i32>() });
+    assert_eq!(
+        err,
+        Error::WrongType {
+            wrong_ty: Type::from::<f32>(),
+            right_ty: Type::from::<i32>()
+        }
+    );
 
     let val = Value::from_ref(&1i32);
 
     let err = val.try_borrow::<f32>().unwrap_err();
-    assert_eq!(err, Error::WrongType { wrong_ty: Type::from::<f32>(), right_ty: Type::from::<i32>() });
+    assert_eq!(
+        err,
+        Error::WrongType {
+            wrong_ty: Type::from::<f32>(),
+            right_ty: Type::from::<i32>()
+        }
+    );
 
     let mut temp = 1i32;
     let val = Value::from_mut(&mut temp);
 
     let err = val.try_borrow::<f32>().unwrap_err();
-    assert_eq!(err, Error::WrongType { wrong_ty: Type::from::<f32>(), right_ty: Type::from::<i32>() });
+    assert_eq!(
+        err,
+        Error::WrongType {
+            wrong_ty: Type::from::<f32>(),
+            right_ty: Type::from::<i32>()
+        }
+    );
 }
 
 #[test]
@@ -115,7 +139,13 @@ fn test_value_borrow_mut_err() {
     let mut val = Value::from(1i32);
 
     let err = val.try_borrow_mut::<f32>().unwrap_err();
-    assert_eq!(err, Error::WrongType { wrong_ty: Type::from::<f32>(), right_ty: Type::from::<i32>() });
+    assert_eq!(
+        err,
+        Error::WrongType {
+            wrong_ty: Type::from::<f32>(),
+            right_ty: Type::from::<i32>()
+        }
+    );
 
     let mut val = Value::from_ref(&1i32);
 
@@ -126,7 +156,37 @@ fn test_value_borrow_mut_err() {
     let mut val = Value::from_mut(&mut temp);
 
     let err = val.try_borrow_mut::<f32>().unwrap_err();
-    assert_eq!(err, Error::WrongType { wrong_ty: Type::from::<f32>(), right_ty: Type::from::<i32>() });
+    assert_eq!(
+        err,
+        Error::WrongType {
+            wrong_ty: Type::from::<f32>(),
+            right_ty: Type::from::<i32>()
+        }
+    );
+}
+
+#[test]
+fn test_value_as_ref() {
+    let v = Value::from(1i32);
+    let mut v2 = v.as_ref().unwrap();
+
+    assert_eq!(**v2.borrow::<&i32>(), 1);
+    assert_eq!(v2.ty(), Type::from::<&i32>());
+    let v3 = v2.as_ref().unwrap();
+
+    assert_eq!(**v3.borrow::<&i32>(), 1);
+    assert_eq!(v3.ty(), Type::from::<&i32>());
+    assert_eq!(v2.as_mut().unwrap_err(), Error::CantReborrow);
+}
+
+#[test]
+fn test_value_as_mut() {
+    let mut v = Value::from(1i32);
+    let mut v2 = v.as_mut().unwrap();
+    assert_eq!(**v2.borrow::<&mut i32>(), 1);
+    assert_eq!(v2.ty(), Type::from::<&mut i32>());
+    assert_eq!(v2.as_ref().unwrap_err(), Error::CantReborrow);
+    assert_eq!(v2.as_mut().unwrap_err(), Error::CantReborrow);
 }
 
 #[test]

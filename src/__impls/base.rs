@@ -4,7 +4,7 @@ use crate::reflect::{
 };
 use crate::utils::StaticTypeMap;
 use crate::value::NotOutlives;
-use crate::{AssocConst, AssocFn, Field, Type};
+use crate::{AssocConst, AssocFn, Error, Field, Type, Value};
 
 use impl_trait_for_tuples::impl_for_tuples;
 use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
@@ -15,12 +15,12 @@ macro_rules! reflect_prims {
         unsafe impl Reflected for $ty {
             type Key = $ty;
 
-            fn name() -> String {
-                stringify!($ty).into()
+            fn ty() -> Type {
+                Type::new_prim::<$ty>()
             }
 
-            unsafe fn init() {
-                Type::new_prim::<$ty>()
+            fn name() -> String {
+                stringify!($ty).into()
             }
         }
 
@@ -316,12 +316,12 @@ impl ReflectedImpl<0> for str {
 unsafe impl Reflected for () {
     type Key = ();
 
-    fn name() -> String {
-        "()".into()
+    fn ty() -> Type {
+        Type::new_tuple::<()>()
     }
 
-    unsafe fn init() {
-        Type::new_tuple::<()>()
+    fn name() -> String {
+        "()".into()
     }
 }
 
@@ -338,13 +338,13 @@ unsafe impl Reflected for Tuple {
     for_tuples!( type Key = ( #( Tuple::Key ),* ); );
     for_tuples!( where #(Tuple::Key: Sized)* );
 
+    fn ty() -> Type {
+        Type::new_tuple::<Self>()
+    }
+
     fn name() -> String {
         let names = [for_tuples!( #(Tuple::name()),* )];
         format!("({})", names.join(", "))
-    }
-
-    unsafe fn init() {
-        Type::new_tuple::<Self>()
     }
 }
 
@@ -427,12 +427,12 @@ where
 {
     type Key = [T::Key; N];
 
-    fn name() -> String {
-        format!("[{}; {}]", T::name(), N)
+    fn ty() -> Type {
+        Type::new_array::<[T; N]>()
     }
 
-    unsafe fn init() {
-        Type::new_array::<[T; N]>()
+    fn name() -> String {
+        format!("[{}; {}]", T::name(), N)
     }
 }
 
@@ -459,12 +459,12 @@ where
 {
     type Key = [T::Key];
 
-    fn name() -> String {
-        format!("[{}]", T::name())
+    fn ty() -> Type {
+        Type::new_slice::<[T]>()
     }
 
-    unsafe fn init() {
-        Type::new_slice::<[T]>()
+    fn name() -> String {
+        format!("[{}]", T::name())
     }
 }
 
@@ -711,12 +711,12 @@ impl ReflectedImpl<8> for [u8] {
 unsafe impl<T: ?Sized + Reflected> Reflected for *const T {
     type Key = *const T::Key;
 
-    fn name() -> String {
-        format!("*const {}", T::name())
+    fn ty() -> Type {
+        Type::new_ptr::<*const T>()
     }
 
-    unsafe fn init() {
-        Type::new_ptr::<*const T>();
+    fn name() -> String {
+        format!("*const {}", T::name())
     }
 }
 
@@ -786,12 +786,12 @@ impl<T: Reflected + 'static> ReflectedImpl<2> for *const T {
 unsafe impl<T: ?Sized + Reflected> Reflected for *mut T {
     type Key = *mut T::Key;
 
-    fn name() -> String {
-        format!("*mut {}", T::name())
+    fn ty() -> Type {
+        Type::new_ptr::<*mut T>()
     }
 
-    unsafe fn init() {
-        Type::new_ptr::<*mut T>();
+    fn name() -> String {
+        format!("*mut {}", T::name())
     }
 }
 
@@ -811,12 +811,23 @@ unsafe impl<'a, T> NotOutlives<'a> for *mut T where T: NotOutlives<'a> {}
 unsafe impl<T: ?Sized + Reflected> Reflected for &T {
     type Key = &'static T::Key;
 
+    fn ty() -> Type {
+        Type::new_ref::<&T>()
+    }
+
     fn name() -> String {
         format!("&{}", T::name())
     }
 
-    unsafe fn init() {
-        Type::new_ref::<&T>();
+    fn take_ref<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error> {
+        let new_ref = *unsafe { val.raw_ptr().cast::<&T>().as_ref() };
+        let val = Value::from(new_ref);
+        // SAFETY: See comment on default impl
+        Ok(unsafe { core::mem::transmute::<Value<'_>, Value<'_>>(val) })
+    }
+
+    fn take_mut<'a>(_: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
+        Err(Error::CantReborrow)
     }
 }
 
@@ -840,12 +851,20 @@ where
 unsafe impl<T: ?Sized + Reflected> Reflected for &mut T {
     type Key = &'static mut T::Key;
 
+    fn ty() -> Type {
+        Type::new_ref::<&mut T>()
+    }
+
     fn name() -> String {
         format!("&mut {}", T::name())
     }
 
-    unsafe fn init() {
-        Type::new_ref::<&mut T>();
+    fn take_ref<'a>(_: &'a Value<'_>) -> Result<Value<'a>, Error> {
+        Err(Error::CantReborrow)
+    }
+
+    fn take_mut<'a>(_: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
+        Err(Error::CantReborrow)
     }
 }
 
@@ -870,12 +889,12 @@ where
 unsafe impl<T: Reflected> Reflected for fn() -> T {
     type Key = fn() -> T::Key;
 
-    fn name() -> String {
-        format!("fn() -> {}", T::name())
+    fn ty() -> Type {
+        Type::new_fn::<fn() -> T>()
     }
 
-    unsafe fn init() {
-        Type::new_fn::<fn() -> T>()
+    fn name() -> String {
+        format!("fn() -> {}", T::name())
     }
 }
 
@@ -892,12 +911,12 @@ impl<T: Reflected> ReflectedFunction for fn() -> T {
 unsafe impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T {
     type Key = fn(A0::Key) -> T::Key;
 
-    fn name() -> String {
-        format!("fn({}) -> {}", A0::name(), T::name())
+    fn ty() -> Type {
+        Type::new_fn::<fn(A0) -> T>()
     }
 
-    unsafe fn init() {
-        Type::new_fn::<fn(A0) -> T>()
+    fn name() -> String {
+        format!("fn({}) -> {}", A0::name(), T::name())
     }
 }
 
@@ -914,12 +933,12 @@ impl<T: Reflected, A0: Reflected> ReflectedFunction for fn(A0) -> T {
 unsafe impl<T: Reflected, A0: Reflected, A1: Reflected> Reflected for fn(A0, A1) -> T {
     type Key = fn(A0::Key, A1::Key) -> T::Key;
 
-    fn name() -> String {
-        format!("fn({}, {}) -> {}", A0::name(), A1::name(), T::name())
+    fn ty() -> Type {
+        Type::new_fn::<fn(A0, A1) -> T>()
     }
 
-    unsafe fn init() {
-        Type::new_fn::<fn(A0, A1) -> T>()
+    fn name() -> String {
+        format!("fn({}, {}) -> {}", A0::name(), A1::name(), T::name())
     }
 }
 
@@ -938,6 +957,10 @@ unsafe impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected
 {
     type Key = fn(A0::Key, A1::Key, A2::Key) -> T::Key;
 
+    fn ty() -> Type {
+        Type::new_fn::<fn(A0, A1, A2) -> T>()
+    }
+
     fn name() -> String {
         format!(
             "fn({}, {}, {}) -> {}",
@@ -946,10 +969,6 @@ unsafe impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected
             A2::name(),
             T::name()
         )
-    }
-
-    unsafe fn init() {
-        Type::new_fn::<fn(A0, A1, A2) -> T>()
     }
 }
 
@@ -970,11 +989,11 @@ impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> ReflectedFunctio
 unsafe impl Reflected for ! {
     type Key = !;
 
-    fn name() -> String {
-        "!".into()
+    fn ty() -> Type {
+        Type::new_prim::<!>()
     }
 
-    unsafe fn init() {
-        Type::new_prim::<!>()
+    fn name() -> String {
+        "!".into()
     }
 }
