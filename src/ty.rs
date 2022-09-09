@@ -49,7 +49,7 @@ pub trait CommonTypeInfo {
     fn assoc_fns(&self) -> &'static [AssocFn];
     /// Get the known associated constants of this type
     fn assoc_consts(&self) -> &'static [AssocConst];
-    // fn impled_traits(&self) -> Vec<TraitInfo>;
+    // fn impled_traits(&self) -> &'static [TraitInfo];
 
     /// Convert a Value of this type to a reference to that value, if it's not already a reference
     fn as_ref<'a>(&self, val: &'a Value<'_>) -> Result<Value<'a>, Error>;
@@ -328,9 +328,7 @@ impl Type {
     /// Get a Type instance from any reflected type, instantiating it if necessary.
     pub fn from<T: ?Sized + Reflected>() -> Type {
         static INIT: StaticTypeMap<()> = StaticTypeMap::new();
-        INIT.call_once::<T, _>(|| {
-            Self::add_ty::<T>(T::ty())
-        });
+        INIT.call_once::<T, _>(|| Self::add_ty::<T>(T::ty()));
 
         Type::from_id(&TypeId::of::<T::Key>()).expect("Type not initialized")
     }
