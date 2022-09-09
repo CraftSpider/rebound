@@ -1,5 +1,5 @@
 # Cargo build files
-/target
+target/
 Cargo.lock
 
 # Project files

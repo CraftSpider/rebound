@@ -21,8 +21,8 @@ struct Foo {
 impl Foo {
     const BAZ: i32 = 1;
 
-    fn new() -> Foo { ::core::todo!() }
-    fn bazzify(&self, _a: i32) { ::core::todo!() }
+    fn new() -> Foo { ::core::panic!() }
+    fn bazzify(&self, _a: i32) { ::core::panic!() }
 }
 
 #[rebound]
