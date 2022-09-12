@@ -9,5 +9,5 @@ struct NamedStruct {
 }
 
 fn main() {
-    Type::from::<NamedStruct>();
+    Type::of::<NamedStruct>();
 }

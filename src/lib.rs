@@ -56,11 +56,11 @@ pub fn init_base() {
 macro_rules! init_tys {
     ($($ty:ty),+ $(,)?) => {
         $(
-            Type::from::<$ty>();
-            Type::from::<&$ty>();
-            Type::from::<&mut $ty>();
-            Type::from::<*const $ty>();
-            Type::from::<*mut $ty>();
+            Type::initialize::<$ty>();
+            Type::initialize::<&$ty>();
+            Type::initialize::<&mut $ty>();
+            Type::initialize::<*const $ty>();
+            Type::initialize::<*mut $ty>();
         )+
     }
 }

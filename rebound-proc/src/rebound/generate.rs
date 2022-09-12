@@ -68,10 +68,10 @@ pub fn generate_assoc_fn(
                 unsafe { ::core::mem::transmute::<#crate_name::Value<'_>, #crate_name::Value<'_>>(v) }
             };
             let name = stringify!(#fn_name);
-            let assoc_ty = #crate_name::Type::from::<#self_ty>();
-            let self_ty = #crate_name::Type::from::<#receiver>();
-            let args = &[#( #crate_name::Type::from::<#args>(), )*];
-            let ret = #crate_name::Type::from::<#ret_ty>();
+            let assoc_ty = #crate_name::Type::of::<#self_ty>();
+            let self_ty = #crate_name::Type::of::<#receiver>();
+            let args = &[#( #crate_name::Type::of::<#args>(), )*];
+            let ret = #crate_name::Type::of::<#ret_ty>();
 
             // SAFETY: Generated implementation is assured correct
             unsafe { #crate_name::AssocFn::new_dynamic(call, name, assoc_ty, self_ty, args, ret) }
@@ -93,9 +93,9 @@ pub fn generate_assoc_fn(
                 unsafe { ::core::mem::transmute::<#crate_name::Value<'_>, #crate_name::Value<'_>>(v) }
             };
             let name = stringify!(#fn_name);
-            let assoc_ty = #crate_name::Type::from::<#self_ty>();
-            let args = &[#( #crate_name::Type::from::<#args>(), )*];
-            let ret = #crate_name::Type::from::<#ret_ty>();
+            let assoc_ty = #crate_name::Type::of::<#self_ty>();
+            let args = &[#( #crate_name::Type::of::<#args>(), )*];
+            let ret = #crate_name::Type::of::<#ret_ty>();
 
             // SAFETY: Generated implementation is assured correct
             unsafe { #crate_name::AssocFn::new_static(call, name, assoc_ty, args, ret) }
@@ -121,8 +121,8 @@ pub fn generate_assoc_const(
             #crate_name::Value::from(<#self_ty>::#const_name)
         });
         let name = stringify!(#const_name);
-        let assoc_ty = #crate_name::Type::from::<#self_ty>();
-        let ty = #crate_name::Type::from::<#const_ty>();
+        let assoc_ty = #crate_name::Type::of::<#self_ty>();
+        let ty = #crate_name::Type::of::<#const_ty>();
 
         // SAFETY: Generated implementation is assured correct
         unsafe { #crate_name::AssocConst::new(ptr, name, assoc_ty, ty) }
@@ -190,8 +190,8 @@ pub fn generate_struct_field(
         let accessor: ::core::option::Option<for<'__a, '__b> fn(&'__a #crate_name::Value<'__b>) -> #crate_name::Value<'__a>> = #accessor;
         let setter: ::core::option::Option<for<'__r, '__s> fn(&'__r mut #crate_name::Value<'__s>, #crate_name::Value<'_>)> = #setter;
         let name = #name_arg;
-        let assoc_ty = #crate_name::Type::from::<#name>();
-        let field_ty = #crate_name::Type::from::<#field_ty>();
+        let assoc_ty = #crate_name::Type::of::<#name>();
+        let field_ty = #crate_name::Type::of::<#field_ty>();
 
         // SAFETY: Generated implementation is assured correct
         unsafe { #crate_name::Field::#fn_name(accessor, setter, name, assoc_ty, field_ty) }
@@ -280,8 +280,8 @@ pub fn generate_enum_field(
         let accessor: ::core::option::Option<for<'__a, '__b> fn(&'__a #crate_name::Value<'__b>) -> #crate_name::Value<'__a>> = #accessor;
         let setter: ::core::option::Option<for<'__r, '__s> fn(&'__r mut #crate_name::Value<'__s>, #crate_name::Value<'_>)> = #setter;
         let name = #name_arg;
-        let assoc_ty = #crate_name::Type::from::<#name>();
-        let variant = if let #crate_name::Type::Enum(info) = #crate_name::Type::from::<#name>() {
+        let assoc_ty = #crate_name::Type::of::<#name>();
+        let variant = if let #crate_name::Type::Enum(info) = #crate_name::Type::of::<#name>() {
             use ::core::iter::{Iterator, IntoIterator};
             info.variants()
                 .into_iter()
@@ -289,12 +289,12 @@ pub fn generate_enum_field(
                 .expect(::core::concat!("Enum ", stringify!(#name), " has a variant with the name ", stringify!(#var_name)))
         } else {
             #[cfg(debug_assertions)]
-            ::core::unreachable!("Type::from for an enum didn't return a Type::Enum");
-            // SAFETY: Type::from for an enum should by definition return a Type::Enum
+            ::core::unreachable!("Type::of for an enum didn't return a Type::Enum");
+            // SAFETY: Type::of for an enum should by definition return a Type::Enum
             #[cfg(not(debug_assertions))]
             unsafe { ::core::hint::unreachable_unchecked(); }
         };
-        let field_ty = #crate_name::Type::from::<#field_ty>();
+        let field_ty = #crate_name::Type::of::<#field_ty>();
 
         // SAFETY: Generated implementation is assured correct
         unsafe { #crate_name::Field::#fn_name(accessor, setter, name, assoc_ty, variant, field_ty) }
@@ -350,8 +350,8 @@ pub fn generate_union_field(
         let accessor: ::core::option::Option<for<'__a, '__b> fn(&'__a #crate_name::Value<'__b>) -> #crate_name::Value<'__a>> = #accessor;
         let setter: ::core::option::Option<for<'__r, '__s> fn(&'__r mut #crate_name::Value<'__s>, #crate_name::Value<'_>)> = #setter;
         let name = stringify!(#field_name);
-        let assoc_ty = #crate_name::Type::from::<#name>();
-        let field_ty = #crate_name::Type::from::<#field_ty>();
+        let assoc_ty = #crate_name::Type::of::<#name>();
+        let field_ty = #crate_name::Type::of::<#field_ty>();
 
         // SAFETY: Generated implementation is assured correct
         unsafe { #crate_name::UnionField::new(accessor, setter, name, assoc_ty, field_ty) }
@@ -400,7 +400,7 @@ pub fn generate_variant(
 
     Ok(quote_spanned!(variant.span() => {
         let var_name = stringify!(#var_name);
-        let assoc_ty = #crate_name::Type::from::<#name>();
+        let assoc_ty = #crate_name::Type::of::<#name>();
         #fields
         let is_var: for<'__r, '__s> fn(&'__r #crate_name::Value<'__s>) -> _ = |val| {
             // SAFETY: TODO

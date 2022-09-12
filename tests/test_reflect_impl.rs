@@ -28,7 +28,7 @@ impl Foo {
 
 #[test]
 fn test_assoc_fns() {
-    let ty = Type::from::<Foo>();
+    let ty = Type::of::<Foo>();
 
     let consts = ty.assoc_consts();
     assert_eq!(consts.len(), 1);
@@ -38,11 +38,11 @@ fn test_assoc_fns() {
 
 #[test]
 fn test_const() {
-    let foo = &Type::from::<Foo>().assoc_consts()[0];
+    let foo = &Type::of::<Foo>().assoc_consts()[0];
 
     assert_eq!(foo.name(), "FOO");
-    assert_eq!(foo.assoc_ty(), Type::from::<Foo>());
-    assert_eq!(foo.ty(), Type::from::<Foo>());
+    assert_eq!(foo.assoc_ty(), Type::of::<Foo>());
+    assert_eq!(foo.ty(), Type::of::<Foo>());
 
     let val = foo.get().unwrap();
     assert_eq!(val.borrow::<Foo>().a, -1);
@@ -50,12 +50,12 @@ fn test_const() {
 
 #[test]
 fn test_new() {
-    let new = &Type::from::<Foo>().assoc_fns()[0];
+    let new = &Type::of::<Foo>().assoc_fns()[0];
 
     assert_eq!(new.name(), "new");
-    assert_eq!(new.assoc_ty(), Type::from::<Foo>());
+    assert_eq!(new.assoc_ty(), Type::of::<Foo>());
     assert_eq!(new.arg_tys().len(), 0);
-    assert_eq!(new.ret_ty(), Type::from::<Foo>());
+    assert_eq!(new.ret_ty(), Type::of::<Foo>());
 
     let val = new.call(None, vec![]).expect("Failed to call Foo::new");
 
@@ -68,7 +68,7 @@ fn test_get_a() {
     let foo = Value::from(Foo::new());
     let foo_ref = foo.as_ref().unwrap();
 
-    let get_a = &Type::from::<Foo>().assoc_fns()[1];
+    let get_a = &Type::of::<Foo>().assoc_fns()[1];
 
     let a = get_a
         .call(Some(foo_ref), vec![])
@@ -82,7 +82,7 @@ fn test_do_thing() {
     let mut foo = Value::from(Foo::new());
     let foo_mut_ref = foo.as_mut().unwrap();
 
-    let do_thing = &Type::from::<Foo>().assoc_fns()[2];
+    let do_thing = &Type::of::<Foo>().assoc_fns()[2];
 
     do_thing
         .call(Some(foo_mut_ref), vec![])

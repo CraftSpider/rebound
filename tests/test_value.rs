@@ -13,8 +13,8 @@ fn test_value_ty() {
     let val1 = Value::from(a);
     let val2 = Value::from(b);
 
-    assert_eq!(val1.ty(), Type::from::<i32>());
-    assert_eq!(val2.ty(), Type::from::<TestStruct>());
+    assert_eq!(val1.ty(), Type::of::<i32>());
+    assert_eq!(val2.ty(), Type::of::<TestStruct>());
 
     assert_ne!(val1.ty(), val2.ty());
 }
@@ -32,8 +32,8 @@ fn test_value_cast_err() {
     assert_eq!(
         err,
         Error::WrongType {
-            wrong_ty: Type::from::<f32>(),
-            right_ty: Type::from::<i32>()
+            wrong_ty: Type::of::<f32>(),
+            right_ty: Type::of::<i32>()
         }
     );
 
@@ -83,8 +83,8 @@ fn test_value_borrow_err() {
     assert_eq!(
         err,
         Error::WrongType {
-            wrong_ty: Type::from::<f32>(),
-            right_ty: Type::from::<i32>()
+            wrong_ty: Type::of::<f32>(),
+            right_ty: Type::of::<i32>()
         }
     );
 
@@ -94,8 +94,8 @@ fn test_value_borrow_err() {
     assert_eq!(
         err,
         Error::WrongType {
-            wrong_ty: Type::from::<f32>(),
-            right_ty: Type::from::<i32>()
+            wrong_ty: Type::of::<f32>(),
+            right_ty: Type::of::<i32>()
         }
     );
 
@@ -106,8 +106,8 @@ fn test_value_borrow_err() {
     assert_eq!(
         err,
         Error::WrongType {
-            wrong_ty: Type::from::<f32>(),
-            right_ty: Type::from::<i32>()
+            wrong_ty: Type::of::<f32>(),
+            right_ty: Type::of::<i32>()
         }
     );
 }
@@ -142,8 +142,8 @@ fn test_value_borrow_mut_err() {
     assert_eq!(
         err,
         Error::WrongType {
-            wrong_ty: Type::from::<f32>(),
-            right_ty: Type::from::<i32>()
+            wrong_ty: Type::of::<f32>(),
+            right_ty: Type::of::<i32>()
         }
     );
 
@@ -159,8 +159,8 @@ fn test_value_borrow_mut_err() {
     assert_eq!(
         err,
         Error::WrongType {
-            wrong_ty: Type::from::<f32>(),
-            right_ty: Type::from::<i32>()
+            wrong_ty: Type::of::<f32>(),
+            right_ty: Type::of::<i32>()
         }
     );
 }
@@ -171,11 +171,11 @@ fn test_value_as_ref() {
     let mut v2 = v.as_ref().unwrap();
 
     assert_eq!(**v2.borrow::<&i32>(), 1);
-    assert_eq!(v2.ty(), Type::from::<&i32>());
+    assert_eq!(v2.ty(), Type::of::<&i32>());
     let v3 = v2.as_ref().unwrap();
 
     assert_eq!(**v3.borrow::<&i32>(), 1);
-    assert_eq!(v3.ty(), Type::from::<&i32>());
+    assert_eq!(v3.ty(), Type::of::<&i32>());
     assert_eq!(v2.as_mut().unwrap_err(), Error::CantReborrow);
 }
 
@@ -184,7 +184,7 @@ fn test_value_as_mut() {
     let mut v = Value::from(1i32);
     let mut v2 = v.as_mut().unwrap();
     assert_eq!(**v2.borrow::<&mut i32>(), 1);
-    assert_eq!(v2.ty(), Type::from::<&mut i32>());
+    assert_eq!(v2.ty(), Type::of::<&mut i32>());
     assert_eq!(v2.as_ref().unwrap_err(), Error::CantReborrow);
     assert_eq!(v2.as_mut().unwrap_err(), Error::CantReborrow);
 }
@@ -194,7 +194,7 @@ fn test_ref_value() {
     let i = 1;
     let v = Value::from(&i);
 
-    assert_eq!(v.ty(), Type::from::<&i32>());
+    assert_eq!(v.ty(), Type::of::<&i32>());
     let r = v.borrow::<&i32>();
     assert_eq!(**r, 1);
 }
@@ -204,7 +204,7 @@ fn test_mut_ref_value() {
     let mut i = 1;
     let mut v = Value::from(&mut i);
 
-    assert_eq!(v.ty(), Type::from::<&mut i32>());
+    assert_eq!(v.ty(), Type::of::<&mut i32>());
     let r = v.borrow_mut::<&mut i32>();
     **r = 2;
 
@@ -218,7 +218,7 @@ fn test_slice_value() {
     let slice = Box::<[i32]>::from(&[1, 2, 3] as &[i32]);
     let v = unsafe { Value::from_ptr_owned(NonNull::from(Box::leak(slice))) };
 
-    assert_eq!(v.ty(), Type::from::<[i32]>());
+    assert_eq!(v.ty(), Type::of::<[i32]>());
     let r = v.borrow::<[i32]>();
     assert_eq!(r[0], 1);
     assert_eq!(r[1], 2);

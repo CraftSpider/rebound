@@ -17,9 +17,9 @@ fn main() {
     let pl = PathLifetime(rl);
     let _al = ArrayLifetime([&a]);
 
-    Type::from::<ReferenceLifetime>();
-    Type::from::<PathLifetime>();
-    Type::from::<ArrayLifetime>();
+    Type::of::<ReferenceLifetime>();
+    Type::of::<PathLifetime>();
+    Type::of::<ArrayLifetime>();
 
     // Check that generated NotOutlives allows borrowing for valid situations
     let val = Value::from(pl);

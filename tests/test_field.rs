@@ -45,7 +45,7 @@ fn test_set_struct() {
 
 #[test]
 fn test_access_enum() {
-    if let Type::Enum(ty) = Type::from::<Enum>() {
+    if let Type::Enum(ty) = Type::of::<Enum>() {
         let val = Value::from(Enum::B(-10.0));
         if let Variant::Tuple(info) = &ty.variants()[1] {
             let field = &info.fields()[0];
@@ -78,7 +78,7 @@ fn test_access_enum() {
 
 #[test]
 fn test_set_enum() {
-    if let Type::Enum(ty) = Type::from::<Enum>() {
+    if let Type::Enum(ty) = Type::of::<Enum>() {
         let mut val = Value::from(Enum::B(-10.0));
         if let Variant::Tuple(info) = &ty.variants()[1] {
             let field = &info.fields()[0];
@@ -110,7 +110,7 @@ fn test_set_enum() {
 #[test]
 fn test_wrong_ty() {
     let mut val = Value::from(Vec::<i32>::new());
-    if let Type::Struct(info) = Type::from::<Struct>() {
+    if let Type::Struct(info) = Type::of::<Struct>() {
         let field = &info.fields()[0];
         field
             .get_ref(&val)

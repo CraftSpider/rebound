@@ -356,7 +356,7 @@ impl ReflectedTuple for Tuple {
     fn fields() -> &'static [Field] {
         static TUPLE_FIELDS: StaticTypeMap<Vec<Field>> = StaticTypeMap::new();
 
-        TUPLE_FIELDS.call_once::<Self, _>(|| {
+        TUPLE_FIELDS.call_once::<Self, fn() -> _>(|| {
             use crate::info::{AccessHelper, SetHelper};
             use crate::value::Value;
 
@@ -387,8 +387,8 @@ impl ReflectedTuple for Tuple {
                 let idx = idx_count;
                 idx_count += 1;
 
-                let assoc_ty = Type::from::<Self>();
-                let field_ty = Type::from::<Tuple>();
+                let assoc_ty = Type::of::<Self>();
+                let field_ty = Type::of::<Tuple>();
 
                 // SAFETY: We're the privileged implementation
                 unsafe { Field::new_tuple(get_ptr, set_ptr, idx, assoc_ty, field_ty) }
@@ -442,7 +442,7 @@ where
     T::Key: Sized,
 {
     fn element() -> Type {
-        Type::from::<T>()
+        Type::of::<T>()
     }
 
     fn length() -> usize {
@@ -474,7 +474,7 @@ where
     T::Key: Sized,
 {
     fn element() -> Type {
-        Type::from::<T>()
+        Type::of::<T>()
     }
 }
 
@@ -722,7 +722,7 @@ unsafe impl<T: ?Sized + Reflected> Reflected for *const T {
 
 impl<T: ?Sized + Reflected> ReflectedPointer for *const T {
     fn element() -> Type {
-        Type::from::<T>()
+        Type::of::<T>()
     }
 
     fn mutability() -> bool {
@@ -797,7 +797,7 @@ unsafe impl<T: ?Sized + Reflected> Reflected for *mut T {
 
 impl<T: ?Sized + Reflected> ReflectedPointer for *mut T {
     fn element() -> Type {
-        Type::from::<T>()
+        Type::of::<T>()
     }
 
     fn mutability() -> bool {
@@ -833,7 +833,7 @@ unsafe impl<T: ?Sized + Reflected> Reflected for &T {
 
 impl<T: ?Sized + Reflected> ReflectedReference for &T {
     fn element() -> Type {
-        Type::from::<T>()
+        Type::of::<T>()
     }
 
     fn mutability() -> bool {
@@ -870,7 +870,7 @@ unsafe impl<T: ?Sized + Reflected> Reflected for &mut T {
 
 impl<T: ?Sized + Reflected> ReflectedReference for &mut T {
     fn element() -> Type {
-        Type::from::<T>()
+        Type::of::<T>()
     }
 
     fn mutability() -> bool {
@@ -904,7 +904,7 @@ impl<T: Reflected> ReflectedFunction for fn() -> T {
     }
 
     fn ret() -> Type {
-        Type::from::<T>()
+        Type::of::<T>()
     }
 }
 
@@ -922,11 +922,11 @@ unsafe impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T {
 
 impl<T: Reflected, A0: Reflected> ReflectedFunction for fn(A0) -> T {
     fn args() -> Vec<Type> {
-        vec![Type::from::<A0>()]
+        vec![Type::of::<A0>()]
     }
 
     fn ret() -> Type {
-        Type::from::<T>()
+        Type::of::<T>()
     }
 }
 
@@ -944,11 +944,11 @@ unsafe impl<T: Reflected, A0: Reflected, A1: Reflected> Reflected for fn(A0, A1)
 
 impl<T: Reflected, A0: Reflected, A1: Reflected> ReflectedFunction for fn(A0, A1) -> T {
     fn args() -> Vec<Type> {
-        vec![Type::from::<A0>(), Type::from::<A1>()]
+        vec![Type::of::<A0>(), Type::of::<A1>()]
     }
 
     fn ret() -> Type {
-        Type::from::<T>()
+        Type::of::<T>()
     }
 }
 
@@ -976,11 +976,11 @@ impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> ReflectedFunctio
     for fn(A0, A1, A2) -> T
 {
     fn args() -> Vec<Type> {
-        vec![Type::from::<A0>(), Type::from::<A1>(), Type::from::<A2>()]
+        vec![Type::of::<A0>(), Type::of::<A1>(), Type::of::<A2>()]
     }
 
     fn ret() -> Type {
-        Type::from::<T>()
+        Type::of::<T>()
     }
 }
 

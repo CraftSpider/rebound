@@ -32,8 +32,8 @@ where
                 None,
                 None,
                 "value",
-                Type::from::<ManuallyDrop<T>>(),
-                Type::from::<T>(),
+                Type::of::<ManuallyDrop<T>>(),
+                Type::of::<T>(),
             )]
         }
     }

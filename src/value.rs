@@ -73,7 +73,7 @@ impl<'a> Value<'a> {
         Value {
             // SAFETY: Out safety requires the same guarantees
             value: ValueKind::Owned(ErasedBox::from_raw(val)),
-            ty: Type::from::<T>(),
+            ty: Type::of::<T>(),
             _phantom: PhantomData,
         }
     }
@@ -83,7 +83,7 @@ impl<'a> Value<'a> {
     pub fn from_ref<T: ?Sized + Reflected>(val: &T) -> Value<'_> {
         Value {
             value: ValueKind::Borrowed(ErasedRef::new(val)),
-            ty: Type::from::<T>(),
+            ty: Type::of::<T>(),
             _phantom: PhantomData,
         }
     }
@@ -93,7 +93,7 @@ impl<'a> Value<'a> {
     pub fn from_mut<T: ?Sized + Reflected>(val: &mut T) -> Value<'_> {
         Value {
             value: ValueKind::BorrowedMut(ErasedMut::new(val)),
-            ty: Type::from::<T>(),
+            ty: Type::of::<T>(),
             _phantom: PhantomData,
         }
     }
@@ -143,12 +143,12 @@ impl<'a> Value<'a> {
         let value = mem::replace(&mut self.value, ValueKind::Moved);
 
         if let ValueKind::Owned(b) = value {
-            if Type::from::<T>() == self.ty {
+            if Type::of::<T>() == self.ty {
                 Ok(*b.reify_box::<T>())
             } else {
                 self.value = ValueKind::Owned(b);
                 let ty = self.ty;
-                Err((self, Error::wrong_type(Type::from::<T>(), ty)))
+                Err((self, Error::wrong_type(Type::of::<T>(), ty)))
             }
         } else {
             self.value = value;
@@ -209,12 +209,12 @@ impl<'a> Value<'a> {
     ///
     /// See [`Value::try_cast_unsafe`]
     pub unsafe fn try_borrow_unsafe<T: ?Sized + Reflected>(&self) -> Result<&T, Error> {
-        if Type::from::<T>() == self.ty() {
+        if Type::of::<T>() == self.ty() {
             let ptr =
                 NonNull::<T>::from_raw_parts(self.raw_ptr(), *self.raw_meta().cast().as_ref());
             Ok(ptr.as_ref())
         } else {
-            Err(Error::wrong_type(Type::from::<T>(), self.ty()))
+            Err(Error::wrong_type(Type::of::<T>(), self.ty()))
         }
     }
 
@@ -299,12 +299,12 @@ impl<'a> Value<'a> {
             return Err(Error::ImmutableValue);
         }
 
-        if Type::from::<T>() == self.ty() {
+        if Type::of::<T>() == self.ty() {
             let mut ptr =
                 NonNull::<T>::from_raw_parts(self.raw_ptr(), *self.raw_meta().cast().as_ref());
             Ok(ptr.as_mut())
         } else {
-            Err(Error::wrong_type(Type::from::<T>(), self.ty()))
+            Err(Error::wrong_type(Type::of::<T>(), self.ty()))
         }
     }
 
@@ -409,7 +409,7 @@ impl<'a, T: Reflected + 'a> From<T> for Value<'a> {
     default fn from(val: T) -> Value<'a> {
         Value {
             value: ValueKind::Owned(ErasedBox::new(val)),
-            ty: Type::from::<T>(),
+            ty: Type::of::<T>(),
             _phantom: PhantomData,
         }
     }

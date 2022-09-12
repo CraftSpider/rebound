@@ -8,5 +8,5 @@ pub enum LivesFor<'a> {
 }
 
 fn main() {
-    Type::from::<LivesFor>();
+    Type::of::<LivesFor>();
 }

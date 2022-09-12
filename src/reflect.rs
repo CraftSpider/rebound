@@ -31,7 +31,7 @@ pub unsafe trait Reflected {
     fn assoc_fns() -> &'static [AssocFn] {
         static ASSOC_FNS: StaticTypeMap<Vec<AssocFn>> = StaticTypeMap::new();
 
-        ASSOC_FNS.call_once::<Self, _>(|| {
+        ASSOC_FNS.call_once::<Self, fn() -> _>(|| {
             let mut sum = Vec::new();
             impl_find!(assoc_fns);
             sum
@@ -42,7 +42,7 @@ pub unsafe trait Reflected {
     fn assoc_consts() -> &'static [AssocConst] {
         static ASSOC_CONSTS: StaticTypeMap<Vec<AssocConst>> = StaticTypeMap::new();
 
-        ASSOC_CONSTS.call_once::<Self, _>(|| {
+        ASSOC_CONSTS.call_once::<Self, fn() -> _>(|| {
             let mut sum = Vec::new();
             impl_find!(assoc_consts);
             sum

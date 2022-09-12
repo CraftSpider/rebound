@@ -12,9 +12,9 @@ struct ConstGenericStruct<const N: usize> {
 }
 
 fn main() {
-    Type::from::<GenericStruct<i32>>();
-    Type::from::<GenericStruct<bool>>();
+    Type::of::<GenericStruct<i32>>();
+    Type::of::<GenericStruct<bool>>();
 
-    Type::from::<ConstGenericStruct<1>>();
-    Type::from::<ConstGenericStruct<5>>();
+    Type::of::<ConstGenericStruct<1>>();
+    Type::of::<ConstGenericStruct<5>>();
 }

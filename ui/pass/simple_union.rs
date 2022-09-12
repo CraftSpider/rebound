@@ -8,5 +8,5 @@ union Foo {
 }
 
 fn main() {
-    Type::from::<Foo>();
+    Type::of::<Foo>();
 }

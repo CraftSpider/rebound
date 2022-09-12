@@ -5,5 +5,5 @@ use rebound::{Type, rebound};
 struct Unit;
 
 fn main() {
-    Type::from::<Unit>();
+    Type::of::<Unit>();
 }

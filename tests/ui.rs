@@ -1,5 +1,4 @@
 #[cfg_attr(miri, ignore)]
-#[ignore]
 #[test]
 fn ui() {
     let t = trybuild::TestCases::new();

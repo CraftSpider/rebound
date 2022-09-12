@@ -5,5 +5,5 @@ use rebound::{Type, rebound};
 struct TupleStruct(i32, u32);
 
 fn main() {
-    Type::from::<TupleStruct>();
+    Type::of::<TupleStruct>();
 }

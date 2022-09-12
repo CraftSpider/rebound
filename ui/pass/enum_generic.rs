@@ -14,9 +14,9 @@ enum ConstGenericEnum<const N: usize> {
 }
 
 fn main() {
-    Type::from::<GenericEnum<i32>>();
-    Type::from::<GenericEnum<GenericEnum<bool>>>();
+    Type::of::<GenericEnum<i32>>();
+    Type::of::<GenericEnum<GenericEnum<bool>>>();
 
-    Type::from::<ConstGenericEnum<1>>();
-    Type::from::<ConstGenericEnum<7>>();
+    Type::of::<ConstGenericEnum<1>>();
+    Type::of::<ConstGenericEnum<7>>();
 }

@@ -14,6 +14,6 @@ union ConstGenericUnion<const N: usize> {
 }
 
 fn main() {
-    Type::from::<GenericUnion<f32>>();
-    Type::from::<GenericUnion<bool>>();
+    Type::of::<GenericUnion<f32>>();
+    Type::of::<GenericUnion<bool>>();
 }

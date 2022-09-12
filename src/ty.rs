@@ -286,7 +286,7 @@ impl Type {
     /// Get a Type instance by name, assuming it has been instantiated beforehand.
     /// The name provided is expected to be of a certain normalized form, which may not
     /// be fully stable between versions. This function is also fairly slow.
-    /// Prefer [`Type::from`] or [`Type::from_id`] if possible.
+    /// Prefer [`Type::of`] or [`Type::from_id`] if possible.
     ///
     /// Current Requirements:
     /// - All struct names should be fully qualified, so for example the Type for Type would be
@@ -325,12 +325,16 @@ impl Type {
             .copied()
     }
 
-    /// Get a Type instance from any reflected type, instantiating it if necessary.
-    pub fn from<T: ?Sized + Reflected>() -> Type {
+    /// Make a type available via [`Type::from_id`] or [`Type::from_name`]
+    pub fn initialize<T: ?Sized + Reflected>() {
         static INIT: StaticTypeMap<()> = StaticTypeMap::new();
         INIT.call_once::<T, _>(|| Self::add_ty::<T>(T::ty()));
+    }
 
-        Type::from_id(&TypeId::of::<T::Key>()).expect("Type not initialized")
+    /// Get a Type instance from any reflected type. This will not make it available via
+    /// [`Type::from_id`] or [`Type::from_name`]
+    pub fn of<T: ?Sized + Reflected>() -> Type {
+        T::ty()
     }
 
     fn as_inner(&self) -> &dyn CommonTypeInfo {
