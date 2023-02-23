@@ -1,8 +1,9 @@
+┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 error[E0716]: temporary value dropped while borrowed
-  --> $DIR/fn_result_lifetime.rs:9:27
+  --> ui/fail/fn_result_lifetime.rs:9:27
    |
 9  |         let c: &[&i32] = &[&a, &b];
-   |                           ^^^^^^^^ creates a temporary which is freed while still in use
+   |                           ^^^^^^^^ creates a temporary value which is freed while still in use
 ...
 20 |     }
    |     - temporary value is freed at the end of this statement
@@ -13,8 +14,11 @@ error[E0716]: temporary value dropped while borrowed
    = note: consider using a `let` binding to create a longer lived value
 
 error[E0597]: `a` does not live long enough
-  --> $DIR/fn_result_lifetime.rs:9:28
+  --> ui/fail/fn_result_lifetime.rs:9:28
    |
+7  |         let a = 1;
+   |             - binding `a` declared here
+8  |         let b = 2;
 9  |         let c: &[&i32] = &[&a, &b];
    |                            ^^ borrowed value does not live long enough
 ...
@@ -25,8 +29,10 @@ error[E0597]: `a` does not live long enough
    |                      ------ borrow later used here
 
 error[E0597]: `b` does not live long enough
-  --> $DIR/fn_result_lifetime.rs:9:32
+  --> ui/fail/fn_result_lifetime.rs:9:32
    |
+8  |         let b = 2;
+   |             - binding `b` declared here
 9  |         let c: &[&i32] = &[&a, &b];
    |                                ^^ borrowed value does not live long enough
 ...
@@ -35,3 +41,4 @@ error[E0597]: `b` does not live long enough
 21 |
 22 |     println!("{:p}", result)
    |                      ------ borrow later used here
+┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈

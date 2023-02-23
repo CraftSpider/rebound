@@ -6,50 +6,37 @@ use crate::info::*;
 
 use std::collections::BTreeMap;
 use std::sync::RwLock;
+use linkme::distributed_slice;
 
-static REFLECTED_TRAITS: RwLock<HashMap<String, Box<Trait>>> = RwLock::new(BTreeMap::new());
+#[distributed_slice]
+pub static REBOUND_TRAITS: [fn() -> Trait] = [..];
 
 #[derive(Debug)]
-struct Trait {
-    name: String,
-    bounds: fn() -> Vec<Trait>,
-    methods: fn() -> Vec</*TraitFn*/ ()>,
+pub struct Trait {
+    name: &'static str,
+    bounds: fn() -> &'static [Trait],
+    methods: fn() -> &'static [/*TraitFn*/ ()],
 }
 
 impl Trait {
-    fn add_trait(tr: Trait) {
-        let mut map = REFLECTED_TRAITS
-            .get_or_init(|| RwLock::new(HashMap::new()))
-            .write()
-            .expect("REFLECTED_TRAITS not initialized correctly");
-
-        let name = tr.name();
-
-        if map.contains_key(name) {
-            panic!("Trait {} already registered", name);
-        }
-
-        map.insert(name.clone(), Box::new(tr));
-    }
-
-    pub unsafe fn new_trait(
-        name: String,
-        bounds: fn() -> Vec<Trait>,
-        methods: fn() -> Vec</*TraitFn*/ ()>,
+    #[doc(hidden)]
+    pub fn new_trait(
+        name: &'static str,
+        bounds: fn() -> &'static [Trait],
+        methods: fn() -> &'static [/*TraitFn*/ ()],
     ) -> Trait {
         Trait {
             name,
             bounds,
             methods,
         }
-        // Trait::add_trait(tr);
     }
 
-    pub fn name(&self) -> &String {
+    pub fn name(&self) -> &'static str {
         &self.name
     }
 
-    pub fn bounds(&self) -> Vec<Trait> {
+    pub fn bounds(&self) -> &'static [Trait] {
         (self.bounds)()
     }
 }
@@ -62,6 +49,15 @@ impl Trait {
 // a macro with the same name as a trait, as that's the derive convention.
 // This can break down if the user also wants a function with that name, but it's the best we have
 // currently.
+
+#[distributed_slice(REBOUND_TRAITS)]
+fn _clone() -> Trait {
+    Trait::new_trait(
+        "Clone",
+        || &[],
+        || &[],
+    )
+}
 
 // #[rebound]
 // trait Foo: Sized {

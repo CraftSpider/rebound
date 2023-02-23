@@ -2,7 +2,6 @@
 
 use crate::info::{AssocConst, AssocFn, Field, UnionField, Variant};
 use crate::reflect::*;
-use crate::utils::StaticTypeMap;
 use crate::{Error, Value};
 
 use core::fmt;
@@ -38,7 +37,6 @@ macro_rules! impl_common {
     };
 }
 
-// SAFETY: *do not touch these if you don't know what you're doing*
 static REFLECTED_TYS: RwLock<BTreeMap<TypeId, Type>> = RwLock::new(BTreeMap::new());
 
 /// Common information / operations between all types
@@ -159,15 +157,7 @@ impl Type {
             .write()
             .expect("REFLECTED_TYS not initialized correctly");
 
-        if map.contains_key(&id) {
-            panic!("Type {} already registered", ty.name());
-        }
-
-        map.insert(id, ty);
-    }
-
-    fn add_ty<T: ?Sized + Reflected>(ty: Type) {
-        Type::add_ty_erased(ty, TypeId::of::<T::Key>())
+        map.entry(id).or_insert(ty);
     }
 
     /// Internal function used by generated code to initialize a Type for primitives
@@ -327,8 +317,7 @@ impl Type {
 
     /// Make a type available via [`Type::from_id`] or [`Type::from_name`]
     pub fn initialize<T: ?Sized + Reflected>() {
-        static INIT: StaticTypeMap<()> = StaticTypeMap::new();
-        INIT.call_once::<T, _>(|| Self::add_ty::<T>(T::ty()));
+        Type::add_ty_erased(T::ty(), TypeId::of::<T::Key>())
     }
 
     /// Get a Type instance from any reflected type. This will not make it available via
