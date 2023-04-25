@@ -1,68 +1,105 @@
 use super::Config;
 
-use proc_macro2::{Span, TokenStream};
+use crate::extension::*;
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{parse2, Lifetime, Token};
+use syn::{Lifetime, Token};
 
 fn static_or_anon(life: &Lifetime) -> Lifetime {
     if life.ident == "static" {
         life.clone()
     } else {
-        Lifetime::new("'_", <Lifetime as Spanned>::span(life))
+        Lifetime::anon(life.span())
     }
 }
 
-fn build_name<F>(name: &syn::Ident, generics: &syn::Generics, f: F) -> TokenStream
+fn build_name<F>(name: &syn::Ident, generics: &syn::Generics, f: F) -> syn::Path
 where
-    F: FnMut(&syn::GenericParam) -> TokenStream,
+    F: FnMut(&syn::GenericParam) -> syn::GenericArgument,
 {
-    let ty_generics = generics.params.iter().map(f).collect::<Vec<_>>();
-
-    quote!(#name::<#(#ty_generics,)*>)
+    let ty_generics = generics.params.iter().map(f);
+    let seg = syn::PathSegment::from(name.clone()).with_all_bracketed(ty_generics);
+    syn::Path::new([seg])
 }
 
-fn item_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
+fn item_name(name: &syn::Ident, generics: &syn::Generics) -> syn::Path {
     build_name(name, generics, |param| match param {
-        syn::GenericParam::Lifetime(..) => quote!('_),
+        syn::GenericParam::Lifetime(..) => {
+            syn::GenericArgument::Lifetime(syn::Lifetime::anon(param.span()))
+        }
         syn::GenericParam::Type(syn::TypeParam { ident, .. })
-        | syn::GenericParam::Const(syn::ConstParam { ident, .. }) => quote!(#ident),
+        | syn::GenericParam::Const(syn::ConstParam { ident, .. }) => {
+            syn::GenericArgument::Type(syn::Type::Path(syn::TypePath {
+                qself: None,
+                path: syn::Path::new([ident.clone()]),
+            }))
+        }
     })
 }
 
-fn item_lifetime_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
+fn item_lifetime_name(name: &syn::Ident, generics: &syn::Generics) -> syn::Path {
     build_name(name, generics, |param| match param {
-        syn::GenericParam::Lifetime(lifetime) => quote!(#lifetime),
+        syn::GenericParam::Lifetime(lifetime) => {
+            syn::GenericArgument::Lifetime(lifetime.lifetime.clone())
+        }
         syn::GenericParam::Type(syn::TypeParam { ident, .. })
-        | syn::GenericParam::Const(syn::ConstParam { ident, .. }) => quote!(#ident),
+        | syn::GenericParam::Const(syn::ConstParam { ident, .. }) => {
+            syn::GenericArgument::Type(syn::Type::Path(syn::TypePath {
+                qself: None,
+                path: syn::Path::new([ident.clone()]),
+            }))
+        }
     })
 }
 
-fn item_static_name(name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
+fn item_static_name(name: &syn::Ident, generics: &syn::Generics) -> syn::Path {
     build_name(name, generics, |param| match param {
-        syn::GenericParam::Lifetime(..) => quote!('static),
-        syn::GenericParam::Type(syn::TypeParam { ident, .. }) => quote!(#ident::Key),
-        syn::GenericParam::Const(syn::ConstParam { ident, .. }) => quote!(#ident),
+        syn::GenericParam::Lifetime(..) => {
+            syn::GenericArgument::Lifetime(syn::Lifetime::static_(param.span()))
+        }
+        syn::GenericParam::Type(syn::TypeParam { ident, .. }) => {
+            syn::GenericArgument::Type(syn::Type::Path(syn::TypePath {
+                qself: None,
+                path: syn::Path::new([ident.clone(), Ident::new("Key", Span::call_site())]),
+            }))
+        }
+        syn::GenericParam::Const(syn::ConstParam { ident, .. }) => {
+            syn::GenericArgument::Const(syn::Expr::Path(syn::ExprPath {
+                attrs: Vec::new(),
+                qself: None,
+                path: syn::Path::new([ident.clone()]),
+            }))
+        }
     })
 }
 
-fn item_qual_name(cfg: &Config, name: &syn::Ident, generics: &syn::Generics) -> TokenStream {
+fn item_qual_name(cfg: &Config, name: &syn::Ident, generics: &syn::Generics) -> syn::Expr {
     let ty_generics = generics
         .params
         .iter()
-        .map(|param| match param {
-            syn::GenericParam::Lifetime(_) => TokenStream::new(),
-            syn::GenericParam::Type(param) => {
-                let ident = &param.ident;
-                quote!(#ident::name())
-            }
-            syn::GenericParam::Const(param) => {
-                let ident = &param.ident;
-                quote!(#ident)
-            }
+        .filter_map(|param| match param {
+            syn::GenericParam::Lifetime(_) => None,
+            syn::GenericParam::Type(param) => Some(syn::Expr::Call(syn::ExprCall {
+                attrs: Vec::new(),
+                func: Box::new(syn::Expr::Path(syn::ExprPath {
+                    attrs: Vec::new(),
+                    qself: None,
+                    path: syn::Path::new([
+                        param.ident.clone(),
+                        Ident::new("name", Span::call_site()),
+                    ]),
+                })),
+                paren_token: syn::token::Paren(Span::call_site()),
+                args: Punctuated::new(),
+            })),
+            syn::GenericParam::Const(param) => Some(syn::Expr::Path(syn::ExprPath {
+                attrs: Vec::new(),
+                qself: None,
+                path: syn::Path::new([param.ident.clone()]),
+            })),
         })
-        .filter(|param| !param.is_empty())
         .collect::<Vec<_>>();
 
     let fmt_str;
@@ -85,7 +122,21 @@ fn item_qual_name(cfg: &Config, name: &syn::Ident, generics: &syn::Generics) -> 
         quote!(module_path!())
     };
 
-    quote!(::std::format!(#fmt_str, #module_path, stringify!(#name), #(#ty_generics,)* ))
+    let path = syn::Path::new([
+        Ident::new("std", Span::call_site()),
+        Ident::new("format", Span::call_site()),
+    ])
+    .with_leading();
+
+    syn::Expr::Macro(syn::ExprMacro {
+        attrs: Vec::new(),
+        mac: syn::Macro {
+            path,
+            bang_token: Token![!](Span::call_site()),
+            delimiter: syn::MacroDelimiter::Paren(syn::token::Paren(Span::call_site())),
+            tokens: quote!(#fmt_str, #module_path, stringify!(#name), #(#ty_generics,)*),
+        },
+    })
 }
 
 #[derive(Copy, Clone)]
@@ -98,8 +149,6 @@ pub enum NameTy {
     LifetimePath,
     /// This item's full path with static lifetimes
     StaticPath,
-    /// This item's full rebound name path
-    ReboundName,
 }
 
 pub trait OutputHelpers {
@@ -112,7 +161,9 @@ pub trait OutputHelpers {
     /// on `Type`
     fn new_fn_name(&self) -> syn::Ident;
     /// Get a name for this type. The ident, or some formatting of the path
-    fn name(&self, cfg: &Config, ty: NameTy) -> TokenStream;
+    fn name(&self, ty: NameTy) -> syn::Path;
+    /// Get the rebound runtime name for this type.
+    fn rebound_name(&self, cfg: &Config) -> syn::Expr;
 }
 
 impl OutputHelpers for syn::Item {
@@ -143,11 +194,20 @@ impl OutputHelpers for syn::Item {
         }
     }
 
-    fn name(&self, cfg: &Config, ty: NameTy) -> TokenStream {
+    fn name(&self, ty: NameTy) -> syn::Path {
         match self {
-            syn::Item::Struct(is) => is.name(cfg, ty),
-            syn::Item::Enum(ie) => ie.name(cfg, ty),
-            syn::Item::Union(iu) => iu.name(cfg, ty),
+            syn::Item::Struct(is) => is.name(ty),
+            syn::Item::Enum(ie) => ie.name(ty),
+            syn::Item::Union(iu) => iu.name(ty),
+            _ => unreachable!(),
+        }
+    }
+
+    fn rebound_name(&self, cfg: &Config) -> syn::Expr {
+        match self {
+            syn::Item::Struct(is) => is.rebound_name(cfg),
+            syn::Item::Enum(ie) => ie.rebound_name(cfg),
+            syn::Item::Union(iu) => iu.rebound_name(cfg),
             _ => unreachable!(),
         }
     }
@@ -171,17 +231,17 @@ impl OutputHelpers for syn::ItemStruct {
         syn::Ident::new(name, Span::call_site())
     }
 
-    fn name(&self, cfg: &Config, ty: NameTy) -> TokenStream {
+    fn name(&self, ty: NameTy) -> syn::Path {
         match ty {
-            NameTy::Ident => {
-                let ident = &self.ident;
-                quote!(#ident)
-            }
+            NameTy::Ident => syn::Path::new([self.ident.clone()]),
             NameTy::Path => item_name(&self.ident, &self.generics),
             NameTy::LifetimePath => item_lifetime_name(&self.ident, &self.generics),
             NameTy::StaticPath => item_static_name(&self.ident, &self.generics),
-            NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics),
         }
+    }
+
+    fn rebound_name(&self, cfg: &Config) -> syn::Expr {
+        item_qual_name(cfg, &self.ident, &self.generics)
     }
 }
 
@@ -198,17 +258,17 @@ impl OutputHelpers for syn::ItemEnum {
         syn::Ident::new("new_enum", Span::call_site())
     }
 
-    fn name(&self, cfg: &Config, ty: NameTy) -> TokenStream {
+    fn name(&self, ty: NameTy) -> syn::Path {
         match ty {
-            NameTy::Ident => {
-                let ident = &self.ident;
-                quote!(#ident)
-            }
+            NameTy::Ident => syn::Path::new([self.ident.clone()]),
             NameTy::Path => item_name(&self.ident, &self.generics),
             NameTy::LifetimePath => item_lifetime_name(&self.ident, &self.generics),
             NameTy::StaticPath => item_static_name(&self.ident, &self.generics),
-            NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics),
         }
+    }
+
+    fn rebound_name(&self, cfg: &Config) -> syn::Expr {
+        item_qual_name(cfg, &self.ident, &self.generics)
     }
 }
 
@@ -225,78 +285,78 @@ impl OutputHelpers for syn::ItemUnion {
         syn::Ident::new("new_union", Span::call_site())
     }
 
-    fn name(&self, cfg: &Config, ty: NameTy) -> TokenStream {
+    fn name(&self, ty: NameTy) -> syn::Path {
         match ty {
-            NameTy::Ident => {
-                let ident = &self.ident;
-                quote!(#ident)
-            }
+            NameTy::Ident => syn::Path::new([self.ident.clone()]),
             NameTy::Path => item_name(&self.ident, &self.generics),
             NameTy::LifetimePath => item_lifetime_name(&self.ident, &self.generics),
             NameTy::StaticPath => item_static_name(&self.ident, &self.generics),
-            NameTy::ReboundName => item_qual_name(cfg, &self.ident, &self.generics),
         }
+    }
+
+    fn rebound_name(&self, cfg: &Config) -> syn::Expr {
+        item_qual_name(cfg, &self.ident, &self.generics)
     }
 }
 
-pub fn sanitized_field_ty(ty: &syn::Type) -> TokenStream {
+pub fn sanitized_field_ty(ty: &syn::Type) -> syn::Type {
     match ty {
-        syn::Type::Array(ty) => {
-            let elem = sanitized_field_ty(&ty.elem);
-            let len = &ty.len;
-
-            quote!([#elem; #len])
-        }
-        syn::Type::Reference(ty) => {
-            let lifetime = ty.lifetime.as_ref().map(|life| static_or_anon(life));
-            let mutability = &ty.mutability;
-            let inner = &ty.elem;
-
-            quote!(& #lifetime #mutability #inner)
-        }
+        syn::Type::Array(ty) => syn::Type::Array(syn::TypeArray {
+            bracket_token: ty.bracket_token.clone(),
+            elem: Box::new(sanitized_field_ty(&ty.elem)),
+            semi_token: ty.semi_token.clone(),
+            len: ty.len.clone(),
+        }),
+        syn::Type::Reference(ty) => syn::Type::Reference(syn::TypeReference {
+            and_token: ty.and_token.clone(),
+            lifetime: ty.lifetime.as_ref().map(|life| static_or_anon(life)),
+            mutability: ty.mutability.clone(),
+            elem: Box::new(sanitized_field_ty(&ty.elem)),
+        }),
         syn::Type::Path(ty) => {
-            let segments = ty
-                .path
-                .segments
-                .iter()
-                .map(|seg| match &seg.arguments {
+            let segments = ty.path.segments.iter().map(|seg| {
+                let mut out = syn::PathSegment::from(seg.ident.clone());
+                match &seg.arguments {
                     syn::PathArguments::AngleBracketed(args) => {
-                        let ident = &seg.ident;
                         let ty_args = args
                             .args
                             .iter()
                             .map(|arg| match arg {
                                 syn::GenericArgument::Lifetime(life) => {
-                                    let life = static_or_anon(life);
-                                    quote!(#life)
+                                    syn::GenericArgument::Lifetime(static_or_anon(life))
                                 }
-                                syn::GenericArgument::Type(ty) => sanitized_field_ty(ty),
-                                _ => quote!(#arg),
+                                syn::GenericArgument::Type(ty) => {
+                                    syn::GenericArgument::Type(sanitized_field_ty(ty))
+                                }
+                                _ => arg.clone(),
                             })
                             .collect::<Vec<_>>();
 
-                        quote!( #ident<#(#ty_args,)*> )
+                        out = out.with_all_bracketed(ty_args);
                     }
                     syn::PathArguments::Parenthesized(args) => {
-                        let ident = &seg.ident;
-                        let in_args = args
-                            .inputs
-                            .iter()
-                            .map(sanitized_field_ty)
-                            .collect::<Vec<_>>();
-                        let out_arg = &args.output;
+                        let in_args = args.inputs.iter().map(sanitized_field_ty);
+                        let out_arg = match &args.output {
+                            syn::ReturnType::Default => syn::ReturnType::Default,
+                            syn::ReturnType::Type(arrow, ty) => syn::ReturnType::Type(
+                                arrow.clone(),
+                                Box::new(sanitized_field_ty(ty)),
+                            ),
+                        };
 
-                        quote!( #ident(#(#in_args),*) #out_arg)
+                        out = out.with_all_paren_args(in_args).with_paren_ret(out_arg);
                     }
-                    syn::PathArguments::None => {
-                        quote!(#seg)
-                    }
-                })
-                .collect::<Vec<_>>();
+                    syn::PathArguments::None => (),
+                }
+                out
+            });
 
-            quote!( #(#segments)::* )
+            syn::Type::Path(syn::TypePath {
+                qself: None,
+                path: syn::Path::new(segments),
+            })
         }
-        _ => quote!(#ty),
+        ty => ty.clone(),
     }
 }
 
@@ -309,12 +369,15 @@ fn is_maybe(bound: &syn::TypeParamBound) -> bool {
 }
 
 fn reflect_bound(cfg: &Config) -> syn::TypeParamBound {
-    let crate_name = &cfg.crate_name;
-
-    parse2::<syn::TypeParamBound>(quote!(
-        #crate_name::Reflected
-    ))
-    .unwrap()
+    syn::TypeParamBound::Trait(syn::TraitBound {
+        paren_token: None,
+        modifier: syn::TraitBoundModifier::None,
+        lifetimes: None,
+        path: syn::Path::new([
+            cfg.crate_name.ident(),
+            Ident::new("Reflected", Span::call_site()),
+        ]),
+    })
 }
 
 fn reflect_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, TokenStream) {
@@ -438,17 +501,14 @@ fn reflect_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, Token
                         paren_token: None,
                         modifier: syn::TraitBoundModifier::None,
                         lifetimes: None,
-                        path: syn::Path::from(syn::Ident::new("Sized", Span::call_site())),
+                        path: syn::Path::new([syn::Ident::new("Sized", Span::call_site())]),
                     }));
                 }
 
                 key_bounds.push(syn::WherePredicate::Type(syn::PredicateType {
                     lifetimes: None,
                     bounded_ty: syn::Type::Path(syn::TypePath {
-                        path: syn::Path {
-                            leading_colon: None,
-                            segments: new_path,
-                        },
+                        path: syn::Path::new(new_path),
                         qself: None,
                     }),
                     colon_token: syn::token::Colon::default(),
@@ -464,12 +524,17 @@ fn reflect_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, Token
 }
 
 fn not_outlives_bound(cfg: &Config, lifetime: Lifetime) -> syn::TypeParamBound {
-    let crate_name = &cfg.crate_name;
-
-    parse2::<syn::TypeParamBound>(quote!(
-        #crate_name::value::NotOutlives::<#lifetime>
-    ))
-    .unwrap()
+    syn::TypeParamBound::Trait(syn::TraitBound {
+        paren_token: None,
+        modifier: syn::TraitBoundModifier::None,
+        lifetimes: None,
+        path: syn::Path::new([
+            syn::PathSegment::from(cfg.crate_name.ident()),
+            syn::PathSegment::from(syn::Ident::new("value", Span::call_site())),
+            syn::PathSegment::from(syn::Ident::new("NotOutlives", Span::call_site()))
+                .with_bracketed(syn::GenericArgument::Lifetime(lifetime)),
+        ]),
+    })
 }
 
 fn outlives_bounds(cfg: &Config, generics: &syn::Generics) -> (TokenStream, TokenStream) {

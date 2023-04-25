@@ -9,7 +9,7 @@ use std::sync::RwLock;
 use linkme::distributed_slice;
 
 #[distributed_slice]
-pub static REBOUND_TRAITS: [fn() -> Trait] = [..];
+pub static REBOUND_TRAITS: [Trait] = [..];
 
 #[derive(Debug)]
 pub struct Trait {
@@ -20,7 +20,7 @@ pub struct Trait {
 
 impl Trait {
     #[doc(hidden)]
-    pub fn new_trait(
+    pub const fn new_trait(
         name: &'static str,
         bounds: fn() -> &'static [Trait],
         methods: fn() -> &'static [/*TraitFn*/ ()],
@@ -44,21 +44,19 @@ impl Trait {
 // TODO: How are traits reflected? This is needed to support cloning Values, as well as
 //       things like formatting. Can't assume things will be `dyn`able
 
-// Traits can be reflected by generating a function alongside them with the same name, which
-// returns the necessary info for reflection. A macro is dangerous as it's much more common to have
-// a macro with the same name as a trait, as that's the derive convention.
-// This can break down if the user also wants a function with that name, but it's the best we have
-// currently.
-
-#[distributed_slice(REBOUND_TRAITS)]
-fn _clone() -> Trait {
-    Trait::new_trait(
-        "Clone",
-        || &[],
-        || &[],
-    )
-}
-
+// #[distributed_slice(REBOUND_TRAITS)]
+// static CLONE: Trait = Trait::new_trait(
+//     "Clone",
+//     || &[],
+//     || &[],
+// );
+//
+// static ADD: Trait = Trait::new_trait(
+//     "Add",
+//     || &[],
+//     || &[],
+// );
+//
 // #[rebound]
 // trait Foo: Sized {
 //     type Assoc: Sized;
@@ -69,7 +67,7 @@ fn _clone() -> Trait {
 //     fn c() {}
 //     fn d(&self) {}
 // }
-
+//
 // trait Bar<T> {
 //     fn foo() -> T {
 //         !

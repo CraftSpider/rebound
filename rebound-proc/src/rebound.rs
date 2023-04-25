@@ -38,6 +38,13 @@ impl CrateName {
     fn external() -> CrateName {
         CrateName::Ident(syn::Ident::new("rebound", Span::call_site()))
     }
+
+    fn ident(&self) -> syn::Ident {
+        match self {
+            CrateName::Crate(_) => syn::Ident::new("crate", Span::call_site()),
+            CrateName::Ident(i) => i.clone(),
+        }
+    }
 }
 
 impl Parse for CrateName {

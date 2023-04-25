@@ -153,3 +153,12 @@ impl<T: ?Sized + Reflected, const N: u8> ReflectedImpl<N> for T {
         vec![]
     }
 }
+
+// #[linkme::distributed_slice]
+// static REFLECTED_IMPLS: [ReflectedImpl] = [..];
+//
+// // TODO: Figure out how to determine applicability
+// pub struct ReflectedImpl {
+//     fns: &'static [AssocFn],
+//     consts: &'static [AssocConst],
+// }

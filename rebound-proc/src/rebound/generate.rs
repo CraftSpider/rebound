@@ -1,15 +1,15 @@
 use super::utils::*;
 use super::Config;
 use crate::error::{Error, Result};
-use crate::extension::{StructExtension, StructType, VariantExtension};
+use crate::extension::*;
 
 use std::collections::BTreeMap;
 use std::sync::RwLock;
 
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
-use syn::Item;
+use syn::{Item, Member};
 
 pub fn generate_assoc_fn(
     cfg: &Config,
@@ -33,9 +33,13 @@ pub fn generate_assoc_fn(
         })
         .collect::<Vec<_>>();
 
+    let ty;
     let ret_ty = match output {
-        syn::ReturnType::Default => quote!(()),
-        syn::ReturnType::Type(_, ty) => quote!(#ty),
+        syn::ReturnType::Default => {
+            ty = syn::Type::Tuple(syn::TypeTuple::empty());
+            &ty
+        }
+        syn::ReturnType::Type(_, ty) => ty,
     };
 
     if let Some(syn::FnArg::Receiver(arg)) = inputs.first() {
@@ -139,22 +143,22 @@ pub fn generate_struct_field(
     let no_get = cfg.no_get;
     let no_set = cfg.no_set;
 
-    let name = item.name(cfg, NameTy::Path);
+    let name = item.name(NameTy::Path);
 
     let field_ty = sanitized_field_ty(&field.ty);
 
     let (field_name, fn_name, name_arg) = match &field.ident {
         Some(field_name) => (
-            quote!(#field_name),
+            Member::Named(field_name.clone()),
             syn::Ident::new("new_named", Span::call_site()),
-            quote!(stringify!(#field_name)),
+            syn::Lit::new(Literal::string(&field_name.to_string())),
         ),
         None => {
             let access = syn::Index::from(idx);
             (
-                quote!(#access),
+                Member::Unnamed(access),
                 syn::Ident::new("new_tuple", Span::call_site()),
-                quote!(#idx),
+                syn::Lit::new(Literal::usize_suffixed(idx)),
             )
         }
     };
@@ -209,23 +213,23 @@ pub fn generate_enum_field(
     let no_get = cfg.no_get;
     let no_set = cfg.no_set;
 
-    let name = item.name(cfg, NameTy::Path);
-    let simple_name = item.name(cfg, NameTy::Ident);
+    let name = item.name(NameTy::Path);
+    let simple_name = item.name(NameTy::Ident);
 
     let field_ty = sanitized_field_ty(&field.ty);
 
     let (field_access, fn_name, name_arg) = match &field.ident {
         Some(field_name) => (
             quote!({ #field_name: field, .. }),
-            quote!(new_enum_named),
-            quote!(stringify!(#field_name)),
+            Ident::new("new_enum_named", Span::call_site()),
+            syn::Lit::new(Literal::string(&field_name.to_string())),
         ),
         None => {
             let field_name = syn::Index::from(idx);
             (
                 quote!({ #field_name: field, .. }),
-                quote!(new_enum_tuple),
-                quote!(#idx),
+                Ident::new("new_enum_tuple", Span::call_site()),
+                syn::Lit::new(Literal::usize_suffixed(idx)),
             )
         }
     };
@@ -303,7 +307,7 @@ pub fn generate_enum_field(
 
 pub fn generate_union_field(
     cfg: &Config,
-    name: &TokenStream,
+    name: &syn::Path,
     _: usize,
     field: &syn::Field,
 ) -> Result<TokenStream> {
@@ -365,8 +369,8 @@ pub fn generate_variant(
 ) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
 
-    let name = item.name(cfg, NameTy::Path);
-    let simple_name = item.name(cfg, NameTy::Ident);
+    let name = item.name(NameTy::Path);
+    let simple_name = item.name(NameTy::Ident);
     let var_name = &variant.ident;
 
     let (variant_ty, info_ty) = match variant.ty() {
@@ -422,7 +426,7 @@ pub fn generate_variant(
 pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
     let (impl_bounds, where_bounds) = item.reflect_bounds(cfg);
-    let name = item.name(cfg, NameTy::Path);
+    let name = item.name(NameTy::Path);
 
     let mut variant_impls = Vec::new();
 
@@ -503,7 +507,7 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
 pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
     let (impl_bounds, where_bounds) = item.reflect_bounds(cfg);
-    let name = item.name(cfg, NameTy::Path);
+    let name = item.name(NameTy::Path);
 
     let trait_name = match item.ty() {
         StructType::Named => "ReflectedStruct",
@@ -542,7 +546,7 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
 pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
     let (impl_bounds, where_bounds) = item.reflect_bounds(cfg);
-    let name = item.name(cfg, NameTy::Path);
+    let name = item.name(NameTy::Path);
 
     let fields = item
         .fields
@@ -565,10 +569,10 @@ pub fn generate_reflect_type(cfg: &Config, item: &Item) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
     let (reflect_impl_bounds, reflect_where_bounds) = item.reflect_bounds(cfg);
     let (out_impl_bounds, out_where_bounds) = item.outlives_bounds(cfg);
-    let name = item.name(cfg, NameTy::Path);
-    let lifetime_name = item.name(cfg, NameTy::LifetimePath);
-    let static_name = item.name(cfg, NameTy::StaticPath);
-    let rebound_name = item.name(cfg, NameTy::ReboundName);
+    let name = item.name(NameTy::Path);
+    let lifetime_name = item.name(NameTy::LifetimePath);
+    let static_name = item.name(NameTy::StaticPath);
+    let rebound_name = item.rebound_name(cfg);
     let new_fn = item.new_fn_name();
 
     Ok(quote_spanned!(item.span() =>
