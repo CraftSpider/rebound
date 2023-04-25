@@ -44,13 +44,9 @@ pub fn generate_assoc_fn(
 
     if let Some(syn::FnArg::Receiver(arg)) = inputs.first() {
         let receiver = if arg.reference.is_some() {
-            let mutability = &arg.mutability;
-            syn::Type::Reference(syn::TypeReference {
-                and_token: syn::Token![&](Span::call_site()),
-                lifetime: None,
-                mutability: mutability.clone(),
-                elem: Box::new(self_ty.clone()),
-            })
+            syn::TypeReference::new(self_ty.clone())
+                .with_mutability(arg.mutability.clone())
+                .into()
         } else {
             self_ty.clone()
         };
@@ -425,7 +421,7 @@ pub fn generate_variant(
 
 pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
-    let (impl_bounds, where_bounds) = item.reflect_bounds(cfg);
+    let Bounds { impl_bounds, where_bounds } = item.reflect_bounds(cfg);
     let name = item.name(NameTy::Path);
 
     let mut variant_impls = Vec::new();
@@ -435,7 +431,7 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
     }
 
     Ok(quote_spanned!(item.span() =>
-        impl #impl_bounds #crate_name::reflect::ReflectedEnum for #name #where_bounds {
+        impl<#impl_bounds> #crate_name::reflect::ReflectedEnum for #name where #where_bounds {
             fn variants() -> ::std::vec::Vec<#crate_name::Variant> {
                 ::std::vec![ #(#variant_impls),* ]
             }
@@ -506,7 +502,7 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
 
 pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
-    let (impl_bounds, where_bounds) = item.reflect_bounds(cfg);
+    let Bounds { impl_bounds, where_bounds } = item.reflect_bounds(cfg);
     let name = item.name(NameTy::Path);
 
     let trait_name = match item.ty() {
@@ -537,7 +533,7 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
     };
 
     Ok(quote_spanned!(item.span() =>
-        impl #impl_bounds #crate_name::reflect::#trait_name for #name #where_bounds {
+        impl<#impl_bounds> #crate_name::reflect::#trait_name for #name where #where_bounds {
             #fields
         }
     ))
@@ -545,7 +541,7 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
 
 pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
-    let (impl_bounds, where_bounds) = item.reflect_bounds(cfg);
+    let Bounds { impl_bounds, where_bounds } = item.reflect_bounds(cfg);
     let name = item.name(NameTy::Path);
 
     let fields = item
@@ -557,7 +553,7 @@ pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<Toke
         .collect::<Result<Vec<_>>>()?;
 
     Ok(quote_spanned!(item.span() =>
-        impl #impl_bounds #crate_name::reflect::ReflectedUnion for #name #where_bounds {
+        impl<#impl_bounds> #crate_name::reflect::ReflectedUnion for #name where #where_bounds {
             fn fields() -> ::std::vec::Vec<#crate_name::UnionField> {
                 ::std::vec![ #(#fields,)* ]
             }
@@ -567,8 +563,8 @@ pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<Toke
 
 pub fn generate_reflect_type(cfg: &Config, item: &Item) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
-    let (reflect_impl_bounds, reflect_where_bounds) = item.reflect_bounds(cfg);
-    let (out_impl_bounds, out_where_bounds) = item.outlives_bounds(cfg);
+    let Bounds { impl_bounds: reflect_impl_bounds, where_bounds: reflect_where_bounds } = item.reflect_bounds(cfg);
+    let Bounds { impl_bounds: out_impl_bounds, where_bounds: out_where_bounds } = item.outlives_bounds(cfg);
     let name = item.name(NameTy::Path);
     let lifetime_name = item.name(NameTy::LifetimePath);
     let static_name = item.name(NameTy::StaticPath);
@@ -576,7 +572,7 @@ pub fn generate_reflect_type(cfg: &Config, item: &Item) -> Result<TokenStream> {
     let new_fn = item.new_fn_name();
 
     Ok(quote_spanned!(item.span() =>
-        unsafe impl #reflect_impl_bounds #crate_name::reflect::Reflected for #name #reflect_where_bounds {
+        unsafe impl<#reflect_impl_bounds> #crate_name::reflect::Reflected for #name where #reflect_where_bounds {
             type Key = #static_name;
 
             fn ty() -> #crate_name::ty::Type {
@@ -596,7 +592,7 @@ pub fn generate_reflect_type(cfg: &Config, item: &Item) -> Result<TokenStream> {
         //     ...
         //     TN: NotOutlives<'tn>
         // SAFETY: Generated implementation uses the above algorithm and is ensured correct
-        unsafe impl #out_impl_bounds #crate_name::value::NotOutlives<'no> for #lifetime_name #out_where_bounds {}
+        unsafe impl<#out_impl_bounds> #crate_name::value::NotOutlives<'no> for #lifetime_name where #out_where_bounds {}
     ))
 }
 

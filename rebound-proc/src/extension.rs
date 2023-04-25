@@ -1,9 +1,12 @@
-use proc_macro2::Span;
+use proc_macro2::{Ident, Span, TokenStream};
 use std::iter::FromIterator;
 use syn::punctuated::Punctuated;
 use syn::{
-    AngleBracketedGenericArguments, GenericArgument, Lifetime, ParenthesizedGenericArguments, Path,
-    PathArguments, PathSegment, ReturnType, Token, Type, TypeTuple,
+    AngleBracketedGenericArguments, Expr, ExprCall, ExprMacro, ExprPath, GenericArgument, Lifetime,
+    LifetimeDef, Macro, MacroDelimiter, ParenthesizedGenericArguments, Path, PathArguments,
+    PathSegment, PredicateLifetime, PredicateType, QSelf, ReturnType, Token, TraitBound,
+    TraitBoundModifier, Type, TypeArray, TypeParam, TypeParamBound, TypePath, TypeReference,
+    TypeTuple,
 };
 
 #[derive(Debug)]
@@ -242,5 +245,234 @@ impl TypeTupleExt for TypeTuple {
             paren_token: syn::token::Paren(Span::call_site()),
             elems: Punctuated::new(),
         }
+    }
+}
+
+pub trait TypeReferenceExt {
+    fn new(elem: Type) -> Self;
+
+    fn with_mutability(self, m: Option<Token![mut]>) -> Self;
+    fn with_lifetime(self, lt: Option<Lifetime>) -> Self;
+}
+
+impl TypeReferenceExt for TypeReference {
+    fn new(elem: Type) -> Self {
+        TypeReference {
+            and_token: Token![&](Span::call_site()),
+            lifetime: None,
+            mutability: None,
+            elem: Box::new(elem),
+        }
+    }
+
+    fn with_mutability(mut self, m: Option<Token![mut]>) -> Self {
+        self.mutability = m;
+        self
+    }
+
+    fn with_lifetime(mut self, lt: Option<Lifetime>) -> Self {
+        self.lifetime = lt;
+        self
+    }
+}
+
+pub trait TypePathExt {
+    fn new(path: Path) -> Self;
+    fn with_qself(self, qself: Option<QSelf>) -> Self;
+}
+
+impl TypePathExt for TypePath {
+    fn new(path: Path) -> TypePath {
+        TypePath { qself: None, path }
+    }
+
+    fn with_qself(mut self, qself: Option<QSelf>) -> Self {
+        self.qself = qself;
+        self
+    }
+}
+
+pub trait TypeArrayExt {
+    fn new(elem: Type, len: Expr) -> Self;
+}
+
+impl TypeArrayExt for TypeArray {
+    fn new(elem: Type, len: Expr) -> Self {
+        TypeArray {
+            bracket_token: syn::token::Bracket(Span::call_site()),
+            elem: Box::new(elem),
+            semi_token: Token![;](Span::call_site()),
+            len,
+        }
+    }
+}
+
+pub trait TraitBoundExt {
+    fn new(path: Path) -> Self;
+}
+
+impl TraitBoundExt for TraitBound {
+    fn new(path: Path) -> Self {
+        TraitBound {
+            paren_token: None,
+            modifier: TraitBoundModifier::None,
+            lifetimes: None,
+            path,
+        }
+    }
+}
+
+pub trait ExprPathExt {
+    fn new(path: Path) -> Self;
+}
+
+impl ExprPathExt for ExprPath {
+    fn new(path: Path) -> Self {
+        ExprPath {
+            attrs: Vec::new(),
+            qself: None,
+            path,
+        }
+    }
+}
+
+pub trait ExprCallExt {
+    fn new(path: Expr) -> Self;
+}
+
+impl ExprCallExt for ExprCall {
+    fn new(func: Expr) -> Self {
+        ExprCall {
+            attrs: Vec::new(),
+            func: Box::new(func),
+            paren_token: syn::token::Paren(Span::call_site()),
+            args: Punctuated::new(),
+        }
+    }
+}
+
+pub trait ExprMacroExt {
+    fn new(mac: Macro) -> Self;
+}
+
+impl ExprMacroExt for ExprMacro {
+    fn new(mac: Macro) -> Self {
+        ExprMacro {
+            attrs: Vec::new(),
+            mac,
+        }
+    }
+}
+
+pub trait MacroExt {
+    fn new(path: Path) -> Self;
+
+    fn with_tokens(self, tokens: TokenStream) -> Self;
+}
+
+impl MacroExt for Macro {
+    fn new(path: Path) -> Macro {
+        Macro {
+            path,
+            bang_token: Token![!](Span::call_site()),
+            delimiter: MacroDelimiter::Paren(syn::token::Paren(Span::call_site())),
+            tokens: TokenStream::new(),
+        }
+    }
+
+    fn with_tokens(mut self, tokens: TokenStream) -> Self {
+        self.tokens = tokens;
+        self
+    }
+}
+
+pub trait LifetimeDefExt {
+    fn new(lt: Lifetime) -> Self;
+}
+
+impl LifetimeDefExt for LifetimeDef {
+    fn new(lt: Lifetime) -> Self {
+        LifetimeDef {
+            attrs: Vec::new(),
+            lifetime: lt,
+            colon_token: None,
+            bounds: Punctuated::new(),
+        }
+    }
+}
+
+pub trait PredicateLifetimeExt {
+    fn new(lifetime: Lifetime) -> Self;
+
+    fn with_bound(self, lifetime: Lifetime) -> Self;
+    fn with_bounds<I: IntoIterator<Item = Lifetime>>(self, iter: I) -> Self;
+}
+
+impl PredicateLifetimeExt for PredicateLifetime {
+    fn new(lifetime: Lifetime) -> Self {
+        PredicateLifetime {
+            lifetime,
+            colon_token: Token![:](Span::call_site()),
+            bounds: Punctuated::new(),
+        }
+    }
+
+    fn with_bound(mut self, lifetime: Lifetime) -> Self {
+        self.bounds.push(lifetime);
+        self
+    }
+
+    fn with_bounds<I: IntoIterator<Item = Lifetime>>(mut self, iter: I) -> Self {
+        self.bounds.extend(iter);
+        self
+    }
+}
+
+pub trait PredicateTypeExt {
+    fn new<T: Into<Type>>(ty: T) -> Self;
+
+    fn with_bounds<I: IntoIterator<Item = TypeParamBound>>(self, iter: I) -> Self;
+}
+
+impl PredicateTypeExt for PredicateType {
+    fn new<T: Into<Type>>(ty: T) -> Self {
+        PredicateType {
+            lifetimes: None,
+            bounded_ty: ty.into(),
+            colon_token: Token![:](Span::call_site()),
+            bounds: Punctuated::new(),
+        }
+    }
+
+    fn with_bounds<I: IntoIterator<Item = TypeParamBound>>(mut self, iter: I) -> Self {
+        self.bounds.extend(iter);
+        self
+    }
+}
+
+pub trait TypeParamExt {
+    fn new(ident: Ident) -> Self;
+
+    fn with_bounds<I: IntoIterator<Item = TypeParamBound>>(self, iter: I) -> Self;
+}
+
+impl TypeParamExt for TypeParam {
+    fn new(ident: Ident) -> Self {
+        TypeParam {
+            attrs: Vec::new(),
+            ident,
+            colon_token: None,
+            bounds: Punctuated::new(),
+            eq_token: None,
+            default: None,
+        }
+    }
+
+    fn with_bounds<I: IntoIterator<Item = TypeParamBound>>(mut self, iter: I) -> Self {
+        if self.colon_token.is_none() {
+            self.colon_token = Some(Token![:](Span::call_site()));
+        }
+        self.bounds.extend(iter);
+        self
     }
 }
