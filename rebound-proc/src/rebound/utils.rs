@@ -468,7 +468,10 @@ fn reflect_bounds(cfg: &Config, generics: &syn::Generics) -> Bounds {
 
     where_bounds.extend(key_bounds);
 
-    Bounds { impl_bounds, where_bounds }
+    Bounds {
+        impl_bounds,
+        where_bounds,
+    }
 }
 
 fn not_outlives_bound(cfg: &Config, lifetime: Lifetime) -> syn::TypeParamBound {
@@ -602,7 +605,10 @@ fn outlives_bounds(cfg: &Config, generics: &syn::Generics) -> Bounds {
         syn::PredicateLifetime::new(base_lifetime).with_bounds(lifetimes.into_iter()),
     ));
 
-    Bounds { impl_bounds, where_bounds }
+    Bounds {
+        impl_bounds,
+        where_bounds,
+    }
 }
 
 pub fn ty_id(ty: &syn::Type) -> String {

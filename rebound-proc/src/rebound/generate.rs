@@ -421,7 +421,10 @@ pub fn generate_variant(
 
 pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
-    let Bounds { impl_bounds, where_bounds } = item.reflect_bounds(cfg);
+    let Bounds {
+        impl_bounds,
+        where_bounds,
+    } = item.reflect_bounds(cfg);
     let name = item.name(NameTy::Path);
 
     let mut variant_impls = Vec::new();
@@ -502,7 +505,10 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
 
 pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
-    let Bounds { impl_bounds, where_bounds } = item.reflect_bounds(cfg);
+    let Bounds {
+        impl_bounds,
+        where_bounds,
+    } = item.reflect_bounds(cfg);
     let name = item.name(NameTy::Path);
 
     let trait_name = match item.ty() {
@@ -541,7 +547,10 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
 
 pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
-    let Bounds { impl_bounds, where_bounds } = item.reflect_bounds(cfg);
+    let Bounds {
+        impl_bounds,
+        where_bounds,
+    } = item.reflect_bounds(cfg);
     let name = item.name(NameTy::Path);
 
     let fields = item
@@ -563,8 +572,14 @@ pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<Toke
 
 pub fn generate_reflect_type(cfg: &Config, item: &Item) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
-    let Bounds { impl_bounds: reflect_impl_bounds, where_bounds: reflect_where_bounds } = item.reflect_bounds(cfg);
-    let Bounds { impl_bounds: out_impl_bounds, where_bounds: out_where_bounds } = item.outlives_bounds(cfg);
+    let Bounds {
+        impl_bounds: reflect_impl_bounds,
+        where_bounds: reflect_where_bounds,
+    } = item.reflect_bounds(cfg);
+    let Bounds {
+        impl_bounds: out_impl_bounds,
+        where_bounds: out_where_bounds,
+    } = item.outlives_bounds(cfg);
     let name = item.name(NameTy::Path);
     let lifetime_name = item.name(NameTy::LifetimePath);
     let static_name = item.name(NameTy::StaticPath);
