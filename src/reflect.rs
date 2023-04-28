@@ -7,6 +7,15 @@ use crate::{AssocConst, AssocFn, Error, Field, Type, Value, Variant};
 use rebound_proc::impl_find;
 use crate::value::NotOutlives;
 
+pub(crate) mod sealed {
+    use super::*;
+
+    /// Internal hack to avoid mut refs in `Reflected`
+    pub struct RefHack<'a, 'b>(pub(crate) &'a mut Value<'b>);
+}
+
+pub(crate) use sealed::RefHack;
+
 /// A trait representing any reflected [`Type`]. Supports operations common to all Types,
 /// such as retrieving its qualified name or impl information.
 ///
@@ -59,11 +68,11 @@ pub unsafe trait Reflected {
     }
 
     #[doc(hidden)]
-    fn take_mut<'a, 'b>(val: &'a mut Value<'b>) -> Result<Value<'a>, Error>
+    fn take_mut<'a, 'b>(val: RefHack<'a, 'b>) -> Result<Value<'a>, Error>
     where
         Self: 'a + NotOutlives<'b>,
     {
-        val.try_borrow_mut::<Self>().map(Value::from)
+        val.0.try_borrow_mut::<Self>().map(Value::from)
     }
 }
 

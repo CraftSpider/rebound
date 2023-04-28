@@ -1,7 +1,4 @@
-use crate::reflect::{
-    Reflected, ReflectedArray, ReflectedFunction, ReflectedImpl, ReflectedPointer,
-    ReflectedReference, ReflectedSlice, ReflectedTuple,
-};
+use crate::reflect::{RefHack, Reflected, ReflectedArray, ReflectedFunction, ReflectedImpl, ReflectedPointer, ReflectedReference, ReflectedSlice, ReflectedTuple};
 use crate::utils::StaticTypeMap;
 use crate::value::NotOutlives;
 use crate::{AssocConst, AssocFn, Error, Field, Type, Value};
@@ -806,7 +803,7 @@ unsafe impl<T: ?Sized + Reflected> Reflected for &T {
         Ok(val)
     }
 
-    fn take_mut<'a, 'b>(_: &'a mut Value<'b>) -> Result<Value<'a>, Error>
+    fn take_mut<'a, 'b>(_: RefHack<'a, 'b>) -> Result<Value<'a>, Error>
     where
         Self: 'a + NotOutlives<'b>,
     {
@@ -845,7 +842,7 @@ unsafe impl<T: ?Sized + Reflected> Reflected for &mut T {
         Err(Error::CantReborrow)
     }
 
-    fn take_mut<'a, 'b>(_: &'a mut Value<'b>) -> Result<Value<'a>, Error>
+    fn take_mut<'a, 'b>(_: RefHack<'a, 'b>) -> Result<Value<'a>, Error>
     where
         Self: 'a + NotOutlives<'b>,
     {

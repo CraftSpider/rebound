@@ -31,7 +31,7 @@ macro_rules! impl_common {
             }
 
             fn as_mut<'a>(&self, val: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
-                (self.vtable.as_mut)(val)
+                (self.vtable.as_mut)(RefHack(val))
             }
         }
     };
@@ -64,7 +64,7 @@ struct TypeVTable {
     assoc_consts: fn() -> &'static [AssocConst],
 
     as_ref: for<'a> fn(&'a Value<'_>) -> Result<Value<'a>, Error>,
-    as_mut: for<'a> fn(&'a mut Value<'_>) -> Result<Value<'a>, Error>,
+    as_mut: for<'a> fn(RefHack<'a, '_>) -> Result<Value<'a>, Error>,
 }
 
 impl fmt::Debug for TypeVTable {
@@ -134,7 +134,7 @@ macro_rules! ty_common {
             $(
                 #[doc = "Get this Type as a [`" $var "Info`], panicking on failure."]
                 #[track_caller]
-                pub fn [<unwrap_ $var:snake>](&self) -> & [<$var Info>] {
+                pub const fn [<unwrap_ $var:snake>](&self) -> & [<$var Info>] {
                     if let Type::$var(info) = self {
                         info
                     } else {
@@ -143,7 +143,7 @@ macro_rules! ty_common {
                 }
 
                 #[doc = "Check whether this Type is a [`" $var "Info`]"]
-                pub fn [<is_ $var:snake>](&self) -> bool {
+                pub const fn [<is_ $var:snake>](&self) -> bool {
                     matches!(self, Type::$var(_))
                 }
             )*
@@ -266,7 +266,7 @@ impl Type {
     /// # Safety
     ///
     /// Should only be called inside a [`Reflected`] type's `init` impl
-    pub fn new_union<T: ReflectedUnion>() -> Type {
+    pub const fn new_union<T: ReflectedUnion>() -> Type {
         Type::Union(UnionInfo {
             vtable: TypeVTable::new::<T>(),
             fields: T::fields,
@@ -326,7 +326,7 @@ impl Type {
         T::TYPE
     }
 
-    fn as_inner(&self) -> &dyn CommonTypeInfo {
+    const fn as_inner(&self) -> &dyn CommonTypeInfo {
         match self {
             Type::Primitive(i) => i,
             Type::Tuple(i) => i,
