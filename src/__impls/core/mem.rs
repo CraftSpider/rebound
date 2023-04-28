@@ -10,11 +10,9 @@ unsafe impl<T> Reflected for ManuallyDrop<T>
 where
     T: ?Sized + Reflected,
 {
-    type Key = ManuallyDrop<T::Key>;
+    const TYPE: Type = Type::new_struct::<ManuallyDrop<T>>();
 
-    fn ty() -> Type {
-        Type::new_struct::<ManuallyDrop<T>>()
-    }
+    type Key = ManuallyDrop<T::Key>;
 
     fn name() -> String {
         format!("core::mem::ManuallyDrop<{}>", T::name())

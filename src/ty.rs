@@ -78,14 +78,14 @@ impl fmt::Debug for TypeVTable {
 }
 
 impl TypeVTable {
-    fn new<T: ?Sized + Reflected>() -> TypeVTable {
+    const fn new<T: ?Sized + Reflected>() -> TypeVTable {
         TypeVTable {
             name: T::name,
             assoc_fns: T::assoc_fns,
             assoc_consts: T::assoc_consts,
 
-            as_ref: T::take_ref,
-            as_mut: T::take_mut,
+            as_ref: unsafe { core::mem::transmute::<fn(_) -> _, _>(T::Key::take_ref) },
+            as_mut: unsafe { core::mem::transmute::<fn(_) -> _, _>(T::Key::take_mut) },
         }
     }
 }
@@ -95,7 +95,7 @@ impl TypeVTable {
 /// that the type implement the [`Reflected`] trait, though most types are also expected to
 /// implement another trait related to information they possess not shared by other type kinds.
 ///
-/// This is backed by [`core::any::TypeId`], through the usage of a `Key` associated type on all
+/// This is backed by [`TypeId`], through the usage of a `Key` associated type on all
 /// Reflected items, which represents a `'static` version of that item, even if the item isn't
 /// always static. This works because lifetimes are erased for Type instances anyways.
 #[derive(Debug, Copy, Clone)]
@@ -162,7 +162,7 @@ impl Type {
 
     /// Internal function used by generated code to initialize a Type for primitives
     #[doc(hidden)]
-    pub(crate) fn new_prim<T: ?Sized + Reflected>() -> Type {
+    pub(crate) const fn new_prim<T: ?Sized + Reflected>() -> Type {
         Type::Primitive(PrimitiveInfo {
             vtable: TypeVTable::new::<T>(),
         })
@@ -170,7 +170,7 @@ impl Type {
 
     /// Internal function used by generated code to initialize a Type for tuples
     #[doc(hidden)]
-    pub(crate) fn new_tuple<T: ?Sized + ReflectedTuple>() -> Type {
+    pub(crate) const fn new_tuple<T: ?Sized + ReflectedTuple>() -> Type {
         Type::Tuple(TupleInfo {
             vtable: TypeVTable::new::<T>(),
             fields: T::fields,
@@ -179,17 +179,17 @@ impl Type {
 
     /// Internal function used by generated code to initialize a Type for arrays
     #[doc(hidden)]
-    pub(crate) fn new_array<T: ?Sized + ReflectedArray>() -> Type {
+    pub(crate) const fn new_array<T: ?Sized + ReflectedArray>() -> Type {
         Type::Array(ArrayInfo {
             vtable: TypeVTable::new::<T>(),
             element: T::element,
-            length: T::length(),
+            length: T::LENGTH,
         })
     }
 
     /// Internal function used by generated code to initialize a Type for slices
     #[doc(hidden)]
-    pub(crate) fn new_slice<T: ?Sized + ReflectedSlice>() -> Type {
+    pub(crate) const fn new_slice<T: ?Sized + ReflectedSlice>() -> Type {
         Type::Slice(SliceInfo {
             vtable: TypeVTable::new::<T>(),
             element: T::element,
@@ -198,27 +198,27 @@ impl Type {
 
     /// Internal function used by generated code to initialize a Type for pointers
     #[doc(hidden)]
-    pub(crate) fn new_ptr<T: ReflectedPointer>() -> Type {
+    pub(crate) const fn new_ptr<T: ReflectedPointer>() -> Type {
         Type::Pointer(PointerInfo {
             vtable: TypeVTable::new::<T>(),
             element: T::element,
-            mutability: T::mutability(),
+            mutability: T::MUTABILITY,
         })
     }
 
     /// Internal function used by generated code to initialize a Type for references
     #[doc(hidden)]
-    pub(crate) fn new_ref<T: ReflectedReference>() -> Type {
+    pub(crate) const fn new_ref<T: ReflectedReference>() -> Type {
         Type::Reference(ReferenceInfo {
             vtable: TypeVTable::new::<T>(),
             element: T::element,
-            mutability: T::mutability(),
+            mutability: T::MUTABILITY,
         })
     }
 
     /// Internal function used by generated code to initialize a Type for function pointers
     #[doc(hidden)]
-    pub(crate) fn new_fn<T: ReflectedFunction>() -> Type {
+    pub(crate) const fn new_fn<T: ReflectedFunction>() -> Type {
         Type::Function(FunctionInfo {
             vtable: TypeVTable::new::<T>(),
             args: T::args,
@@ -227,7 +227,7 @@ impl Type {
     }
 
     /// Internal function used by generated code to initialize a Type for structs
-    pub fn new_struct<T: ?Sized + ReflectedStruct>() -> Type {
+    pub const fn new_struct<T: ?Sized + ReflectedStruct>() -> Type {
         Type::Struct(StructInfo {
             vtable: TypeVTable::new::<T>(),
             fields: T::fields,
@@ -235,7 +235,7 @@ impl Type {
     }
 
     /// Internal function used by generated code to initialize a Type for tuple structs
-    pub fn new_tuple_struct<T: ReflectedTupleStruct>() -> Type {
+    pub const fn new_tuple_struct<T: ReflectedTupleStruct>() -> Type {
         Type::TupleStruct(TupleStructInfo {
             vtable: TypeVTable::new::<T>(),
             fields: T::fields,
@@ -243,7 +243,7 @@ impl Type {
     }
 
     /// Internal function used by generated code to initialize a Type for unit structs
-    pub fn new_unit_struct<T: ReflectedUnitStruct>() -> Type {
+    pub const fn new_unit_struct<T: ReflectedUnitStruct>() -> Type {
         Type::UnitStruct(UnitStructInfo {
             vtable: TypeVTable::new::<T>(),
         })
@@ -254,7 +254,7 @@ impl Type {
     /// # Safety
     ///
     /// Should only be called inside a [`Reflected`] type's `init` impl
-    pub fn new_enum<T: ReflectedEnum>() -> Type {
+    pub const fn new_enum<T: ReflectedEnum>() -> Type {
         Type::Enum(EnumInfo {
             vtable: TypeVTable::new::<T>(),
             variants: T::variants,
@@ -317,13 +317,13 @@ impl Type {
 
     /// Make a type available via [`Type::from_id`] or [`Type::from_name`]
     pub fn initialize<T: ?Sized + Reflected>() {
-        Type::add_ty_erased(T::ty(), TypeId::of::<T::Key>())
+        Type::add_ty_erased(T::TYPE, TypeId::of::<T::Key>())
     }
 
     /// Get a Type instance from any reflected type. This will not make it available via
     /// [`Type::from_id`] or [`Type::from_name`]
-    pub fn of<T: ?Sized + Reflected>() -> Type {
-        T::ty()
+    pub const fn of<T: ?Sized + Reflected>() -> Type {
+        T::TYPE
     }
 
     fn as_inner(&self) -> &dyn CommonTypeInfo {

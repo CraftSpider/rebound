@@ -5,6 +5,7 @@ use crate::utils::StaticTypeMap;
 use crate::{AssocConst, AssocFn, Error, Field, Type, Value, Variant};
 
 use rebound_proc::impl_find;
+use crate::value::NotOutlives;
 
 /// A trait representing any reflected [`Type`]. Supports operations common to all Types,
 /// such as retrieving its qualified name or impl information.
@@ -18,11 +19,11 @@ use rebound_proc::impl_find;
 /// - This trait is **exempt from semver** in terms of internal methods. Methods may be added,
 ///   removed, or have their signature changed at the whim of the implementation.
 pub unsafe trait Reflected {
-    /// The static key type used for the backing [`TypeId`](core::any::TypeId) of a Type
-    type Key: ?Sized + 'static;
+    /// The `Type` associated with this implementor
+    const TYPE: Type;
 
-    /// Get the `Type` associated with this implementor
-    fn ty() -> Type;
+    /// The static key type used for the backing [`TypeId`](core::any::TypeId) of a Type
+    type Key: ?Sized + Reflected<Key = Self::Key> + NotOutlives<'static> + 'static;
 
     /// Get the qualified name of this Type
     fn name() -> String;
@@ -50,19 +51,19 @@ pub unsafe trait Reflected {
     }
 
     #[doc(hidden)]
-    fn take_ref<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error> {
-        let new_val = unsafe { val.try_borrow_unsafe::<Self>().map(Value::from) }?;
-        // SAFETY: Value cannot be safely constructed with a lifetime that outlives the contained object.
-        //         As such, we know getting a ref to the internal object will always be valid.
-        //         The transmute just conveys this to the rust compiler, converting the lifetime.
-        Ok(unsafe { core::mem::transmute::<Value<'_>, Value<'_>>(new_val) })
+    fn take_ref<'a, 'b>(val: &'a Value<'b>) -> Result<Value<'a>, Error>
+    where
+        Self: 'a + NotOutlives<'b>,
+    {
+        val.try_borrow::<Self>().map(Value::from)
     }
 
     #[doc(hidden)]
-    fn take_mut<'a>(val: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
-        let new_val = unsafe { val.try_borrow_unsafe_mut::<Self>().map(Value::from) }?;
-        // SAFETY: See comment on take_ref
-        Ok(unsafe { core::mem::transmute::<Value<'_>, Value<'_>>(new_val) })
+    fn take_mut<'a, 'b>(val: &'a mut Value<'b>) -> Result<Value<'a>, Error>
+    where
+        Self: 'a + NotOutlives<'b>,
+    {
+        val.try_borrow_mut::<Self>().map(Value::from)
     }
 }
 
@@ -80,26 +81,29 @@ pub trait ReflectedSlice: Reflected {
 
 /// A trait representing a reflected array. Supports operations specific to arrays
 pub trait ReflectedArray: Reflected {
+    /// The length of this Array
+    const LENGTH: usize;
+
     /// Retrieve the element type of this Array
     fn element() -> Type;
-    /// Retrieve the length of this Array
-    fn length() -> usize;
 }
 
 /// A trait representing a reflected pointer. Supports operations specific to pointers
 pub trait ReflectedPointer: Reflected {
+    /// The mutability of this Pointer
+    const MUTABILITY: bool;
+
     /// Retrieve the element type of this Pointer
     fn element() -> Type;
-    /// Retrieve the mutability of this Pointer
-    fn mutability() -> bool;
 }
 
 /// A trait representing a reflected reference. Supports operations specific to references
 pub trait ReflectedReference: Reflected {
+    /// The mutability of this Reference
+    const MUTABILITY: bool;
+
     /// Retrieve the element type of this Reference
     fn element() -> Type;
-    /// Retrieve the mutability of this Reference
-    fn mutability() -> bool;
 }
 
 /// A trait representing a reflected function. Supports operations specific to functions
@@ -154,10 +158,7 @@ impl<T: ?Sized + Reflected, const N: u8> ReflectedImpl<N> for T {
     }
 }
 
-// #[linkme::distributed_slice]
-// static REFLECTED_IMPLS: [ReflectedImpl] = [..];
-//
-// // TODO: Figure out how to determine applicability
+// TODO: Figure out how to determine applicability
 // pub struct ReflectedImpl {
 //     fns: &'static [AssocFn],
 //     consts: &'static [AssocConst],

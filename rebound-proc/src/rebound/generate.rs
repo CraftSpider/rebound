@@ -588,11 +588,9 @@ pub fn generate_reflect_type(cfg: &Config, item: &Item) -> Result<TokenStream> {
 
     Ok(quote_spanned!(item.span() =>
         unsafe impl<#reflect_impl_bounds> #crate_name::reflect::Reflected for #name where #reflect_where_bounds {
-            type Key = #static_name;
+            const TYPE: #crate_name::ty::Type = #crate_name::Type::#new_fn::<#name>();
 
-            fn ty() -> #crate_name::ty::Type {
-                #crate_name::Type::#new_fn::<#name>()
-            }
+            type Key = #static_name;
 
             fn name() -> ::std::string::String {
                 #rebound_name

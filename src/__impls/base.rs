@@ -13,11 +13,9 @@ macro_rules! reflect_prims {
     ($($ty:ty),+ $(,)?) => {
         $(
         unsafe impl Reflected for $ty {
-            type Key = $ty;
+            const TYPE: Type = Type::new_prim::<$ty>();
 
-            fn ty() -> Type {
-                Type::new_prim::<$ty>()
-            }
+            type Key = $ty;
 
             fn name() -> String {
                 stringify!($ty).into()
@@ -314,11 +312,9 @@ impl ReflectedImpl<0> for str {
 // Tuple reflections
 
 unsafe impl Reflected for () {
-    type Key = ();
+    const TYPE: Type = Type::new_tuple::<()>();
 
-    fn ty() -> Type {
-        Type::new_tuple::<()>()
-    }
+    type Key = ();
 
     fn name() -> String {
         "()".into()
@@ -335,12 +331,10 @@ unsafe impl<'a> NotOutlives<'a> for () {}
 
 #[impl_for_tuples(1, 26)]
 unsafe impl Reflected for Tuple {
+    const TYPE: Type = Type::new_tuple::<Self>();
+
     for_tuples!( type Key = ( #( Tuple::Key ),* ); );
     for_tuples!( where #(Tuple::Key: Sized)* );
-
-    fn ty() -> Type {
-        Type::new_tuple::<Self>()
-    }
 
     fn name() -> String {
         let names = [for_tuples!( #(Tuple::name()),* )];
@@ -425,11 +419,9 @@ where
     T: Reflected,
     T::Key: Sized,
 {
-    type Key = [T::Key; N];
+    const TYPE: Type = Type::new_array::<[T; N]>();
 
-    fn ty() -> Type {
-        Type::new_array::<[T; N]>()
-    }
+    type Key = [T::Key; N];
 
     fn name() -> String {
         format!("[{}; {}]", T::name(), N)
@@ -441,12 +433,10 @@ where
     T: Reflected,
     T::Key: Sized,
 {
+    const LENGTH: usize = N;
+
     fn element() -> Type {
         Type::of::<T>()
-    }
-
-    fn length() -> usize {
-        N
     }
 }
 
@@ -457,11 +447,9 @@ where
     T: Reflected,
     T::Key: Sized,
 {
-    type Key = [T::Key];
+    const TYPE: Type = Type::new_slice::<[T]>();
 
-    fn ty() -> Type {
-        Type::new_slice::<[T]>()
-    }
+    type Key = [T::Key];
 
     fn name() -> String {
         format!("[{}]", T::name())
@@ -709,11 +697,9 @@ impl ReflectedImpl<8> for [u8] {
 
 // Pointers
 unsafe impl<T: ?Sized + Reflected> Reflected for *const T {
-    type Key = *const T::Key;
+    const TYPE: Type = Type::new_ptr::<*const T>();
 
-    fn ty() -> Type {
-        Type::new_ptr::<*const T>()
-    }
+    type Key = *const T::Key;
 
     fn name() -> String {
         format!("*const {}", T::name())
@@ -721,16 +707,14 @@ unsafe impl<T: ?Sized + Reflected> Reflected for *const T {
 }
 
 impl<T: ?Sized + Reflected> ReflectedPointer for *const T {
+    const MUTABILITY: bool = false;
+
     fn element() -> Type {
         Type::of::<T>()
     }
-
-    fn mutability() -> bool {
-        false
-    }
 }
 
-unsafe impl<'a, T> NotOutlives<'a> for *const T where T: NotOutlives<'a> {}
+unsafe impl<'a, T> NotOutlives<'a> for *const T where T: ?Sized + NotOutlives<'a> {}
 
 impl<T: ?Sized + Reflected> ReflectedImpl<0> for *const T {
     fn assoc_fns() -> Vec<AssocFn> {
@@ -784,11 +768,9 @@ impl<T: Reflected + 'static> ReflectedImpl<2> for *const T {
 }
 
 unsafe impl<T: ?Sized + Reflected> Reflected for *mut T {
-    type Key = *mut T::Key;
+    const TYPE: Type = Type::new_ptr::<*mut T>();
 
-    fn ty() -> Type {
-        Type::new_ptr::<*mut T>()
-    }
+    type Key = *mut T::Key;
 
     fn name() -> String {
         format!("*mut {}", T::name())
@@ -796,48 +778,47 @@ unsafe impl<T: ?Sized + Reflected> Reflected for *mut T {
 }
 
 impl<T: ?Sized + Reflected> ReflectedPointer for *mut T {
+    const MUTABILITY: bool = true;
+
     fn element() -> Type {
         Type::of::<T>()
     }
-
-    fn mutability() -> bool {
-        true
-    }
 }
 
-unsafe impl<'a, T> NotOutlives<'a> for *mut T where T: NotOutlives<'a> {}
+unsafe impl<'a, T> NotOutlives<'a> for *mut T where T: ?Sized + NotOutlives<'a> {}
 
 // References
 unsafe impl<T: ?Sized + Reflected> Reflected for &T {
-    type Key = &'static T::Key;
+    const TYPE: Type = Type::new_ref::<&T>();
 
-    fn ty() -> Type {
-        Type::new_ref::<&T>()
-    }
+    type Key = &'static T::Key;
 
     fn name() -> String {
         format!("&{}", T::name())
     }
 
-    fn take_ref<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error> {
+    fn take_ref<'a, 'b>(val: &'a Value<'b>) -> Result<Value<'a>, Error>
+    where
+        Self: 'a + NotOutlives<'b>,
+    {
         let new_ref = *unsafe { val.raw_ptr().cast::<&T>().as_ref() };
         let val = Value::from(new_ref);
-        // SAFETY: See comment on default impl
-        Ok(unsafe { core::mem::transmute::<Value<'_>, Value<'_>>(val) })
+        Ok(val)
     }
 
-    fn take_mut<'a>(_: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
+    fn take_mut<'a, 'b>(_: &'a mut Value<'b>) -> Result<Value<'a>, Error>
+    where
+        Self: 'a + NotOutlives<'b>,
+    {
         Err(Error::CantReborrow)
     }
 }
 
 impl<T: ?Sized + Reflected> ReflectedReference for &T {
+    const MUTABILITY: bool = false;
+
     fn element() -> Type {
         Type::of::<T>()
-    }
-
-    fn mutability() -> bool {
-        false
     }
 }
 
@@ -849,32 +830,34 @@ where
 }
 
 unsafe impl<T: ?Sized + Reflected> Reflected for &mut T {
-    type Key = &'static mut T::Key;
+    const TYPE: Type = Type::new_ref::<&mut T>();
 
-    fn ty() -> Type {
-        Type::new_ref::<&mut T>()
-    }
+    type Key = &'static mut T::Key;
 
     fn name() -> String {
         format!("&mut {}", T::name())
     }
 
-    fn take_ref<'a>(_: &'a Value<'_>) -> Result<Value<'a>, Error> {
+    fn take_ref<'a, 'b>(_: &'a Value<'b>) -> Result<Value<'a>, Error>
+    where
+        Self: 'a + NotOutlives<'b>,
+    {
         Err(Error::CantReborrow)
     }
 
-    fn take_mut<'a>(_: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
+    fn take_mut<'a, 'b>(_: &'a mut Value<'b>) -> Result<Value<'a>, Error>
+    where
+        Self: 'a + NotOutlives<'b>,
+    {
         Err(Error::CantReborrow)
     }
 }
 
 impl<T: ?Sized + Reflected> ReflectedReference for &mut T {
+    const MUTABILITY: bool = true;
+
     fn element() -> Type {
         Type::of::<T>()
-    }
-
-    fn mutability() -> bool {
-        true
     }
 }
 
@@ -886,19 +869,23 @@ where
 }
 
 // Function pointers
-unsafe impl<T: Reflected> Reflected for fn() -> T {
-    type Key = fn() -> T::Key;
+unsafe impl<T: Reflected> Reflected for fn() -> T
+where
+    T::Key: Sized,
+{
+    const TYPE: Type = Type::new_fn::<fn() -> T>();
 
-    fn ty() -> Type {
-        Type::new_fn::<fn() -> T>()
-    }
+    type Key = fn() -> T::Key;
 
     fn name() -> String {
         format!("fn() -> {}", T::name())
     }
 }
 
-impl<T: Reflected> ReflectedFunction for fn() -> T {
+impl<T: Reflected> ReflectedFunction for fn() -> T
+where
+    T::Key: Sized,
+{
     fn args() -> Vec<Type> {
         vec![]
     }
@@ -908,19 +895,30 @@ impl<T: Reflected> ReflectedFunction for fn() -> T {
     }
 }
 
-unsafe impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T {
-    type Key = fn(A0::Key) -> T::Key;
+unsafe impl<'no, T> NotOutlives<'no> for fn() -> T
+where
+    T: NotOutlives<'no>,
+{}
 
-    fn ty() -> Type {
-        Type::new_fn::<fn(A0) -> T>()
-    }
+unsafe impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T
+where
+    A0::Key: Sized,
+    T::Key: Sized,
+{
+    const TYPE: Type = Type::new_fn::<fn(A0) -> T>();
+
+    type Key = fn(A0::Key) -> T::Key;
 
     fn name() -> String {
         format!("fn({}) -> {}", A0::name(), T::name())
     }
 }
 
-impl<T: Reflected, A0: Reflected> ReflectedFunction for fn(A0) -> T {
+impl<T: Reflected, A0: Reflected> ReflectedFunction for fn(A0) -> T
+where
+    A0::Key: Sized,
+    T::Key: Sized,
+{
     fn args() -> Vec<Type> {
         vec![Type::of::<A0>()]
     }
@@ -930,19 +928,33 @@ impl<T: Reflected, A0: Reflected> ReflectedFunction for fn(A0) -> T {
     }
 }
 
-unsafe impl<T: Reflected, A0: Reflected, A1: Reflected> Reflected for fn(A0, A1) -> T {
-    type Key = fn(A0::Key, A1::Key) -> T::Key;
+unsafe impl<'no, A0, T> NotOutlives<'no> for fn(A0) -> T
+where
+    T: NotOutlives<'no>,
+    A0: NotOutlives<'no>,
+{}
 
-    fn ty() -> Type {
-        Type::new_fn::<fn(A0, A1) -> T>()
-    }
+unsafe impl<T: Reflected, A0: Reflected, A1: Reflected> Reflected for fn(A0, A1) -> T
+where
+    A0::Key: Sized,
+    A1::Key: Sized,
+    T::Key: Sized,
+{
+    const TYPE: Type = Type::new_fn::<fn(A0, A1) -> T>();
+
+    type Key = fn(A0::Key, A1::Key) -> T::Key;
 
     fn name() -> String {
         format!("fn({}, {}) -> {}", A0::name(), A1::name(), T::name())
     }
 }
 
-impl<T: Reflected, A0: Reflected, A1: Reflected> ReflectedFunction for fn(A0, A1) -> T {
+impl<T: Reflected, A0: Reflected, A1: Reflected> ReflectedFunction for fn(A0, A1) -> T
+where
+    A0::Key: Sized,
+    A1::Key: Sized,
+    T::Key: Sized,
+{
     fn args() -> Vec<Type> {
         vec![Type::of::<A0>(), Type::of::<A1>()]
     }
@@ -952,14 +964,24 @@ impl<T: Reflected, A0: Reflected, A1: Reflected> ReflectedFunction for fn(A0, A1
     }
 }
 
+unsafe impl<'no, A0, A1, T> NotOutlives<'no> for fn(A0, A1) -> T
+where
+    T: NotOutlives<'no>,
+    A0: NotOutlives<'no>,
+    A1: NotOutlives<'no>,
+{}
+
 unsafe impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected
     for fn(A0, A1, A2) -> T
+where
+    A0::Key: Sized,
+    A1::Key: Sized,
+    A2::Key: Sized,
+    T::Key: Sized,
 {
-    type Key = fn(A0::Key, A1::Key, A2::Key) -> T::Key;
+    const TYPE: Type = Type::new_fn::<fn(A0, A1, A2) -> T>();
 
-    fn ty() -> Type {
-        Type::new_fn::<fn(A0, A1, A2) -> T>()
-    }
+    type Key = fn(A0::Key, A1::Key, A2::Key) -> T::Key;
 
     fn name() -> String {
         format!(
@@ -974,6 +996,11 @@ unsafe impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected
 
 impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> ReflectedFunction
     for fn(A0, A1, A2) -> T
+where
+    A0::Key: Sized,
+    A1::Key: Sized,
+    A2::Key: Sized,
+    T::Key: Sized,
 {
     fn args() -> Vec<Type> {
         vec![Type::of::<A0>(), Type::of::<A1>(), Type::of::<A2>()]
@@ -984,16 +1011,25 @@ impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> ReflectedFunctio
     }
 }
 
+unsafe impl<'no, A0, A1, A2, T> NotOutlives<'no> for fn(A0, A1, A2) -> T
+where
+    T: NotOutlives<'no>,
+    A0: NotOutlives<'no>,
+    A1: NotOutlives<'no>,
+    A2: NotOutlives<'no>,
+{}
+
 // Never type
 #[cfg(feature = "never-type")]
 unsafe impl Reflected for ! {
-    type Key = !;
+    const TYPE: Type = Type::new_prim::<!>();
 
-    fn ty() -> Type {
-        Type::new_prim::<!>()
-    }
+    type Key = !;
 
     fn name() -> String {
         "!".into()
     }
 }
+
+#[cfg(feature = "never-type")]
+unsafe impl<'a> NotOutlives<'a> for ! {}
