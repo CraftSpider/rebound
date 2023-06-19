@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use std::sync::RwLock;
 
 use proc_macro2::{Ident, Literal, Span, TokenStream};
+use quasi_quote::quote_path;
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{Item, Member};
@@ -43,13 +44,7 @@ pub fn generate_assoc_fn(
     };
 
     if let Some(syn::FnArg::Receiver(arg)) = inputs.first() {
-        let receiver = if arg.reference.is_some() {
-            syn::TypeReference::new(self_ty.clone())
-                .with_mutability(arg.mutability.clone())
-                .into()
-        } else {
-            self_ty.clone()
-        };
+        let receiver = &arg.ty;
 
         Ok(quote_spanned!(sig.span() => {
             #[allow(unused_mut)]
@@ -175,7 +170,7 @@ pub fn generate_struct_field(
 
     let setter = if !no_set {
         quote_spanned!(field.span() =>
-            ::core::option::Option::Some(|this, value| {
+            ::core::option::Option::Some(|mut this, value| {
                 // SAFETY: TODO
                 let inner = unsafe { this.borrow_unsafe_mut::<#name>() };
                 // SAFETY: TODO
@@ -186,16 +181,15 @@ pub fn generate_struct_field(
         quote!(None)
     };
 
-    Ok(quote_spanned!(field.span() => {
-        let accessor: ::core::option::Option<for<'__a, '__b> fn(&'__a #crate_name::Value<'__b>) -> #crate_name::Value<'__a>> = #accessor;
-        let setter: ::core::option::Option<for<'__r, '__s> fn(&'__r mut #crate_name::Value<'__s>, #crate_name::Value<'_>)> = #setter;
-        let name = #name_arg;
-        let assoc_ty = #crate_name::Type::of::<#name>();
-        let field_ty = #crate_name::Type::of::<#field_ty>();
-
-        // SAFETY: Generated implementation is assured correct
-        unsafe { #crate_name::Field::#fn_name(accessor, setter, name, assoc_ty, field_ty) }
-    }))
+    Ok(quote_spanned!(field.span() =>
+        #crate_name::Field::#fn_name(
+            #accessor,
+            #setter,
+            #name_arg,
+            <#name as #crate_name::reflect::Reflected>::TYPE,
+            <#field_ty as #crate_name::reflect::Reflected>::TYPE,
+        )
+    ))
 }
 
 pub fn generate_enum_field(
@@ -256,7 +250,7 @@ pub fn generate_enum_field(
 
     let setter = if !no_set {
         quote_spanned!(field.span() =>
-            ::core::option::Option::Some(|this, value| {
+            ::core::option::Option::Some(|mut this, value| {
                 // SAFETY: TODO
                 let inner = unsafe { this.borrow_unsafe_mut::<#name>() };
                 if let #simple_name::#var_name #field_access = inner {
@@ -278,7 +272,7 @@ pub fn generate_enum_field(
 
     Ok(quote_spanned!(field.span() => {
         let accessor: ::core::option::Option<for<'__a, '__b> fn(&'__a #crate_name::Value<'__b>) -> #crate_name::Value<'__a>> = #accessor;
-        let setter: ::core::option::Option<for<'__r, '__s> fn(&'__r mut #crate_name::Value<'__s>, #crate_name::Value<'_>)> = #setter;
+        let setter: ::core::option::Option<#crate_name::info::SetHelper> = #setter;
         let name = #name_arg;
         let assoc_ty = #crate_name::Type::of::<#name>();
         let variant = if let #crate_name::Type::Enum(info) = #crate_name::Type::of::<#name>() {
@@ -335,7 +329,7 @@ pub fn generate_union_field(
 
     let setter = if !no_set {
         quote_spanned!(field.span() =>
-            ::core::option::Option::Some(|this, value| {
+            ::core::option::Option::Some(|mut this, value| {
                 // SAFETY: TODO
                 let inner = unsafe { this.borrow_unsafe_mut::<#name>() };
                 // SAFETY: TODO
@@ -346,16 +340,15 @@ pub fn generate_union_field(
         quote!(None)
     };
 
-    Ok(quote_spanned!(field.span() => {
-        let accessor: ::core::option::Option<for<'__a, '__b> fn(&'__a #crate_name::Value<'__b>) -> #crate_name::Value<'__a>> = #accessor;
-        let setter: ::core::option::Option<for<'__r, '__s> fn(&'__r mut #crate_name::Value<'__s>, #crate_name::Value<'_>)> = #setter;
-        let name = stringify!(#field_name);
-        let assoc_ty = #crate_name::Type::of::<#name>();
-        let field_ty = #crate_name::Type::of::<#field_ty>();
-
-        // SAFETY: Generated implementation is assured correct
-        unsafe { #crate_name::UnionField::new(accessor, setter, name, assoc_ty, field_ty) }
-    }))
+    Ok(quote_spanned!(field.span() =>
+        #crate_name::UnionField::new(
+            #accessor,
+            #setter,
+            stringify!(#field_name),
+            <#name as #crate_name::reflect::Reflected>::TYPE,
+            <#field_ty as #crate_name::reflect::Reflected>::TYPE,
+        )
+    ))
 }
 
 pub fn generate_variant(
@@ -421,6 +414,7 @@ pub fn generate_variant(
 
 pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenStream> {
     let crate_name = &cfg.crate_name;
+    let reflected_enum = quote_path!(#crate_name::reflect::ReflectedEnum);
     let Bounds {
         impl_bounds,
         where_bounds,
@@ -433,13 +427,25 @@ pub fn generate_reflect_enum(cfg: &Config, item: syn::ItemEnum) -> Result<TokenS
         variant_impls.push(generate_variant(cfg, &item, i)?)
     }
 
-    Ok(quote_spanned!(item.span() =>
+    let variant_vec = quote_path!(::std::vec::Vec<#crate_name::Variant>);
+
+    // let variants = syn::ImplItemMethod::new(todo!());
+    //
+    // syn::ItemImpl::new(syn::TypePath::new(name))
+    //     .with_trait(reflected_enum)
+    //     .with_generics(impl_bounds)
+    //     .with_where_bounds(where_bounds)
+    //     .with_item(variants);
+
+    let out = quote!(
         impl<#impl_bounds> #crate_name::reflect::ReflectedEnum for #name where #where_bounds {
             fn variants() -> ::std::vec::Vec<#crate_name::Variant> {
                 ::std::vec![ #(#variant_impls),* ]
             }
         }
-    ))
+    );
+
+    Ok(out)
 }
 
 static IMPLS_PER_TY: RwLock<BTreeMap<String, u8>> = RwLock::new(BTreeMap::new());
@@ -464,7 +470,7 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
     let mut impl_consts = Vec::new();
     for i in item.items {
         match i {
-            syn::ImplItem::Method(impl_item) => {
+            syn::ImplItem::Fn(impl_item) => {
                 impl_fns.push(generate_assoc_fn(cfg, self_ty, &impl_item.sig)?);
             }
             syn::ImplItem::Const(impl_item) => {
@@ -530,10 +536,7 @@ pub fn generate_reflect_struct(cfg: &Config, item: syn::ItemStruct) -> Result<To
                 .collect::<Result<Vec<_>>>()?;
 
             Some(quote_spanned!(item.span() =>
-                #[allow(unused_unsafe)]
-                fn fields() -> ::std::vec::Vec<#crate_name::Field> {
-                    ::std::vec![ #( #fields, )* ]
-                }
+                const FIELDS: &'static [#crate_name::Field] = &[ #( #fields, )* ];
             ))
         }
     };
@@ -563,9 +566,7 @@ pub fn generate_reflect_union(cfg: &Config, item: syn::ItemUnion) -> Result<Toke
 
     Ok(quote_spanned!(item.span() =>
         impl<#impl_bounds> #crate_name::reflect::ReflectedUnion for #name where #where_bounds {
-            fn fields() -> ::std::vec::Vec<#crate_name::UnionField> {
-                ::std::vec![ #(#fields,)* ]
-            }
+            const FIELDS: &'static [#crate_name::UnionField] = &[ #(#fields,)* ];
         }
     ))
 }

@@ -2,57 +2,18 @@ use proc_macro2::{Ident, Span, TokenStream};
 use std::iter::FromIterator;
 use syn::punctuated::Punctuated;
 use syn::{
-    AngleBracketedGenericArguments, Expr, ExprCall, ExprMacro, ExprPath, GenericArgument, Lifetime,
-    LifetimeDef, Macro, MacroDelimiter, ParenthesizedGenericArguments, Path, PathArguments,
-    PathSegment, PredicateLifetime, PredicateType, QSelf, ReturnType, Token, TraitBound,
+    AngleBracketedGenericArguments, Block, Expr, ExprCall, ExprMacro, ExprPath, GenericArgument,
+    GenericParam, Generics, ImplItem, ImplItemFn, ItemImpl, Lifetime, LifetimeParam, Macro,
+    MacroDelimiter, ParenthesizedGenericArguments, Path, PathArguments, PathSegment,
+    PredicateLifetime, PredicateType, QSelf, ReturnType, Signature, Token, TraitBound,
     TraitBoundModifier, Type, TypeArray, TypeParam, TypeParamBound, TypePath, TypeReference,
-    TypeTuple,
+    TypeTuple, Visibility, WhereClause, WherePredicate,
 };
-
-#[derive(Debug)]
-pub enum LitType {
-    String,
-    ByteString,
-    Byte,
-    Char,
-    Int,
-    Float,
-    Bool,
-    Verbatim,
-}
 
 pub enum StructType {
     Named,
     Tuple,
     Unit,
-}
-
-pub trait LitExtension {
-    fn ty(&self) -> LitType;
-    fn as_str(&self) -> Option<String>;
-}
-
-impl LitExtension for syn::Lit {
-    fn ty(&self) -> LitType {
-        match self {
-            syn::Lit::Str(_) => LitType::String,
-            syn::Lit::ByteStr(_) => LitType::ByteString,
-            syn::Lit::Byte(_) => LitType::Byte,
-            syn::Lit::Char(_) => LitType::Char,
-            syn::Lit::Int(_) => LitType::Int,
-            syn::Lit::Float(_) => LitType::Float,
-            syn::Lit::Bool(_) => LitType::Bool,
-            syn::Lit::Verbatim(_) => LitType::Verbatim,
-        }
-    }
-
-    fn as_str(&self) -> Option<String> {
-        if let syn::Lit::Str(s) = self {
-            Some(s.value())
-        } else {
-            None
-        }
-    }
 }
 
 pub trait PathExtension {
@@ -386,13 +347,13 @@ impl MacroExt for Macro {
     }
 }
 
-pub trait LifetimeDefExt {
+pub trait LifetimeParamExt {
     fn new(lt: Lifetime) -> Self;
 }
 
-impl LifetimeDefExt for LifetimeDef {
+impl LifetimeParamExt for LifetimeParam {
     fn new(lt: Lifetime) -> Self {
-        LifetimeDef {
+        LifetimeParam {
             attrs: Vec::new(),
             lifetime: lt,
             colon_token: None,
@@ -474,5 +435,170 @@ impl TypeParamExt for TypeParam {
         }
         self.bounds.extend(iter);
         self
+    }
+}
+
+pub trait WhereClauseExt {
+    fn new() -> Self;
+}
+
+impl WhereClauseExt for WhereClause {
+    fn new() -> Self {
+        WhereClause {
+            where_token: <Token![where]>::default(),
+            predicates: Punctuated::new(),
+        }
+    }
+}
+
+pub trait ItemImplExt {
+    fn new<T: Into<Type>>(ty: T) -> Self;
+
+    fn with_unsafety(self, unsafety: Option<Token![unsafe]>) -> Self;
+    fn with_trait(self, path: Path) -> Self;
+
+    fn with_generic(self, generic: GenericParam) -> Self;
+    fn with_generics<I: IntoIterator<Item = GenericParam>>(self, generics: I) -> Self;
+
+    fn with_where_bound(self, bound: WherePredicate) -> Self;
+    fn with_where_bounds<I: IntoIterator<Item = WherePredicate>>(self, bounds: I) -> Self;
+
+    fn with_item<T: Into<ImplItem>>(self, item: T) -> Self;
+    fn with_items<T: Into<ImplItem>, I: IntoIterator<Item = T>>(self, items: I) -> Self;
+}
+
+impl ItemImplExt for ItemImpl {
+    fn new<T: Into<Type>>(ty: T) -> Self {
+        ItemImpl {
+            attrs: Vec::new(),
+            defaultness: None,
+            unsafety: None,
+            impl_token: <Token![impl]>::default(),
+            generics: Generics::new(),
+            trait_: None,
+            self_ty: Box::new(ty.into()),
+            brace_token: syn::token::Brace::default(),
+            items: Vec::new(),
+        }
+    }
+
+    fn with_unsafety(mut self, unsafety: Option<Token!(unsafe)>) -> Self {
+        self.unsafety = unsafety;
+        self
+    }
+
+    fn with_trait(mut self, path: Path) -> Self {
+        self.trait_ = Some((None, path, <Token![for]>::default()));
+        self
+    }
+
+    fn with_generic(mut self, generic: GenericParam) -> Self {
+        self.generics = self.generics.with_param(generic);
+        self
+    }
+
+    fn with_generics<I: IntoIterator<Item = GenericParam>>(mut self, generics: I) -> Self {
+        self.generics = self.generics.with_params(generics);
+        self
+    }
+
+    fn with_where_bound(mut self, bound: WherePredicate) -> Self {
+        self.generics = self.generics.with_where_bound(bound);
+        self
+    }
+
+    fn with_where_bounds<I: IntoIterator<Item = WherePredicate>>(mut self, bounds: I) -> Self {
+        self.generics = self.generics.with_where_bounds(bounds);
+        self
+    }
+
+    fn with_item<T: Into<ImplItem>>(mut self, item: T) -> Self {
+        self.items.push(item.into());
+        self
+    }
+
+    fn with_items<T: Into<ImplItem>, I: IntoIterator<Item = T>>(mut self, items: I) -> Self {
+        self.items.extend(items.into_iter().map(Into::into));
+        self
+    }
+}
+
+pub trait GenericsExt {
+    fn new() -> Self;
+
+    fn with_param(self, generic: GenericParam) -> Self;
+    fn with_params<I: IntoIterator<Item = GenericParam>>(self, generics: I) -> Self;
+
+    fn with_where_bound(self, bound: WherePredicate) -> Self;
+    fn with_where_bounds<I: IntoIterator<Item = WherePredicate>>(self, bounds: I) -> Self;
+}
+
+impl GenericsExt for Generics {
+    fn new() -> Self {
+        Generics {
+            lt_token: None,
+            params: Punctuated::new(),
+            gt_token: None,
+            where_clause: None,
+        }
+    }
+
+    fn with_param(mut self, generic: GenericParam) -> Self {
+        self.lt_token.get_or_insert_with(<Token![<]>::default);
+        self.gt_token.get_or_insert_with(<Token![>]>::default);
+        self.params.push(generic);
+        self
+    }
+
+    fn with_params<I: IntoIterator<Item = GenericParam>>(mut self, generics: I) -> Self {
+        self.lt_token.get_or_insert_with(<Token![<]>::default);
+        self.gt_token.get_or_insert_with(<Token![>]>::default);
+        self.params.extend(generics);
+        self
+    }
+
+    fn with_where_bound(mut self, bound: WherePredicate) -> Self {
+        self.where_clause
+            .get_or_insert_with(WhereClause::new)
+            .predicates
+            .push(bound);
+        self
+    }
+
+    fn with_where_bounds<I: IntoIterator<Item = WherePredicate>>(mut self, bounds: I) -> Self {
+        self.where_clause
+            .get_or_insert_with(WhereClause::new)
+            .predicates
+            .extend(bounds);
+        self
+    }
+}
+
+pub trait ImplItemFnExt {
+    fn new(sig: Signature) -> Self;
+}
+
+impl ImplItemFnExt for ImplItemFn {
+    fn new(sig: Signature) -> Self {
+        ImplItemFn {
+            attrs: Vec::new(),
+            vis: Visibility::Inherited,
+            defaultness: None,
+            sig,
+            block: Block::new(),
+        }
+    }
+}
+
+pub trait BlockExt {
+    fn new() -> Self;
+}
+
+impl BlockExt for Block {
+    fn new() -> Self {
+        Block {
+            brace_token: syn::token::Brace::default(),
+            stmts: Vec::new(),
+        }
     }
 }

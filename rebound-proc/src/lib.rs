@@ -55,3 +55,8 @@ pub fn extern_assoc_consts(input: TokenStream) -> TokenStream {
 pub fn rebound(attrs: TokenStream, item: TokenStream) -> TokenStream {
     rebound::rebound(attrs.into(), item.into()).into()
 }
+
+#[proc_macro]
+pub fn impl_tuple(input: TokenStream) -> TokenStream {
+    rebound::impl_tuple(input.into()).into()
+}

@@ -23,18 +23,7 @@ impl<T> ReflectedStruct for ManuallyDrop<T>
 where
     T: ?Sized + Reflected,
 {
-    fn fields() -> Vec<Field> {
-        // SAFETY: In `fields` implementation and we're the trusted implementation
-        unsafe {
-            vec![Field::new_named(
-                None,
-                None,
-                "value",
-                Type::of::<ManuallyDrop<T>>(),
-                Type::of::<T>(),
-            )]
-        }
-    }
+    const FIELDS: &'static [Field] = &[Field::new_named(None, None, "value", Self::TYPE, T::TYPE)];
 }
 
 unsafe impl<'a, 'b, T> NotOutlives<'b> for ManuallyDrop<T>

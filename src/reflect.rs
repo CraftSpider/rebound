@@ -4,14 +4,35 @@ use crate::info::UnionField;
 use crate::utils::StaticTypeMap;
 use crate::{AssocConst, AssocFn, Error, Field, Type, Value, Variant};
 
-use rebound_proc::impl_find;
 use crate::value::NotOutlives;
+use rebound_proc::impl_find;
 
 pub(crate) mod sealed {
     use super::*;
+    use std::ops::{Deref, DerefMut};
 
     /// Internal hack to avoid mut refs in `Reflected`
     pub struct RefHack<'a, 'b>(pub(crate) &'a mut Value<'b>);
+
+    impl<'a, 'b> From<&'a mut Value<'b>> for RefHack<'a, 'b> {
+        fn from(value: &'a mut Value<'b>) -> Self {
+            Self(value)
+        }
+    }
+
+    impl<'b> Deref for RefHack<'_, 'b> {
+        type Target = Value<'b>;
+
+        fn deref(&self) -> &Self::Target {
+            self.0
+        }
+    }
+
+    impl<'b> DerefMut for RefHack<'_, 'b> {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            self.0
+        }
+    }
 }
 
 pub(crate) use sealed::RefHack;
@@ -78,8 +99,8 @@ pub unsafe trait Reflected {
 
 /// A trait representing a reflected tuple. Supports operations specific to tuples
 pub trait ReflectedTuple: Reflected {
-    /// Retrieve the fields of this Tuple
-    fn fields() -> &'static [Field];
+    /// The fields of this Tuple
+    const FIELDS: &'static [Field];
 }
 
 /// A trait representing a reflected slice. Supports operations specific to slices
@@ -118,21 +139,21 @@ pub trait ReflectedReference: Reflected {
 /// A trait representing a reflected function. Supports operations specific to functions
 pub trait ReflectedFunction: Reflected {
     /// Retrieve the argument types of this function
-    fn args() -> Vec<Type>;
+    fn args() -> &'static [Type];
     /// Retrieve the return type of this function
     fn ret() -> Type;
 }
 
 /// A trait representing a reflected struct. Supports operations specific to structs
 pub trait ReflectedStruct: Reflected {
-    /// Retrieve the fields of this Struct
-    fn fields() -> Vec<Field>;
+    /// The fields of this Struct
+    const FIELDS: &'static [Field];
 }
 
 /// A trait representing a reflected tuple struct. Supports operations specific to tuple structs
 pub trait ReflectedTupleStruct: Reflected {
-    /// Retrieve the fields of this Tuple Struct
-    fn fields() -> Vec<Field>;
+    /// The fields of this Tuple Struct
+    const FIELDS: &'static [Field];
 }
 
 /// A trait representing a reflected unit struct.
@@ -146,8 +167,8 @@ pub trait ReflectedEnum: Reflected {
 
 /// A trait representing a reflected union. Supports operations specific to unions
 pub trait ReflectedUnion: Reflected {
-    /// Retrieve the union fields of this Union
-    fn fields() -> Vec<UnionField>;
+    /// The fields of this Union
+    const FIELDS: &'static [UnionField];
 }
 
 /// A trait representing a reflected impl for a type.

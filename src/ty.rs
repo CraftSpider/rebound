@@ -173,7 +173,7 @@ impl Type {
     pub(crate) const fn new_tuple<T: ?Sized + ReflectedTuple>() -> Type {
         Type::Tuple(TupleInfo {
             vtable: TypeVTable::new::<T>(),
-            fields: T::fields,
+            fields: || T::FIELDS,
         })
     }
 
@@ -230,7 +230,7 @@ impl Type {
     pub const fn new_struct<T: ?Sized + ReflectedStruct>() -> Type {
         Type::Struct(StructInfo {
             vtable: TypeVTable::new::<T>(),
-            fields: T::fields,
+            fields: || T::FIELDS,
         })
     }
 
@@ -238,7 +238,7 @@ impl Type {
     pub const fn new_tuple_struct<T: ReflectedTupleStruct>() -> Type {
         Type::TupleStruct(TupleStructInfo {
             vtable: TypeVTable::new::<T>(),
-            fields: T::fields,
+            fields: || T::FIELDS,
         })
     }
 
@@ -269,7 +269,7 @@ impl Type {
     pub const fn new_union<T: ReflectedUnion>() -> Type {
         Type::Union(UnionInfo {
             vtable: TypeVTable::new::<T>(),
-            fields: T::fields,
+            fields: || T::FIELDS,
         })
     }
 
@@ -507,13 +507,13 @@ impl_common!(ReferenceInfo);
 #[derive(Debug, Copy, Clone)]
 pub struct FunctionInfo {
     vtable: TypeVTable,
-    args: fn() -> Vec<Type>,
+    args: fn() -> &'static [Type],
     ret: fn() -> Type,
 }
 
 impl FunctionInfo {
     /// Get the argument [`Types`](Type) of this Function
-    pub fn arg_tys(&self) -> Vec<Type> {
+    pub fn arg_tys(&self) -> &'static [Type] {
         (self.args)()
     }
 
@@ -529,12 +529,12 @@ impl_common!(FunctionInfo);
 #[derive(Debug, Copy, Clone)]
 pub struct StructInfo {
     vtable: TypeVTable,
-    fields: fn() -> Vec<Field>,
+    fields: fn() -> &'static [Field],
 }
 
 impl StructInfo {
     /// Get all the [`Fields`](Field) of this Struct
-    pub fn fields(&self) -> Vec<Field> {
+    pub fn fields(&self) -> &'static [Field] {
         (self.fields)()
     }
 }
@@ -545,12 +545,12 @@ impl_common!(StructInfo);
 #[derive(Debug, Copy, Clone)]
 pub struct TupleStructInfo {
     vtable: TypeVTable,
-    fields: fn() -> Vec<Field>,
+    fields: fn() -> &'static [Field],
 }
 
 impl TupleStructInfo {
     /// Get all the [`Fields`](Field) of this Tuple Struct
-    pub fn fields(&self) -> Vec<Field> {
+    pub fn fields(&self) -> &'static [Field] {
         (self.fields)()
     }
 }
@@ -604,12 +604,12 @@ impl_common!(EnumInfo);
 #[derive(Debug, Copy, Clone)]
 pub struct UnionInfo {
     vtable: TypeVTable,
-    fields: fn() -> Vec<UnionField>,
+    fields: fn() -> &'static [UnionField],
 }
 
 impl UnionInfo {
-    /// Get all the [`Fields`](Field) of this Union
-    pub fn fields(&self) -> Vec<UnionField> {
+    /// Get all the [`UnionFields`](UnionField) of this Union
+    pub fn fields(&self) -> &'static [UnionField] {
         (self.fields)()
     }
 }

@@ -45,11 +45,8 @@ pub struct Field {
 
 impl Field {
     /// Internal Function, creates a new named field
-    ///
-    /// # Safety
-    ///
-    /// Should only be called within a Reflected item's `fields` implementation
-    pub unsafe fn new_named(
+    #[doc(hidden)]
+    pub const fn new_named(
         get_ptr: Option<AccessHelper>,
         set_ptr: Option<SetHelper>,
         name: &'static str,
@@ -66,11 +63,8 @@ impl Field {
     }
 
     /// Internal Function, creates a new unnamed field
-    ///
-    /// # Safety
-    ///
-    /// Should only be called within a Reflected item's `fields` implementation
-    pub unsafe fn new_tuple(
+    #[doc(hidden)]
+    pub const fn new_tuple(
         get_ptr: Option<AccessHelper>,
         set_ptr: Option<SetHelper>,
         idx: usize,
@@ -87,11 +81,8 @@ impl Field {
     }
 
     /// Internal Function, creates a new named field for a variant
-    ///
-    /// # Safety
-    ///
-    /// Should only be called within a Reflected item's `fields` implementation
-    pub unsafe fn new_enum_named(
+    #[doc(hidden)]
+    pub const unsafe fn new_enum_named(
         get_ptr: Option<AccessHelper>,
         set_ptr: Option<SetHelper>,
         name: &'static str,
@@ -113,7 +104,7 @@ impl Field {
     /// # Safety
     ///
     /// Should only be called within a Reflected item's `fields` implementation
-    pub unsafe fn new_enum_tuple(
+    pub const unsafe fn new_enum_tuple(
         get_ptr: Option<AccessHelper>,
         set_ptr: Option<SetHelper>,
         idx: usize,
@@ -185,11 +176,11 @@ impl Field {
                             let var = this.ty().unwrap_enum().variant_of(this)?;
                             Err(Error::wrong_variant(&var, assoc_var))
                         } else {
-                            (set_ptr)(this, other);
+                            (set_ptr)(this.into(), other);
                             Ok(())
                         }
                     } else {
-                        (set_ptr)(this, other);
+                        (set_ptr)(this.into(), other);
                         Ok(())
                     }
                 } else {

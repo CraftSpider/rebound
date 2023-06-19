@@ -1,9 +1,10 @@
-use crate::reflect::{RefHack, Reflected, ReflectedArray, ReflectedFunction, ReflectedImpl, ReflectedPointer, ReflectedReference, ReflectedSlice, ReflectedTuple};
-use crate::utils::StaticTypeMap;
+use crate::reflect::{
+    RefHack, Reflected, ReflectedArray, ReflectedFunction, ReflectedImpl, ReflectedPointer,
+    ReflectedReference, ReflectedSlice, ReflectedTuple,
+};
 use crate::value::NotOutlives;
 use crate::{AssocConst, AssocFn, Error, Field, Type, Value};
 
-use impl_trait_for_tuples::impl_for_tuples;
 use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
 
 macro_rules! reflect_prims {
@@ -319,75 +320,12 @@ unsafe impl Reflected for () {
 }
 
 impl ReflectedTuple for () {
-    fn fields() -> &'static [Field] {
-        &[]
-    }
+    const FIELDS: &'static [Field] = &[];
 }
 
 unsafe impl<'a> NotOutlives<'a> for () {}
 
-#[impl_for_tuples(1, 26)]
-unsafe impl Reflected for Tuple {
-    const TYPE: Type = Type::new_tuple::<Self>();
-
-    for_tuples!( type Key = ( #( Tuple::Key ),* ); );
-    for_tuples!( where #(Tuple::Key: Sized)* );
-
-    fn name() -> String {
-        let names = [for_tuples!( #(Tuple::name()),* )];
-        format!("({})", names.join(", "))
-    }
-}
-
-#[impl_for_tuples(1, 26)]
-#[tuple_types_custom_trait_bound(Reflected)]
-impl ReflectedTuple for Tuple {
-    for_tuples!( where #( Tuple::Key: Sized )* );
-
-    fn fields() -> &'static [Field] {
-        static TUPLE_FIELDS: StaticTypeMap<Vec<Field>> = StaticTypeMap::new();
-
-        TUPLE_FIELDS.call_once::<Self, fn() -> _>(|| {
-            use crate::info::{AccessHelper, SetHelper};
-            use crate::value::Value;
-
-            let mut idx_count = 0;
-
-            // HACK: idx_count used because the macro provides no easy way to get the current
-            //       index.
-            #[allow(clippy::mixed_read_write_in_expression)]
-            Vec::from([for_tuples!( #( {
-                let get_ptr: Option<AccessHelper> = Some(|this| {
-                    // SAFETY: We know we won't borrow the item past the lifetime of the
-                    //         containing value
-                    let inner = unsafe { this.borrow_unsafe::<Self>() };
-                    let v = Value::from_ref(&inner.Tuple);
-                    // SAFETY: See rebound::ty::Ref
-                    unsafe { core::mem::transmute::<Value<'_>, Value<'_>>(v) }
-                });
-
-                let set_ptr: Option<SetHelper> = Some(|this, value| {
-                    // SAFETY: We know we won't borrow the item past the lifetimes off the
-                    //         containing value
-                    let inner = unsafe { this.borrow_unsafe_mut::<Self>() };
-                    // SAFETY: The passed value is expected to be static, so we can only
-                    //         cast the lifetime lower here
-                    inner.Tuple = unsafe { value.cast_unsafe::<Tuple>() };
-                });
-
-                let idx = idx_count;
-                idx_count += 1;
-
-                let assoc_ty = Type::of::<Self>();
-                let field_ty = Type::of::<Tuple>();
-
-                // SAFETY: We're the privileged implementation
-                unsafe { Field::new_tuple(get_ptr, set_ptr, idx, assoc_ty, field_ty) }
-
-            } ),* )])
-        })
-    }
-}
+rebound_proc::impl_tuple!();
 
 macro_rules! tuple_no {
     ($first:ident $first_lt:lifetime $($remaining:ident $remaining_lt:lifetime)*) => {
@@ -883,8 +821,8 @@ impl<T: Reflected> ReflectedFunction for fn() -> T
 where
     T::Key: Sized,
 {
-    fn args() -> Vec<Type> {
-        vec![]
+    fn args() -> &'static [Type] {
+        &[]
     }
 
     fn ret() -> Type {
@@ -892,10 +830,7 @@ where
     }
 }
 
-unsafe impl<'no, T> NotOutlives<'no> for fn() -> T
-where
-    T: NotOutlives<'no>,
-{}
+unsafe impl<'no, T> NotOutlives<'no> for fn() -> T where T: NotOutlives<'no> {}
 
 unsafe impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T
 where
@@ -916,8 +851,8 @@ where
     A0::Key: Sized,
     T::Key: Sized,
 {
-    fn args() -> Vec<Type> {
-        vec![Type::of::<A0>()]
+    fn args() -> &'static [Type] {
+        &[A0::TYPE]
     }
 
     fn ret() -> Type {
@@ -929,7 +864,8 @@ unsafe impl<'no, A0, T> NotOutlives<'no> for fn(A0) -> T
 where
     T: NotOutlives<'no>,
     A0: NotOutlives<'no>,
-{}
+{
+}
 
 unsafe impl<T: Reflected, A0: Reflected, A1: Reflected> Reflected for fn(A0, A1) -> T
 where
@@ -952,8 +888,8 @@ where
     A1::Key: Sized,
     T::Key: Sized,
 {
-    fn args() -> Vec<Type> {
-        vec![Type::of::<A0>(), Type::of::<A1>()]
+    fn args() -> &'static [Type] {
+        &[A0::TYPE, A1::TYPE]
     }
 
     fn ret() -> Type {
@@ -966,7 +902,8 @@ where
     T: NotOutlives<'no>,
     A0: NotOutlives<'no>,
     A1: NotOutlives<'no>,
-{}
+{
+}
 
 unsafe impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected
     for fn(A0, A1, A2) -> T
@@ -999,8 +936,8 @@ where
     A2::Key: Sized,
     T::Key: Sized,
 {
-    fn args() -> Vec<Type> {
-        vec![Type::of::<A0>(), Type::of::<A1>(), Type::of::<A2>()]
+    fn args() -> &'static [Type] {
+        &[A0::TYPE, A1::TYPE, A2::TYPE]
     }
 
     fn ret() -> Type {
@@ -1014,7 +951,8 @@ where
     A0: NotOutlives<'no>,
     A1: NotOutlives<'no>,
     A2: NotOutlives<'no>,
-{}
+{
+}
 
 // Never type
 #[cfg(feature = "never-type")]

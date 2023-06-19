@@ -14,11 +14,8 @@ pub struct UnionField {
 
 impl UnionField {
     /// Internal Function, used to create a new union field
-    ///
-    /// # Safety
-    ///
-    /// Should only be called within a `ReflectedUnion`'s `fields` implementation
-    pub unsafe fn new(
+    #[doc(hidden)]
+    pub const fn new(
         get_ptr: Option<AccessHelper>,
         set_ptr: Option<SetHelper>,
         name: &'static str,
@@ -81,7 +78,7 @@ impl UnionField {
             .as_ref()
             .map_or(Err(Error::UnsupportedOperation), |set_ptr| {
                 if this.ty() == self.assoc_ty() && other.ty() == self.ty() {
-                    (set_ptr)(this, other);
+                    (set_ptr)(this.into(), other);
                     Ok(())
                 } else {
                     Err(Error::wrong_type(this.ty(), self.assoc_ty))
