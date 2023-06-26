@@ -1,4 +1,3 @@
-┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 error[E0716]: temporary value dropped while borrowed
   --> ui/fail/fn_result_lifetime.rs:9:27
    |
@@ -41,4 +40,3 @@ error[E0597]: `b` does not live long enough
 21 |
 22 |     println!("{:p}", result)
    |                      ------ borrow later used here
-┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈

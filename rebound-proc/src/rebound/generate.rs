@@ -169,7 +169,7 @@ pub fn generate_struct_field(
 
     let setter = if !no_set {
         quote_spanned!(field.span() =>
-            ::core::option::Option::Some(|mut this, value| {
+            ::core::option::Option::Some(|this, value| {
                 // SAFETY: TODO
                 let inner = unsafe { this.borrow_unsafe_mut::<#name>() };
                 // SAFETY: TODO

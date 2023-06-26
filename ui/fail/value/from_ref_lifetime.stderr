@@ -1,6 +1,8 @@
 error[E0597]: `lives_shorter` does not live long enough
-  --> $DIR/from_ref_lifetime.rs:8:31
+  --> ui/fail/value/from_ref_lifetime.rs:8:31
    |
+7  |         let lives_shorter = 2;
+   |             ------------- binding `lives_shorter` declared here
 8  |         val = Value::from_ref(&lives_shorter);
    |                               ^^^^^^^^^^^^^^ borrowed value does not live long enough
 9  |     }

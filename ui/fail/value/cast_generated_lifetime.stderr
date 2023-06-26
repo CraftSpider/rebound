@@ -1,6 +1,8 @@
 error[E0597]: `a` does not live long enough
-  --> $DIR/cast_generated_lifetime.rs:13:30
+  --> ui/fail/value/cast_generated_lifetime.rs:13:30
    |
+12 |         let a = 1;
+   |             - binding `a` declared here
 13 |         let r = WithLifetime(&a);
    |                              ^^ borrowed value does not live long enough
 ...
