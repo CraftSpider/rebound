@@ -3,7 +3,7 @@ use std::iter::FromIterator;
 use syn::punctuated::Punctuated;
 use syn::{
     AngleBracketedGenericArguments, Expr, ExprCall, ExprMacro, ExprPath, GenericArgument, Lifetime,
-    LifetimeDef, Macro, MacroDelimiter, ParenthesizedGenericArguments, Path, PathArguments,
+    LifetimeParam, Macro, MacroDelimiter, ParenthesizedGenericArguments, Path, PathArguments,
     PathSegment, PredicateLifetime, PredicateType, QSelf, ReturnType, Token, TraitBound,
     TraitBoundModifier, Type, TypeArray, TypeParam, TypeParamBound, TypePath, TypeReference,
     TypeTuple,
@@ -43,6 +43,7 @@ impl LitExtension for syn::Lit {
             syn::Lit::Float(_) => LitType::Float,
             syn::Lit::Bool(_) => LitType::Bool,
             syn::Lit::Verbatim(_) => LitType::Verbatim,
+            _ => panic!(),
         }
     }
 
@@ -386,13 +387,13 @@ impl MacroExt for Macro {
     }
 }
 
-pub trait LifetimeDefExt {
+pub trait LifetimeParamExt {
     fn new(lt: Lifetime) -> Self;
 }
 
-impl LifetimeDefExt for LifetimeDef {
+impl LifetimeParamExt for LifetimeParam {
     fn new(lt: Lifetime) -> Self {
-        LifetimeDef {
+        LifetimeParam {
             attrs: Vec::new(),
             lifetime: lt,
             colon_token: None,

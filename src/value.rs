@@ -406,7 +406,7 @@ impl<'a> fmt::Pointer for Value<'a> {
 }
 
 impl<'a, T: Reflected + 'a> From<T> for Value<'a> {
-    default fn from(val: T) -> Value<'a> {
+    fn from(val: T) -> Value<'a> {
         Value {
             value: ValueKind::Owned(ErasedBox::new(val)),
             ty: Type::of::<T>(),

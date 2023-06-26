@@ -6,6 +6,7 @@ use core::mem::*;
 
 // TODO: Support custom unsized impls in extern_items!
 
+// SAFETY: We uphold the necessary invariants
 unsafe impl<T> Reflected for ManuallyDrop<T>
 where
     T: ?Sized + Reflected,
@@ -39,6 +40,7 @@ where
     }
 }
 
+// SAFETY: We uphold the necessary invariants
 unsafe impl<'a, 'b, T> NotOutlives<'b> for ManuallyDrop<T>
 where
     'b: 'a,

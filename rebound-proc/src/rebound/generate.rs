@@ -43,13 +43,7 @@ pub fn generate_assoc_fn(
     };
 
     if let Some(syn::FnArg::Receiver(arg)) = inputs.first() {
-        let receiver = if arg.reference.is_some() {
-            syn::TypeReference::new(self_ty.clone())
-                .with_mutability(arg.mutability.clone())
-                .into()
-        } else {
-            self_ty.clone()
-        };
+        let receiver = &arg.ty;
 
         Ok(quote_spanned!(sig.span() => {
             #[allow(unused_mut)]
@@ -175,7 +169,7 @@ pub fn generate_struct_field(
 
     let setter = if !no_set {
         quote_spanned!(field.span() =>
-            ::core::option::Option::Some(|this, value| {
+            ::core::option::Option::Some(|mut this, value| {
                 // SAFETY: TODO
                 let inner = unsafe { this.borrow_unsafe_mut::<#name>() };
                 // SAFETY: TODO
@@ -464,7 +458,7 @@ pub fn generate_reflect_impl(cfg: &Config, item: syn::ItemImpl) -> Result<TokenS
     let mut impl_consts = Vec::new();
     for i in item.items {
         match i {
-            syn::ImplItem::Method(impl_item) => {
+            syn::ImplItem::Fn(impl_item) => {
                 impl_fns.push(generate_assoc_fn(cfg, self_ty, &impl_item.sig)?);
             }
             syn::ImplItem::Const(impl_item) => {

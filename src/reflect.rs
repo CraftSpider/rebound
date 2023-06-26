@@ -19,7 +19,7 @@ use rebound_proc::impl_find;
 ///   removed, or have their signature changed at the whim of the implementation.
 pub unsafe trait Reflected {
     /// The static key type used for the backing [`TypeId`](core::any::TypeId) of a Type
-    type Key: ?Sized + 'static;
+    type Key: ?Sized + Reflected<Key = Self::Key> + 'static;
 
     /// Get the `Type` associated with this implementor
     fn ty() -> Type;
@@ -51,17 +51,18 @@ pub unsafe trait Reflected {
 
     #[doc(hidden)]
     fn take_ref<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error> {
-        let new_val = unsafe { val.try_borrow_unsafe::<Self>().map(Value::from) }?;
         // SAFETY: Value cannot be safely constructed with a lifetime that outlives the contained object.
         //         As such, we know getting a ref to the internal object will always be valid.
-        //         The transmute just conveys this to the rust compiler, converting the lifetime.
+        let new_val = unsafe { val.try_borrow_unsafe::<Self>().map(Value::from) }?;
+        // SAFETY: The transmute just conveys the above to the rust compiler, converting the lifetime.
         Ok(unsafe { core::mem::transmute::<Value<'_>, Value<'_>>(new_val) })
     }
 
     #[doc(hidden)]
     fn take_mut<'a>(val: &'a mut Value<'_>) -> Result<Value<'a>, Error> {
+        // SAFETY: See comment in take_ref
         let new_val = unsafe { val.try_borrow_unsafe_mut::<Self>().map(Value::from) }?;
-        // SAFETY: See comment on take_ref
+        // SAFETY: See comment in take_ref
         Ok(unsafe { core::mem::transmute::<Value<'_>, Value<'_>>(new_val) })
     }
 }

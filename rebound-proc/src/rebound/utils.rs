@@ -386,7 +386,7 @@ fn reflect_bounds(cfg: &Config, generics: &syn::Generics) -> Bounds {
                 ));
             }
 
-            impl_bounds.push(syn::GenericParam::Lifetime(syn::LifetimeDef::new(
+            impl_bounds.push(syn::GenericParam::Lifetime(syn::LifetimeParam::new(
                 param.lifetime.clone(),
             )));
         }
@@ -494,7 +494,7 @@ fn outlives_bounds(cfg: &Config, generics: &syn::Generics) -> Bounds {
 
     let mut count = 0;
     let base_lifetime = Lifetime::new("'no", Span::call_site());
-    impl_bounds.push(syn::GenericParam::Lifetime(syn::LifetimeDef::new(
+    impl_bounds.push(syn::GenericParam::Lifetime(syn::LifetimeParam::new(
         base_lifetime.clone(),
     )));
 
@@ -529,13 +529,13 @@ fn outlives_bounds(cfg: &Config, generics: &syn::Generics) -> Bounds {
 
             lifetimes.push(param.lifetime.clone());
 
-            impl_bounds.push(syn::GenericParam::Lifetime(syn::LifetimeDef::new(
+            impl_bounds.push(syn::GenericParam::Lifetime(syn::LifetimeParam::new(
                 param.lifetime.clone(),
             )));
         }
         syn::GenericParam::Type(param) => {
             let new_lifetime = syn::Lifetime::new(&format!("'a{}", count), Span::call_site());
-            impl_bounds.push(syn::GenericParam::Lifetime(syn::LifetimeDef::new(
+            impl_bounds.push(syn::GenericParam::Lifetime(syn::LifetimeParam::new(
                 new_lifetime.clone(),
             )));
             count += 1;

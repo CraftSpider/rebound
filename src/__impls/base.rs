@@ -12,6 +12,7 @@ use rebound_proc::{extern_assoc_consts, extern_assoc_fns};
 macro_rules! reflect_prims {
     ($($ty:ty),+ $(,)?) => {
         $(
+        // SAFETY: We uphold the relevant invariants in this implementation
         unsafe impl Reflected for $ty {
             type Key = $ty;
 
@@ -24,6 +25,7 @@ macro_rules! reflect_prims {
             }
         }
 
+        // SAFETY: Primitive types all live for as long or short as needed
         unsafe impl<'a> NotOutlives<'a> for $ty {}
         )*
     };
@@ -245,6 +247,7 @@ impl ReflectedImpl<0> for char {
 }
 
 impl ReflectedImpl<0> for str {
+    #[allow(clippy::undocumented_unsafe_blocks)]
     fn assoc_fns() -> Vec<AssocFn> {
         #[cfg(feature = "core")]
         use core::str::{
@@ -313,6 +316,7 @@ impl ReflectedImpl<0> for str {
 
 // Tuple reflections
 
+// SAFETY: We uphold the necessary invariants
 unsafe impl Reflected for () {
     type Key = ();
 
@@ -331,8 +335,10 @@ impl ReflectedTuple for () {
     }
 }
 
+// SAFETY: We uphold the necessary invariants
 unsafe impl<'a> NotOutlives<'a> for () {}
 
+#[allow(clippy::undocumented_unsafe_blocks)]
 #[impl_for_tuples(1, 26)]
 unsafe impl Reflected for Tuple {
     for_tuples!( type Key = ( #( Tuple::Key ),* ); );
@@ -400,6 +406,7 @@ impl ReflectedTuple for Tuple {
 
 macro_rules! tuple_no {
     ($first:ident $first_lt:lifetime $($remaining:ident $remaining_lt:lifetime)*) => {
+        // SAFETY: We uphold the necessary invariants
         unsafe impl<'no, $first_lt, $($remaining_lt,)* $first, $($remaining,)*> NotOutlives<'no> for ($first, $($remaining),*)
         where
             'no: $first_lt $(+ $remaining_lt)*,
@@ -420,6 +427,8 @@ tuple_no!(
 );
 
 // Arrays/Slices
+
+// SAFETY: We uphold the necessary invariants
 unsafe impl<T, const N: usize> Reflected for [T; N]
 where
     T: Reflected,
@@ -450,8 +459,10 @@ where
     }
 }
 
+// SAFETY: We uphold the necessary invariants
 unsafe impl<'a, T, const N: usize> NotOutlives<'a> for [T; N] where T: NotOutlives<'a> {}
 
+// SAFETY: We uphold the necessary invariants
 unsafe impl<T> Reflected for [T]
 where
     T: Reflected,
@@ -478,6 +489,7 @@ where
     }
 }
 
+// SAFETY: We uphold the necessary invariants
 unsafe impl<'a, 'b, T> NotOutlives<'b> for [T]
 where
     'b: 'a,
@@ -708,6 +720,8 @@ impl ReflectedImpl<8> for [u8] {
 }
 
 // Pointers
+
+// SAFETY: We uphold the necessary invariants
 unsafe impl<T: ?Sized + Reflected> Reflected for *const T {
     type Key = *const T::Key;
 
@@ -730,6 +744,7 @@ impl<T: ?Sized + Reflected> ReflectedPointer for *const T {
     }
 }
 
+// SAFETY: We uphold the necessary invariants
 unsafe impl<'a, T> NotOutlives<'a> for *const T where T: NotOutlives<'a> {}
 
 impl<T: ?Sized + Reflected> ReflectedImpl<0> for *const T {
@@ -748,6 +763,7 @@ impl<T: ?Sized + Reflected> ReflectedImpl<0> for *const T {
 }
 
 impl<T: Reflected> ReflectedImpl<1> for *const T {
+    #[allow(clippy::undocumented_unsafe_blocks)]
     fn assoc_fns() -> Vec<AssocFn> {
         extern_assoc_fns!(*const T @
             unsafe fn offset_from(self, origin: *const T) -> isize;
@@ -764,6 +780,7 @@ impl<T: Reflected> ReflectedImpl<1> for *const T {
 
 // Needed because AssocFn requires static lived output. This may be fixable?
 impl<T: Reflected + 'static> ReflectedImpl<2> for *const T {
+    #[allow(clippy::undocumented_unsafe_blocks)]
     fn assoc_fns() -> Vec<AssocFn> {
         extern_assoc_fns!(*const T @
             unsafe fn offset(self, count: isize) -> *const T;
@@ -783,6 +800,7 @@ impl<T: Reflected + 'static> ReflectedImpl<2> for *const T {
     }
 }
 
+// SAFETY: We uphold the necessary invariants
 unsafe impl<T: ?Sized + Reflected> Reflected for *mut T {
     type Key = *mut T::Key;
 
@@ -805,9 +823,12 @@ impl<T: ?Sized + Reflected> ReflectedPointer for *mut T {
     }
 }
 
+// SAFETY: We uphold the necessary invariants
 unsafe impl<'a, T> NotOutlives<'a> for *mut T where T: NotOutlives<'a> {}
 
 // References
+
+// SAFETY: We uphold the necessary invariants
 unsafe impl<T: ?Sized + Reflected> Reflected for &T {
     type Key = &'static T::Key;
 
@@ -820,6 +841,7 @@ unsafe impl<T: ?Sized + Reflected> Reflected for &T {
     }
 
     fn take_ref<'a>(val: &'a Value<'_>) -> Result<Value<'a>, Error> {
+        // SAFETY: Value::raw_ptr returns a valid pointer for the lifetime of Value
         let new_ref = *unsafe { val.raw_ptr().cast::<&T>().as_ref() };
         let val = Value::from(new_ref);
         // SAFETY: See comment on default impl
@@ -841,6 +863,7 @@ impl<T: ?Sized + Reflected> ReflectedReference for &T {
     }
 }
 
+// SAFETY: We uphold the necessary invariants
 unsafe impl<'a, 'b, T: ?Sized> NotOutlives<'b> for &'b T
 where
     'b: 'a,
@@ -848,6 +871,7 @@ where
 {
 }
 
+// SAFETY: We uphold the necessary invariants
 unsafe impl<T: ?Sized + Reflected> Reflected for &mut T {
     type Key = &'static mut T::Key;
 
@@ -878,6 +902,7 @@ impl<T: ?Sized + Reflected> ReflectedReference for &mut T {
     }
 }
 
+// SAFETY: We uphold the necessary invariants
 unsafe impl<'a, 'b, T: ?Sized> NotOutlives<'b> for &'b mut T
 where
     'b: 'a,
@@ -886,7 +911,13 @@ where
 }
 
 // Function pointers
-unsafe impl<T: Reflected> Reflected for fn() -> T {
+
+// SAFETY: We uphold the necessary invariants
+unsafe impl<T> Reflected for fn() -> T
+where
+    T: Reflected,
+    T::Key: Sized,
+{
     type Key = fn() -> T::Key;
 
     fn ty() -> Type {
@@ -898,7 +929,11 @@ unsafe impl<T: Reflected> Reflected for fn() -> T {
     }
 }
 
-impl<T: Reflected> ReflectedFunction for fn() -> T {
+impl<T> ReflectedFunction for fn() -> T
+where
+    T: Reflected,
+    T::Key: Sized,
+{
     fn args() -> Vec<Type> {
         vec![]
     }
@@ -908,7 +943,14 @@ impl<T: Reflected> ReflectedFunction for fn() -> T {
     }
 }
 
-unsafe impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T {
+// SAFETY: We uphold the necessary invariants
+unsafe impl<T, A0> Reflected for fn(A0) -> T
+where
+    T: Reflected,
+    T::Key: Sized,
+    A0: Reflected,
+    A0::Key: Sized,
+{
     type Key = fn(A0::Key) -> T::Key;
 
     fn ty() -> Type {
@@ -920,7 +962,13 @@ unsafe impl<T: Reflected, A0: Reflected> Reflected for fn(A0) -> T {
     }
 }
 
-impl<T: Reflected, A0: Reflected> ReflectedFunction for fn(A0) -> T {
+impl<T, A0> ReflectedFunction for fn(A0) -> T
+where
+    T: Reflected,
+    T::Key: Sized,
+    A0: Reflected,
+    A0::Key: Sized,
+{
     fn args() -> Vec<Type> {
         vec![Type::of::<A0>()]
     }
@@ -930,7 +978,16 @@ impl<T: Reflected, A0: Reflected> ReflectedFunction for fn(A0) -> T {
     }
 }
 
-unsafe impl<T: Reflected, A0: Reflected, A1: Reflected> Reflected for fn(A0, A1) -> T {
+// SAFETY: We uphold the necessary invariants
+unsafe impl<T, A0, A1> Reflected for fn(A0, A1) -> T
+where
+    T: Reflected,
+    T::Key: Sized,
+    A0: Reflected,
+    A0::Key: Sized,
+    A1: Reflected,
+    A1::Key: Sized,
+{
     type Key = fn(A0::Key, A1::Key) -> T::Key;
 
     fn ty() -> Type {
@@ -942,7 +999,15 @@ unsafe impl<T: Reflected, A0: Reflected, A1: Reflected> Reflected for fn(A0, A1)
     }
 }
 
-impl<T: Reflected, A0: Reflected, A1: Reflected> ReflectedFunction for fn(A0, A1) -> T {
+impl<T, A0, A1> ReflectedFunction for fn(A0, A1) -> T
+where
+    T: Reflected,
+    T::Key: Sized,
+    A0: Reflected,
+    A0::Key: Sized,
+    A1: Reflected,
+    A1::Key: Sized,
+{
     fn args() -> Vec<Type> {
         vec![Type::of::<A0>(), Type::of::<A1>()]
     }
@@ -952,8 +1017,17 @@ impl<T: Reflected, A0: Reflected, A1: Reflected> ReflectedFunction for fn(A0, A1
     }
 }
 
-unsafe impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected
-    for fn(A0, A1, A2) -> T
+// SAFETY: We uphold the necessary invariants
+unsafe impl<T, A0, A1, A2> Reflected for fn(A0, A1, A2) -> T
+where
+    T: Reflected,
+    T::Key: Sized,
+    A0: Reflected,
+    A0::Key: Sized,
+    A1: Reflected,
+    A1::Key: Sized,
+    A2: Reflected,
+    A2::Key: Sized,
 {
     type Key = fn(A0::Key, A1::Key, A2::Key) -> T::Key;
 
@@ -972,8 +1046,16 @@ unsafe impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> Reflected
     }
 }
 
-impl<T: Reflected, A0: Reflected, A1: Reflected, A2: Reflected> ReflectedFunction
-    for fn(A0, A1, A2) -> T
+impl<T, A0, A1, A2> ReflectedFunction for fn(A0, A1, A2) -> T
+where
+    T: Reflected,
+    T::Key: Sized,
+    A0: Reflected,
+    A0::Key: Sized,
+    A1: Reflected,
+    A1::Key: Sized,
+    A2: Reflected,
+    A2::Key: Sized,
 {
     fn args() -> Vec<Type> {
         vec![Type::of::<A0>(), Type::of::<A1>(), Type::of::<A2>()]

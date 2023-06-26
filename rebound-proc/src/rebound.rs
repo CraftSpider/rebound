@@ -1,28 +1,17 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens, TokenStreamExt};
-use syn::parse::{Parse, ParseStream};
+use syn::parse::{Parse, Parser, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{Item, Token};
 
 use crate::error::{Error, Result};
-use crate::extension::{LitExtension, LitType, PathExtension};
+use crate::extension::PathExtension;
 
 mod generate;
 mod utils;
 
 use generate::*;
-
-struct AttrInput {
-    values: Punctuated<syn::NestedMeta, Token![,]>,
-}
-
-impl Parse for AttrInput {
-    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        let values = Punctuated::parse_terminated(input)?;
-
-        Ok(AttrInput { values })
-    }
-}
+use syn::spanned::Spanned;
 
 #[derive(Clone, Debug)]
 pub enum CrateName {
@@ -87,8 +76,6 @@ impl Default for Config {
 }
 
 fn parse_attrs(attrs: TokenStream) -> Result<Config> {
-    let args: AttrInput = syn::parse2(attrs)?;
-
     let mut crate_name = None;
     let mut name_replace = None;
     let mut debug_out = false;
@@ -96,66 +83,44 @@ fn parse_attrs(attrs: TokenStream) -> Result<Config> {
     let mut no_get = false;
     let mut no_set = false;
 
-    for i in args.values {
-        match i {
-            syn::NestedMeta::Meta(meta) => match meta {
-                syn::Meta::List(..) => {
-                    return Err(Error::Simple("Found unexpected list element".to_string()))
-                }
-                syn::Meta::NameValue(nv) => {
-                    let str = nv.path.as_simple_str().ok_or(Error::Simple(
-                        "Expected a simple path without generics".to_string(),
-                    ))?;
+    if !attrs.is_empty() {
+        syn::meta::parser(|meta| {
+            let str = meta.path.as_simple_str().ok_or(syn::Error::new(
+                meta.path.span(),
+                "Expected a simple path without generics",
+            ))?;
 
-                    if str == "crate_name" {
-                        crate_name = Some(
-                            nv.lit
-                                .as_str()
-                                .ok_or(Error::InvalidLiteral(nv.lit.ty(), LitType::String))?,
-                        );
-                    } else if str == "name_replace" {
-                        let str = nv
-                            .lit
-                            .as_str()
-                            .ok_or(Error::InvalidLiteral(nv.lit.ty(), LitType::String))?;
-                        let (pat, replace) = str.split_once("/").ok_or_else(|| {
-                            Error::Simple(
-                                "name_replace should be a / delimited pair of patterns".to_string(),
-                            )
-                        })?;
-                        name_replace = Some((pat.to_owned(), replace.to_owned()));
-                    } else {
-                        return Err(Error::Simple(format!(
-                            "Found unexpected name/value pair {}",
-                            str,
-                        )));
-                    }
-                }
-                syn::Meta::Path(path) => {
-                    let str = path.as_simple_str().ok_or(Error::Simple(
-                        "Expected a simple path without generics".to_string(),
-                    ))?;
-
-                    if str == "debug_out" {
-                        debug_out = true;
-                    } else if str == "no_get" {
-                        no_get = true;
-                    } else if str == "no_set" {
-                        no_set = true;
-                    } else {
-                        return Err(Error::Simple(format!(
-                            "Found unexpected path element {}",
-                            str
-                        )));
-                    }
-                }
-            },
-            syn::NestedMeta::Lit(..) => {
-                return Err(Error::Simple(
-                    "Found unexpected literal argument".to_string(),
-                ))
+            if str == "crate_name" {
+                let stream = meta.value()?;
+                crate_name = Some(stream.parse::<syn::LitStr>()?.value());
+            } else if str == "name_replace" {
+                let stream = meta.value()?;
+                let lit = stream.parse::<syn::LitStr>()?;
+                let str = lit.value();
+                let (pat, replace) = str.split_once("/").ok_or_else(|| {
+                    syn::Error::new(
+                        lit.span(),
+                        "name_replace should be a / delimited pair of patterns",
+                    )
+                })?;
+                name_replace = Some((pat.to_owned(), replace.to_owned()));
+            } else if str == "debug_out" {
+                debug_out = true;
+            } else if str == "no_get" {
+                no_get = true;
+            } else if str == "no_set" {
+                no_set = true;
+            } else {
+                return Err(syn::Error::new(
+                    meta.path.span(),
+                    format!("Found unexpected path element {}", str),
+                ));
             }
-        }
+            
+            Ok(())
+        })
+            .parse2(attrs)
+            .map_err(Error::ParseError)?;
     }
 
     let crate_name = crate_name.unwrap_or_else(|| "rebound".to_string());
@@ -185,7 +150,6 @@ fn verify_item(input: TokenStream) -> Result<Item> {
         Item::Fn(..) => Some("a function"),
         Item::ForeignMod(..) => Some("an extern block"),
         Item::Macro(..) => Some("a macro invocation"),
-        Item::Macro2(..) => Some("a decl macro"),
         Item::Mod(..) => Some("a module"),
         Item::Static(..) => Some("a static"),
         Item::TraitAlias(..) => Some("a trait alias"),
@@ -279,7 +243,7 @@ impl Parse for AssocFnSigs {
         Ok(AssocFnSigs {
             ty: parser.parse()?,
             _at: parser.parse()?,
-            defs: parser.parse_terminated(FnSig::parse)?,
+            defs: parser.parse_terminated(FnSig::parse, Token![;])?,
         })
     }
 }
@@ -334,7 +298,7 @@ impl Parse for AssocConstSigs {
         Ok(AssocConstSigs {
             ty: parser.parse()?,
             _at: parser.parse()?,
-            defs: parser.parse_terminated(IdentType::parse)?,
+            defs: parser.parse_terminated(IdentType::parse, Token![;])?,
         })
     }
 }
